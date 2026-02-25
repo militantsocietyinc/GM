@@ -2,61 +2,77 @@
 @import './panels.css';
 
 /* ============================================================
-   Theme Colors — overridden by [data-theme="light"] below
+   Theme Colors â€” overridden by [data-theme="light"] below
+   ============================================================ */
+/* ============================================================
+   Theme Colors â€” VARGR Cyan (dark default)
    ============================================================ */
 :root {
   /* Backgrounds */
-  --bg: #0a0a0a;
-  --bg-secondary: #111;
-  --surface: #141414;
-  --surface-hover: #1e1e1e;
-  --surface-active: #1a1a2e;
+  --bg: #050b14;             /* deep navy */
+  --bg-secondary: #07101f;   /* slightly lighter */
+  --surface: #0a1426;        /* panels/header */
+  --surface-hover: #0d1a30;
+  --surface-active: #0b1c33;
 
   /* Borders */
-  --border: #2a2a2a;
-  --border-strong: #444;
-  --border-subtle: #1a1a1a;
+  --border: #1a2a44;
+  --border-strong: #2a446e;
+  --border-subtle: #0b172c;
 
   /* Text */
-  --text: #e8e8e8;
-  --text-secondary: #ccc;
-  --text-dim: #888;
-  --text-muted: #666;
-  --text-faint: #555;
-  --text-ghost: #444;
-  --accent: #fff;
+  --text: #eaf2ff;
+  --text-secondary: #cfe0ff;
+  --text-dim: #9bb2d6;
+  --text-muted: #7f97bf;
+  --text-faint: #5f78a6;
+  --text-ghost: #3f567e;
+
+  /* Accent (UI highlight) */
+  --accent: #22d3ee;         /* cyan-400 */
+  --accent-strong: #0ea5e9;  /* sky-500 */
+  --accent-dim: #0284c7;     /* sky-600 */
+
+  /* Brand â€œactiveâ€ color (was green in worldmonitor) */
+  --green: #22d3ee;          /* make â€œactiveâ€ cyan */
+  --green-dim: #0ea5e9;
+
+  /* Keep legacy aliases working */
+  --red: #ff4444;
+  --yellow: #ffaa00;
 
   /* Overlays & shadows */
   --overlay-subtle: rgba(255, 255, 255, 0.03);
   --overlay-light: rgba(255, 255, 255, 0.05);
-  --overlay-medium: rgba(255, 255, 255, 0.1);
-  --overlay-heavy: rgba(255, 255, 255, 0.2);
-  --shadow-color: rgba(0, 0, 0, 0.5);
-  --darken-light: rgba(0, 0, 0, 0.15);
-  --darken-medium: rgba(0, 0, 0, 0.2);
-  --darken-heavy: rgba(0, 0, 0, 0.3);
+  --overlay-medium: rgba(255, 255, 255, 0.10);
+  --overlay-heavy: rgba(255, 255, 255, 0.18);
+  --shadow-color: rgba(0, 0, 0, 0.55);
+  --darken-light: rgba(0, 0, 0, 0.18);
+  --darken-medium: rgba(0, 0, 0, 0.24);
+  --darken-heavy: rgba(0, 0, 0, 0.34);
 
   /* Scrollbar */
-  --scrollbar-thumb: #333;
-  --scrollbar-thumb-hover: #555;
+  --scrollbar-thumb: #203454;
+  --scrollbar-thumb-hover: #2b4b79;
 
   /* Input */
-  --input-bg: #1a1a1a;
+  --input-bg: #07101f;
 
   /* Panels */
-  --panel-bg: #141414;
-  --panel-border: #2a2a2a;
+  --panel-bg: #0a1426;
+  --panel-border: #1a2a44;
 
-  /* Map */
-  --map-bg: #020a08;
-  --map-grid: #0a2a20;
-  --map-country: #0a2018;
-  --map-stroke: #0f5040;
+  /* Map (background/lines only; conflict colors handled elsewhere) */
+  --map-bg: #020a10;
+  --map-grid: #0a253a;
+  --map-country: #081a2a;
+  --map-stroke: #0ea5e9;
 
   /* Font stack */
   --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Fira Code', 'DejaVu Sans Mono', 'Liberation Mono', monospace;
   --font-body: var(--font-mono);
 }
+
 
 [dir="rtl"] {
   --font-body: 'Geeza Pro', 'SF Arabic', 'Tahoma', system-ui, sans-serif;
@@ -68,7 +84,7 @@
 }
 
 /* ============================================================
-   Semantic Colors — dark-mode defaults, light overrides below
+   Semantic Colors â€” dark-mode defaults, light overrides below
    ============================================================ */
 :root {
   /* Severity levels */
@@ -76,8 +92,8 @@
   --semantic-high: #ff8800;
   --semantic-elevated: #ffaa00;
   --semantic-normal: #44aa44;
-  --semantic-low: #3388ff;
-  --semantic-info: #3b82f6;
+  --semantic-low: #22d3ee;
+  --semantic-info: #0ea5e9;
   --semantic-positive: #44ff88;
 
   /* Threat levels */
@@ -106,11 +122,11 @@
 }
 
 /* ============================================================
-   Light Theme — overrides theme colors AND semantic colors
+   Light Theme â€” overrides theme colors AND semantic colors
    Bright/neon dark-mode colors need darker variants for light backgrounds
    ============================================================ */
 [data-theme="light"] {
-  /* Semantic color overrides — darker variants for light backgrounds */
+  /* Semantic color overrides â€” darker variants for light backgrounds */
   --semantic-high: #ea580c;
   /* Tailwind orange-600 (was #ff8800, 2.27:1) */
   --semantic-elevated: #d97706;
@@ -222,7 +238,7 @@ body.animations-paused *::after {
 }
 
 /* ============================================================
-   Theme Transition — smooth 200ms animation for theme switches
+   Theme Transition â€” smooth 200ms animation for theme switches
    ============================================================ */
 *,
 *::before,
@@ -334,14 +350,14 @@ canvas,
 }
 
 .variant-option.active {
-  color: var(--green);
-  background: rgba(68, 255, 136, 0.1);
+  color: var(--accent);
+  background: rgba(34, 211, 238, 0.1);
   pointer-events: none;
 }
 
 
 .variant-option.active .variant-icon {
-  filter: grayscale(0%) drop-shadow(0 0 4px var(--green));
+  filter: grayscale(0%) drop-shadow(0 0 6px var(--accent));
 }
 
 .variant-option[data-variant="tech"].active {
@@ -392,9 +408,9 @@ canvas,
   gap: 12px;
   padding: 12px 14px;
   background: linear-gradient(135deg, #1a2332 0%, #0f1923 100%);
-  border: 1px solid rgba(68, 255, 136, 0.25);
+  border: 1px solid rgba(34, 211, 238, 0.25);
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(68, 255, 136, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(34, 211, 238, 0.08);
   z-index: 10003;
   opacity: 0;
   transform: translateY(-20px);
@@ -417,8 +433,8 @@ canvas,
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: rgba(68, 255, 136, 0.12);
-  color: var(--green);
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--accent);
 }
 
 .update-toast-body {
@@ -447,7 +463,7 @@ canvas,
   font-weight: 600;
   letter-spacing: 0.3px;
   color: #0a0a0a;
-  background: var(--green);
+  background: var(--accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -532,7 +548,7 @@ canvas,
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--accent);
   animation: pulse-dot 2s infinite;
 }
 
@@ -569,12 +585,12 @@ canvas,
 }
 
 .region-select:hover {
-  border-color: var(--green);
+  border-color: var(--accent);
 }
 
 .region-select:focus {
   outline: none;
-  border-color: var(--green);
+  border-color: var(--accent);
 }
 
 .header-center {
@@ -798,7 +814,7 @@ canvas,
 }
 
 .map-section.resizing .map-resize-handle::after {
-  background: var(--green);
+  background: var(--accent);
   opacity: 1;
 }
 
@@ -828,8 +844,8 @@ canvas,
 }
 
 .map-pin-btn.active {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg);
 }
 
@@ -910,7 +926,7 @@ canvas,
 }
 
 .panel-resize-handle::after {
-  content: '⋯';
+  content: 'â‹¯';
   position: absolute;
   bottom: 2px;
   left: 50%;
@@ -1310,7 +1326,7 @@ canvas,
   cursor: grabbing;
 }
 
-/* Live News – Channel settings button (same style as webcam view buttons) */
+/* Live News â€“ Channel settings button (same style as webcam view buttons) */
 .live-news-settings-btn {
   padding: 4px 8px;
   background: transparent;
@@ -1443,8 +1459,8 @@ canvas,
   border-radius: 4px;
 }
 .live-news-manage-save:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .live-news-manage-cancel:hover {
   border-color: var(--text-dim);
@@ -1687,8 +1703,8 @@ canvas,
   background: var(--surface-hover);
 }
 .live-news-manage-card.added {
-  border-color: rgba(68, 255, 136, 0.3);
-  background: rgba(68, 255, 136, 0.05);
+  border-color: rgba(34, 211, 238, 0.3);
+  background: rgba(34, 211, 238, 0.05);
   cursor: default;
 }
 
@@ -1739,8 +1755,8 @@ canvas,
   flex-shrink: 0;
   transition: color 0.15s;
 }
-.live-news-manage-card:hover .live-news-manage-card-action { color: var(--green); }
-.live-news-manage-card.added .live-news-manage-card-action { color: var(--green); }
+.live-news-manage-card:hover .live-news-manage-card-action { color: var(--accent); }
+.live-news-manage-card.added .live-news-manage-card-action { color: var(--accent); }
 
 /* Tab count badge */
 .live-news-manage-tab-count {
@@ -1833,7 +1849,7 @@ canvas,
 }
 
 .live-mute-btn.unmuted {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .live-indicator-btn {
@@ -2432,7 +2448,7 @@ canvas,
 
 .top-source.tier-1 {
   background: rgba(0, 255, 136, 0.15);
-  color: var(--green);
+  color: var(--accent);
 }
 
 .top-source.tier-2 {
@@ -2457,7 +2473,7 @@ canvas,
 
 .tier-badge.tier-1 {
   background: linear-gradient(135deg, rgba(0, 255, 136, 0.25), rgba(0, 200, 100, 0.15));
-  color: var(--green);
+  color: var(--accent);
   border: 1px solid rgba(0, 255, 136, 0.4);
 }
 
@@ -2607,7 +2623,7 @@ canvas,
 }
 
 .sentiment-badge.positive {
-  color: var(--green);
+  color: var(--accent);
 }
 
 /* Deviation indicators */
@@ -2737,7 +2753,7 @@ canvas,
 }
 
 .signal-item.silent_divergence {
-  border-left-color: var(--green);
+  border-left-color: var(--accent);
 }
 
 .signal-item.convergence {
@@ -2956,7 +2972,7 @@ canvas,
   text-align: center;
   margin-top: 8px;
   font-size: 12px;
-  color: var(--green);
+  color: var(--accent);
   font-weight: bold;
 }
 
@@ -2987,13 +3003,13 @@ canvas,
 }
 
 .playback-btn.playback-live {
-  background: var(--green);
+  background: var(--accent);
   color: var(--bg);
   font-weight: bold;
 }
 
 .playback-btn.playback-live.active {
-  background: var(--green);
+  background: var(--accent);
 }
 
 /* Playback mode indicator */
@@ -3197,8 +3213,8 @@ body.playback-mode .status-dot {
 }
 
 .layer-toggles:not(.deckgl-layer-toggles) .layer-toggle.active {
-  color: var(--green);
-  border-color: var(--green);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .layer-toggles:not(.deckgl-layer-toggles) .layer-toggle.auto-hidden {
@@ -3325,7 +3341,7 @@ body.playback-mode .status-dot {
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--green);
+  color: var(--accent);
   margin-bottom: 6px;
   padding-left: 4px;
   border-left: 2px solid var(--green);
@@ -4695,7 +4711,7 @@ body.playback-mode .status-dot {
 }
 
 .sector-change.up {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .sector-change.down {
@@ -4756,7 +4772,7 @@ body.playback-mode .status-dot {
 }
 
 .market-change.up {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .market-change.down {
@@ -4793,7 +4809,7 @@ body.playback-mode .status-dot {
 }
 
 .commodity-change.up {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .commodity-change.down {
@@ -4849,7 +4865,7 @@ a.prediction-link:hover {
 }
 
 .prediction-yes {
-  background: var(--green);
+  background: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4900,7 +4916,7 @@ a.prediction-link:hover {
 .monitor-add-btn {
   width: 100%;
   padding: 6px;
-  background: var(--green);
+  background: var(--accent);
   border: none;
   color: var(--bg);
   font-family: inherit;
@@ -4982,7 +4998,7 @@ a.prediction-link:hover {
   height: 64px;
   margin-bottom: 16px;
   position: relative;
-  border: 2px solid rgba(68, 255, 136, 0.3);
+  border: 2px solid rgba(34, 211, 238, 0.3);
   border-radius: 50%;
   overflow: hidden;
 }
@@ -5187,7 +5203,7 @@ a.prediction-link:hover {
 }
 
 .panel-toggle-item.active {
-  border-color: var(--green);
+  border-color: var(--accent);
 }
 
 .panel-toggle-checkbox {
@@ -5201,8 +5217,8 @@ a.prediction-link:hover {
 }
 
 .panel-toggle-item.active .panel-toggle-checkbox {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg);
 }
 
@@ -5271,7 +5287,7 @@ a.prediction-link:hover {
 }
 
 .source-toggle-item.active {
-  border-color: var(--green);
+  border-color: var(--accent);
 }
 
 .source-toggle-checkbox {
@@ -5286,8 +5302,8 @@ a.prediction-link:hover {
 }
 
 .source-toggle-item.active .source-toggle-checkbox {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg);
 }
 
@@ -5415,7 +5431,7 @@ a.prediction-link:hover {
 }
 
 .popup-header.hotspot {
-  background: rgba(68, 255, 136, 0.1);
+  background: rgba(34, 211, 238, 0.1);
 }
 
 .popup-header.earthquake {
@@ -5435,7 +5451,7 @@ a.prediction-link:hover {
 }
 
 .popup-header.hotspot .popup-title {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .popup-header.earthquake .popup-title {
@@ -5505,7 +5521,7 @@ a.prediction-link:hover {
 
 .popup-subtitle {
   font-size: 12px;
-  color: var(--green);
+  color: var(--accent);
   margin-bottom: 12px;
   letter-spacing: 0.5px;
 }
@@ -5545,7 +5561,7 @@ a.prediction-link:hover {
 
 .stat-value {
   font-size: 12px;
-  color: var(--green);
+  color: var(--accent);
 }
 
 .popup-section {
@@ -5602,7 +5618,7 @@ a.prediction-link:hover {
 }
 
 .popup-list li::before {
-  content: '●';
+  content: 'â—';
   position: absolute;
   left: 0;
   color: var(--red);
@@ -5640,7 +5656,7 @@ a.prediction-link:hover {
 
 .popup-link {
   display: inline-block;
-  color: var(--green);
+  color: var(--accent);
   text-decoration: none;
   font-size: 11px;
   margin-top: 8px;
@@ -5928,7 +5944,7 @@ a.prediction-link:hover {
 }
 
 .status-icon.ok {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .status-icon.warning {
@@ -6008,7 +6024,7 @@ a.prediction-link:hover {
 }
 
 .status-row .status-dot.ok {
-  background: var(--green);
+  background: var(--accent);
 }
 
 .status-row .status-dot.warning {
@@ -7023,7 +7039,7 @@ a.prediction-link:hover {
 }
 
 .indicator-value .change.positive {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .indicator-value .change.negative {
@@ -7069,13 +7085,13 @@ a.prediction-link:hover {
 }
 
 .economic-tab:hover {
-  background: rgba(68, 255, 136, 0.1);
+  background: rgba(34, 211, 238, 0.1);
   color: var(--text);
 }
 
 .economic-tab.active {
-  background: rgba(68, 255, 136, 0.2);
-  color: var(--green);
+  background: rgba(34, 211, 238, 0.2);
+  color: var(--accent);
 }
 
 .economic-content {
@@ -7094,7 +7110,7 @@ a.prediction-link:hover {
 /* Government Spending */
 .spending-summary {
   padding: 8px;
-  background: rgba(68, 255, 136, 0.05);
+  background: rgba(34, 211, 238, 0.05);
   border-radius: 4px;
   margin-bottom: 8px;
 }
@@ -7102,7 +7118,7 @@ a.prediction-link:hover {
 .spending-total {
   font-size: 14px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--accent);
 }
 
 .spending-period {
@@ -7128,7 +7144,7 @@ a.prediction-link:hover {
 
 .spending-award:hover {
   background: var(--overlay-light);
-  border-left-color: var(--green);
+  border-left-color: var(--accent);
 }
 
 .award-header {
@@ -7145,7 +7161,7 @@ a.prediction-link:hover {
 .award-amount {
   font-size: 12px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--accent);
 }
 
 .award-recipient {
@@ -7290,8 +7306,8 @@ a.prediction-link:hover {
 }
 
 .search-result-title mark {
-  background: rgba(68, 255, 136, 0.3);
-  color: var(--green);
+  background: rgba(34, 211, 238, 0.3);
+  color: var(--accent);
   padding: 0 2px;
   border-radius: 2px;
 }
@@ -8121,7 +8137,7 @@ a.prediction-link:hover {
 /* "NEW" tag on individual news items */
 .new-tag {
   display: inline-block;
-  background: var(--green);
+  background: var(--accent);
   color: var(--bg);
   font-size: 8px;
   font-weight: bold;
@@ -8148,18 +8164,18 @@ a.prediction-link:hover {
 
 /* Highlight glow on new items (first 30 seconds) */
 .item.item-new-highlight {
-  background: linear-gradient(90deg, rgba(68, 255, 136, 0.1) 0%, transparent 50%);
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.1) 0%, transparent 50%);
   border-left-color: var(--green) !important;
   animation: item-glow 2s ease-out;
 }
 
 @keyframes item-glow {
   0% {
-    background: linear-gradient(90deg, rgba(68, 255, 136, 0.25) 0%, transparent 60%);
+    background: linear-gradient(90deg, rgba(34, 211, 238, 0.25) 0%, transparent 60%);
   }
 
   100% {
-    background: linear-gradient(90deg, rgba(68, 255, 136, 0.1) 0%, transparent 50%);
+    background: linear-gradient(90deg, rgba(34, 211, 238, 0.1) 0%, transparent 50%);
   }
 }
 
@@ -8190,7 +8206,7 @@ a.prediction-link:hover {
 
 @keyframes panel-flash {
   0% {
-    box-shadow: 0 0 20px rgba(68, 255, 136, 0.4);
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
   }
 
   100% {
@@ -8536,7 +8552,7 @@ a.prediction-link:hover {
    Mobile Touch Optimization
    ========================================================================== */
 
-/* Narrow viewport only — keep 768 in sync with MOBILE_BREAKPOINT_PX in src/utils/index.ts */
+/* Narrow viewport only â€” keep 768 in sync with MOBILE_BREAKPOINT_PX in src/utils/index.ts */
 @media (max-width: 768px) {
   /* Expand touch targets for all map markers using ::before pseudo-element */
   /* This creates an invisible touch area around small markers */
@@ -8960,7 +8976,7 @@ a.prediction-link:hover {
 }
 
 .hotspot-gdelt-header::before {
-  content: '📡';
+  content: 'ðŸ“¡';
   font-size: 12px;
 }
 
@@ -9328,7 +9344,7 @@ a.prediction-link:hover {
 }
 
 .readiness-score.high {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .readiness-score.medium {
@@ -9519,9 +9535,9 @@ a.prediction-link:hover {
 }
 
 .cascade-filter-btn.active {
-  background: rgba(68, 255, 136, 0.15);
-  border-color: var(--green);
-  color: var(--green);
+  background: rgba(34, 211, 238, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .cascade-select {
@@ -9542,7 +9558,7 @@ a.prediction-link:hover {
 
 .cascade-analyze-btn {
   padding: 8px 16px;
-  background: var(--green);
+  background: var(--accent);
   border: none;
   border-radius: 4px;
   color: var(--bg);
@@ -9579,7 +9595,7 @@ a.prediction-link:hover {
   align-items: center;
   gap: 8px;
   padding: 10px;
-  background: rgba(68, 255, 136, 0.1);
+  background: rgba(34, 211, 238, 0.1);
   border: 1px solid var(--green);
   border-radius: 4px;
 }
@@ -9650,7 +9666,7 @@ a.prediction-link:hover {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  background: rgba(68, 255, 136, 0.05);
+  background: rgba(34, 211, 238, 0.05);
   border-radius: 4px;
 }
 
@@ -9661,7 +9677,7 @@ a.prediction-link:hover {
 
 .cascade-redundancy-capacity {
   font-size: 11px;
-  color: var(--green);
+  color: var(--accent);
   font-weight: bold;
 }
 
@@ -11210,7 +11226,7 @@ a.prediction-link:hover {
 }
 
 .tech-event.is-this-week:not(.is-today) {
-  border-left-color: var(--green);
+  border-left-color: var(--accent);
 }
 
 .tech-event.type-conference {
@@ -11475,7 +11491,7 @@ a.prediction-link:hover {
 }
 
 .service-status-summary .summary-item.operational .summary-count {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .service-status-summary .summary-item.degraded .summary-count {
@@ -11551,7 +11567,7 @@ a.prediction-link:hover {
 }
 
 .service-status-item.operational .status-icon {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .service-status-item.degraded .status-icon {
@@ -11568,7 +11584,7 @@ a.prediction-link:hover {
 
 .service-status-item .status-badge.operational {
   background: rgba(0, 200, 83, 0.15);
-  color: var(--green);
+  color: var(--accent);
 }
 
 .service-status-item .status-badge.degraded {
@@ -11590,7 +11606,7 @@ a.prediction-link:hover {
   text-align: center;
   padding: 12px;
   font-size: 10px;
-  color: var(--green);
+  color: var(--accent);
   background: rgba(0, 200, 83, 0.1);
   border-radius: 4px;
   margin-top: 8px;
@@ -11672,7 +11688,7 @@ a.prediction-link:hover {
 
 .deckgl-controls .map-btn:hover {
   background: var(--bg);
-  border-color: var(--green);
+  border-color: var(--accent);
 }
 
 .deckgl-controls .view-selector {
@@ -11693,7 +11709,7 @@ a.prediction-link:hover {
 }
 
 .deckgl-controls .view-select:hover {
-  border-color: var(--green);
+  border-color: var(--accent);
 }
 
 /* deck.gl Time Slider */
@@ -11725,13 +11741,13 @@ a.prediction-link:hover {
 }
 
 .deckgl-time-slider .time-btn:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .deckgl-time-slider .time-btn.active {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg);
   font-weight: bold;
 }
@@ -11827,12 +11843,12 @@ a.prediction-link:hover {
 }
 
 .deckgl-layer-toggles .layer-toggle input[type="checkbox"]:checked {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .deckgl-layer-toggles .layer-toggle input[type="checkbox"]:checked::after {
-  content: '✓';
+  content: 'âœ“';
   position: absolute;
   top: 50%;
   left: 50%;
@@ -11871,11 +11887,11 @@ a.prediction-link:hover {
 }
 
 .deckgl-layer-toggles .layer-toggle.has-data .toggle-label {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .deckgl-layer-toggles .layer-toggle.has-data {
-  border-color: rgba(68, 255, 136, 0.2);
+  border-color: rgba(34, 211, 238, 0.2);
 }
 
 /* deck.gl Legend - horizontal bar at bottom center */
@@ -12054,7 +12070,7 @@ a.prediction-link:hover {
   right: 170px;
   z-index: 99;
   background: rgba(0, 200, 100, 0.15);
-  color: var(--green);
+  color: var(--accent);
   padding: 2px 6px;
   border-radius: 2px;
   font-size: 8px;
@@ -12378,7 +12394,7 @@ a.prediction-link:hover {
 
 .insight-badge.confirmed {
   background: rgba(74, 222, 128, 0.15);
-  color: var(--green);
+  color: var(--accent);
 }
 
 .insight-badge.multi {
@@ -12416,7 +12432,7 @@ a.prediction-link:hover {
 }
 
 .insight-sentiment-dot.positive {
-  background: var(--green);
+  background: var(--accent);
 }
 
 .insight-sentiment-dot.negative {
@@ -12454,7 +12470,7 @@ a.prediction-link:hover {
 }
 
 .sentiment-bar-positive {
-  background: var(--green);
+  background: var(--accent);
   height: 100%;
 }
 
@@ -12474,7 +12490,7 @@ a.prediction-link:hover {
 }
 
 .sentiment-label.positive {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .sentiment-tone {
@@ -12489,7 +12505,7 @@ a.prediction-link:hover {
 }
 
 .sentiment-tone.positive {
-  color: var(--green);
+  color: var(--accent);
 }
 
 /* ML-Detected Stories Section */
@@ -12780,9 +12796,9 @@ a.prediction-link:hover {
 }
 
 .unified-settings-region-pill.active {
-  background: rgba(68, 255, 136, 0.08);
-  border-color: rgba(68, 255, 136, 0.4);
-  color: var(--green);
+  background: rgba(34, 211, 238, 0.08);
+  border-color: rgba(34, 211, 238, 0.4);
+  color: var(--accent);
 }
 
 /* Language select */
@@ -13454,7 +13470,7 @@ body.has-critical-banner .panels-grid {
   height: 80px;
   margin: 0 auto 16px;
   position: relative;
-  border: 2px solid rgba(68, 255, 136, 0.3);
+  border: 2px solid rgba(34, 211, 238, 0.3);
   border-radius: 50%;
   overflow: hidden;
 }
@@ -13538,7 +13554,7 @@ body.has-critical-banner .panels-grid {
 }
 
 .posture-stage.complete .posture-stage-dot {
-  background: rgba(68, 255, 136, 0.6);
+  background: rgba(34, 211, 238, 0.6);
 }
 
 @keyframes pulse-dot {
@@ -13653,7 +13669,7 @@ body.has-critical-banner .panels-grid {
   color: var(--accent);
 }
 
-/* ── Country Intel Modal ── */
+/* â”€â”€ Country Intel Modal â”€â”€ */
 .country-intel-overlay {
   position: fixed;
   inset: 0;
@@ -15222,7 +15238,7 @@ body.has-critical-banner .panels-grid {
 }
 
 /* ============================================================
-   Community Discussion Widget — Floating Pill
+   Community Discussion Widget â€” Floating Pill
    ============================================================ */
 .community-widget {
   position: fixed;
@@ -15355,7 +15371,7 @@ body.has-critical-banner .panels-grid {
   color: var(--text-dim, #888);
 }
 
-/* ── Ultra-wide layout: map left, panels beside it ── */
+/* â”€â”€ Ultra-wide layout: map left, panels beside it â”€â”€ */
 @media (min-width: 2000px) {
   .main-content {
     display: grid;

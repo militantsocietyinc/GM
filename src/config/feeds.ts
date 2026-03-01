@@ -233,6 +233,11 @@ export const SOURCE_TIERS: Record<string, number> = {
   'Responsible Statecraft': 3,
   'FPRI': 3,
   'Jamestown': 3,
+  'ISW': 2,
+  'Middle East Eye': 2,
+  'GDACS Alerts': 2,
+  'ReliefWeb': 2,
+  'NOAA Alerts': 2,
 
   // Tier 3 - Policy Sources
   'Politico Tech': 2,
@@ -367,6 +372,8 @@ export const SOURCE_TYPES: Record<string, SourceType> = {
   // New verified think tanks
   'War on the Rocks': 'intel', 'AEI': 'intel', 'Responsible Statecraft': 'intel',
   'FPRI': 'intel', 'Jamestown': 'intel',
+  'ISW': 'intel', 'Middle East Eye': 'wire',
+  'GDACS Alerts': 'gov', 'ReliefWeb': 'gov', 'NOAA Alerts': 'gov',
 
   // Podcasts & Newsletters
   'Acquired Podcast': 'tech', 'All-In Podcast': 'tech', 'a16z Podcast': 'tech',
@@ -598,12 +605,22 @@ const FULL_FEEDS: Record<string, Feed[]> = {
     { name: 'FPRI', url: rss('https://www.fpri.org/feed/') },
     // Jamestown Foundation - Eurasia/China/Terrorism analysis
     { name: 'Jamestown', url: rss('https://jamestown.org/feed/') },
+    // ISW - Institute for the Study of War (daily Ukraine/Russia/MENA conflict assessments)
+    { name: 'ISW', url: rss('https://news.google.com/rss/search?q=site:understandingwar.org+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    // Middle East Eye - regional news and analysis
+    { name: 'Middle East Eye', url: rss('https://www.middleeasteye.net/rss') },
   ],
   crisis: [
     { name: 'CrisisWatch', url: rss('https://www.crisisgroup.org/rss') },
     { name: 'IAEA', url: rss('https://www.iaea.org/feeds/topnews') },
     { name: 'WHO', url: rss('https://www.who.int/rss-feeds/news-english.xml') },
     { name: 'UNHCR', url: rss('https://news.google.com/rss/search?q=site:unhcr.org+OR+UNHCR+refugees+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    // GDACS - Global Disaster Alert and Coordination System
+    { name: 'GDACS Alerts', url: rss('https://www.gdacs.org/xml/rss.xml') },
+    // ReliefWeb - UN humanitarian news and analysis
+    { name: 'ReliefWeb', url: rss('https://reliefweb.int/feeds/updates.rss') },
+    // NOAA Weather Alerts - US national weather alerts
+    { name: 'NOAA Alerts', url: rss('https://alerts.weather.gov/cap/us.php?x=0') },
   ],
   africa: [
     { name: 'Africa News', url: rss('https://news.google.com/rss/search?q=(Africa+OR+Nigeria+OR+Kenya+OR+"South+Africa"+OR+Ethiopia)+when:2d&hl=en-US&gl=US&ceid=US:en') },

@@ -112,6 +112,7 @@ import {
   TelegramIntelPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
+import { EarthquakesPanel } from '@/components/EarthquakesPanel';
 import { classifyNewsItem } from '@/services/positive-classifier';
 import { fetchGivingSummary } from '@/services/giving';
 import { GivingPanel } from '@/components';
@@ -930,11 +931,13 @@ export class DataLoaderManager implements AppModule {
       this.ctx.intelligenceCache.earthquakes = earthquakeResult.value;
       this.ctx.map?.setEarthquakes(earthquakeResult.value);
       ingestEarthquakes(earthquakeResult.value);
+      (this.ctx.panels['earthquakes'] as EarthquakesPanel)?.update(earthquakeResult.value);
       this.ctx.statusPanel?.updateApi('USGS', { status: 'ok' });
       dataFreshness.recordUpdate('usgs', earthquakeResult.value.length);
     } else {
       this.ctx.intelligenceCache.earthquakes = [];
       this.ctx.map?.setEarthquakes([]);
+      (this.ctx.panels['earthquakes'] as EarthquakesPanel)?.update([]);
       this.ctx.statusPanel?.updateApi('USGS', { status: 'error' });
       dataFreshness.recordError('usgs', String(earthquakeResult.reason));
     }

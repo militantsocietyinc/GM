@@ -893,9 +893,38 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    // noDiscovery: prevent Vite from re-scanning for new deps at runtime.
+    // Without this, every newly-discovered transitive dep triggers an
+    // optimization re-run → "Outdated Optimize Dep" 504s in Tauri dev mode.
+    noDiscovery: true,
+    include: [
+      '@sentry/browser',
+      '@vercel/analytics',
+      'i18next',
+      'i18next-browser-languagedetector',
+      'd3',
+      'topojson-client',
+      'maplibre-gl',
+      'canvas-confetti',
+      'h3-js',
+      'supercluster',
+      '@deck.gl/core',
+      '@deck.gl/layers',
+      '@deck.gl/geo-layers',
+      '@deck.gl/aggregation-layers',
+      '@deck.gl/mapbox',
+      'papaparse',
+      'posthog-js',
+      'fast-xml-parser',
+    ],
+  },
   server: {
+    warmup: {
+      clientFiles: ['./src/main.ts'],
+    },
     port: 3000,
-    open: !isE2E,
+    open: !isE2E && !isDesktopBuild,
     hmr: isE2E ? false : undefined,
     watch: {
       ignored: [

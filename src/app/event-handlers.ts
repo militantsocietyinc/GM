@@ -213,7 +213,7 @@ export class EventHandlerManager implements AppModule {
 
     const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     if (this.ctx.isDesktopApp || isLocalDev) {
-      this.ctx.container.querySelectorAll<HTMLAnchorElement>('.variant-option').forEach(link => {
+      this.ctx.container.querySelectorAll<HTMLElement>('.variant-option, .mac-variant-pill').forEach(link => {
         link.addEventListener('click', (e) => {
           const variant = link.dataset.variant;
           if (variant && variant !== SITE_VARIANT) {

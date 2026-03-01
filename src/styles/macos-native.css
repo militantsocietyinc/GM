@@ -10,9 +10,9 @@ body.is-desktop-macos {
   --mac-font-mono: "SF Mono", ui-monospace, "Cascadia Code", monospace;
 
   /* Sidebar dimensions */
-  --mac-sidebar-width: 220px;
-  --mac-toolbar-height: 52px;
-  --mac-traffic-lights-height: 52px; /* safe area below traffic lights */
+  --mac-sidebar-width: 155px;
+  --mac-toolbar-height: 44px;
+  --mac-traffic-lights-height: 44px; /* safe area below traffic lights */
 
   /* Dark-mode macOS system colors (approximated) */
   --mac-window-bg: #1c1c1e;
@@ -114,7 +114,7 @@ body.is-desktop-macos .mac-sidebar {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 0 8px;
+  padding: 2px 0 4px;
   /* hide scrollbar by default */
   scrollbar-width: none;
 }
@@ -122,7 +122,7 @@ body.is-desktop-macos .mac-sidebar {
 
 /* Section grouping */
 .mac-sidebar-section {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .mac-sidebar-section-label {
@@ -131,7 +131,7 @@ body.is-desktop-macos .mac-sidebar {
   color: var(--mac-secondary-label);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  padding: 0 16px 4px;
+  padding: 0 12px 3px;
   display: block;
 }
 
@@ -139,11 +139,11 @@ body.is-desktop-macos .mac-sidebar {
 .mac-sidebar-item {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 10px;
-  margin: 1px 8px;
-  border-radius: 7px;
-  font-size: 13px;
+  gap: 7px;
+  padding: 5px 8px;
+  margin: 1px 6px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--mac-label);
   cursor: pointer;
@@ -165,8 +165,8 @@ body.is-desktop-macos .mac-sidebar {
 }
 
 .mac-sidebar-item-icon {
-  font-size: 15px;
-  width: 22px;
+  font-size: 14px;
+  width: 18px;
   text-align: center;
   flex-shrink: 0;
 }
@@ -175,8 +175,8 @@ body.is-desktop-macos .mac-sidebar {
 .mac-sidebar-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 4px;
+  padding: 8px 10px;
   border-top: 1px solid var(--mac-separator);
   -webkit-app-region: no-drag;
   flex-shrink: 0;
@@ -186,9 +186,9 @@ body.is-desktop-macos .mac-sidebar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   color: var(--mac-secondary-label);
@@ -355,7 +355,8 @@ body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
 body.is-desktop-macos .main-content {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ── Map section ────────────────────────────────────────────── */
@@ -488,4 +489,114 @@ body.is-desktop-macos .map-pin-btn {
 /* ── Settings mount — ensure proper positioning ─────────────── */
 body.is-desktop-macos #unifiedSettingsMount {
   display: contents;
+}
+
+/* ── Variant pills (sidebar top) ────────────────────────────── */
+.mac-variant-pills {
+  display: flex;
+  gap: 3px;
+  padding: 6px 6px 4px;
+  flex-shrink: 0;
+}
+
+.mac-variant-pill {
+  flex: 1;
+  padding: 4px 0;
+  border-radius: 5px;
+  border: none;
+  font-size: 10.5px;
+  font-weight: 500;
+  font-family: var(--mac-font);
+  text-align: center;
+  background: transparent;
+  color: var(--mac-secondary-label);
+  cursor: default;
+  -webkit-app-region: no-drag;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mac-variant-pill.active {
+  background: var(--mac-fill);
+  color: var(--mac-label);
+}
+
+/* ── Panel navigator items ───────────────────────────────────── */
+.mac-sidebar-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  margin: 1px 6px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 400;
+  font-family: var(--mac-font);
+  color: var(--mac-label);
+  background: transparent;
+  border: none;
+  width: calc(100% - 12px);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.1s ease;
+  -webkit-app-region: no-drag;
+}
+
+.mac-sidebar-panel-item:hover {
+  background: var(--mac-fill);
+}
+
+.mac-sidebar-panel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--mac-accent);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Disabled panel: dimmed row, hollow dot */
+.mac-sidebar-panel-item.is-disabled {
+  opacity: 0.35;
+}
+
+.mac-sidebar-panel-item.is-disabled .mac-sidebar-panel-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--mac-secondary-label);
+}
+
+/* ── Region select in toolbar ───────────────────────────────── */
+.mac-content-toolbar .region-selector {
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+.mac-content-toolbar .region-select {
+  font-family: var(--mac-font);
+  font-size: 11.5px;
+  color: var(--mac-secondary-label);
+  background: var(--mac-fill);
+  border: 1px solid var(--mac-separator);
+  border-radius: 5px;
+  padding: 3px 20px 3px 7px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='rgba(255,255,255,0.3)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  outline: none;
+}
+
+/* ============================================================ */
+/* MacBook Pro 14" (1512×982 logical @ 2× Retina, default scale) */
+/* ============================================================ */
+@media screen and (max-width: 1520px) and (min-width: 1400px) {
+  :root { --mac-sidebar-width: 148px; }
+  .mac-sidebar-panel-item { font-size: 10.5px; padding: 3px 6px; }
 }

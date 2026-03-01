@@ -2,6 +2,7 @@ import { getApiBaseUrl, isDesktopRuntime } from './runtime';
 import { invokeTauri } from './tauri-bridge';
 
 export type RuntimeSecretKey =
+  | 'ANTHROPIC_API_KEY'
   | 'GROQ_API_KEY'
   | 'OPENROUTER_API_KEY'
   | 'FRED_API_KEY'
@@ -28,6 +29,7 @@ export type RuntimeSecretKey =
   | 'ICAO_API_KEY';
 
 export type RuntimeFeatureId =
+  | 'aiClaude'
   | 'aiGroq'
   | 'aiOpenRouter'
   | 'economicFred'
@@ -76,6 +78,7 @@ function getSidecarSecretValidateUrl(): string {
 }
 
 const defaultToggles: Record<RuntimeFeatureId, boolean> = {
+  aiClaude: true,
   aiGroq: true,
   aiOpenRouter: true,
   economicFred: true,
@@ -106,17 +109,27 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     fallback: 'Falls back to Groq, then OpenRouter, then local browser model.',
   },
   {
+    id: 'aiClaude',
+    name: 'Claude AI summarization',
+    description: 'Anthropic Claude Haiku — high-quality, cost-effective AI analysis.',
+    requiredSecrets: ['ANTHROPIC_API_KEY'],
+    desktopRequiredSecrets: [],
+    fallback: 'Falls back to OpenRouter, then local browser model.',
+  },
+  {
     id: 'aiGroq',
     name: 'Groq summarization',
     description: 'Primary fast LLM provider used for AI summary generation.',
     requiredSecrets: ['GROQ_API_KEY'],
-    fallback: 'Falls back to OpenRouter, then local browser model.',
+    desktopRequiredSecrets: [],
+    fallback: 'Falls back to Claude, then OpenRouter, then local browser model.',
   },
   {
     id: 'aiOpenRouter',
     name: 'OpenRouter summarization',
     description: 'Secondary LLM provider for AI summary fallback.',
     requiredSecrets: ['OPENROUTER_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'Falls back to local browser model only.',
   },
   {
@@ -124,6 +137,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'FRED economic indicators',
     description: 'Macro indicators from Federal Reserve Economic Data.',
     requiredSecrets: ['FRED_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'Economic panel remains available with non-FRED metrics.',
   },
   {
@@ -131,6 +145,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'EIA oil analytics',
     description: 'US Energy Information Administration oil metrics.',
     requiredSecrets: ['EIA_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'Oil analytics cards show disabled state.',
   },
   {
@@ -138,6 +153,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'Cloudflare outage radar',
     description: 'Internet outages from Cloudflare Radar annotations API.',
     requiredSecrets: ['CLOUDFLARE_API_TOKEN'],
+    desktopRequiredSecrets: [],
     fallback: 'Outage layer is disabled and map continues with other feeds.',
   },
   {
@@ -145,6 +161,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'ACLED conflicts & protests',
     description: 'Conflict and protest event feeds from ACLED.',
     requiredSecrets: ['ACLED_ACCESS_TOKEN'],
+    desktopRequiredSecrets: [],
     fallback: 'Conflict/protest overlays are hidden.',
   },
   {
@@ -152,6 +169,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'abuse.ch cyber IOC feeds',
     description: 'URLhaus and ThreatFox IOC ingestion for the cyber threat layer.',
     requiredSecrets: ['URLHAUS_AUTH_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'URLhaus/ThreatFox IOC ingestion is disabled.',
   },
   {
@@ -159,6 +177,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'AlienVault OTX threat intel',
     description: 'Optional OTX IOC ingestion for cyber threat enrichment.',
     requiredSecrets: ['OTX_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'OTX IOC enrichment is disabled.',
   },
   {
@@ -166,6 +185,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'AbuseIPDB threat intel',
     description: 'Optional AbuseIPDB IOC/reputation enrichment for the cyber threat layer.',
     requiredSecrets: ['ABUSEIPDB_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'AbuseIPDB enrichment is disabled.',
   },
   {
@@ -173,6 +193,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'Wingbits aircraft enrichment',
     description: 'Military flight operator/aircraft enrichment metadata.',
     requiredSecrets: ['WINGBITS_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'Flight map still renders with heuristic-only classification.',
   },
   {
@@ -180,7 +201,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'AIS vessel tracking',
     description: 'Live vessel ingestion via AISStream WebSocket.',
     requiredSecrets: ['WS_RELAY_URL', 'AISSTREAM_API_KEY'],
-    desktopRequiredSecrets: ['AISSTREAM_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'AIS layer is disabled.',
   },
   {
@@ -188,7 +209,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'OpenSky military flights',
     description: 'OpenSky OAuth credentials for military flight data.',
     requiredSecrets: ['VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET'],
-    desktopRequiredSecrets: ['OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET'],
+    desktopRequiredSecrets: [],
     fallback: 'Military flights fall back to limited/no data.',
   },
   {
@@ -196,6 +217,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'Finnhub market data',
     description: 'Real-time stock quotes and market data from Finnhub.',
     requiredSecrets: ['FINNHUB_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'Stock ticker uses limited free data.',
   },
   {
@@ -203,6 +225,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'NASA FIRMS fire data',
     description: 'Fire Information for Resource Management System satellite data.',
     requiredSecrets: ['NASA_FIRMS_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'FIRMS fire layer uses public VIIRS feed.',
   },
   {
@@ -210,6 +233,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'WTO trade policy data',
     description: 'Trade restrictions, tariff trends, barriers, and flows from WTO.',
     requiredSecrets: ['WTO_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'Trade policy panel shows disabled state.',
   },
   {
@@ -217,6 +241,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'Supply Chain Intelligence',
     description: 'Shipping rates via FRED Baltic Dry Index. Chokepoints and minerals use public data.',
     requiredSecrets: ['FRED_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'Chokepoints and minerals always available; shipping requires FRED key.',
   },
   {
@@ -224,6 +249,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'AviationStack flight delays',
     description: 'Real-time international airport delay data from AviationStack API.',
     requiredSecrets: ['AVIATIONSTACK_API'],
+    desktopRequiredSecrets: [],
     fallback: 'Non-US airports use simulated delay data.',
   },
   {
@@ -231,6 +257,7 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'ICAO NOTAM closures (Middle East)',
     description: 'Airport closure detection for MENA airports from ICAO NOTAM data service.',
     requiredSecrets: ['ICAO_API_KEY'],
+    desktopRequiredSecrets: [],
     fallback: 'Closures detected only via AviationStack flight cancellation data.',
   },
 ];
@@ -543,6 +570,12 @@ export async function loadDesktopSecrets(): Promise<void> {
   } catch (error) {
     console.warn('[runtime-config] Failed to load desktop secrets from vault', error);
   } finally {
+    // Seed WORLDMONITOR_API_KEY from build-time env var if not loaded from keychain.
+    // This allows baking the key into the app binary for zero-friction desktop auth.
+    const builtInKey = (import.meta.env.VITE_DESKTOP_API_KEY as string | undefined)?.trim() ?? '';
+    if (builtInKey && !runtimeConfig.secrets['WORLDMONITOR_API_KEY']) {
+      runtimeConfig.secrets['WORLDMONITOR_API_KEY'] = { value: builtInKey, source: 'env' };
+    }
     secretsReadyResolve();
   }
 }

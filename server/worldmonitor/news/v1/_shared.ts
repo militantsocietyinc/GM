@@ -148,6 +148,7 @@ export interface ProviderCredentials {
   model: string;
   headers: Record<string, string>;
   extraBody?: Record<string, unknown>;
+  responseFormat?: 'openai' | 'anthropic';
 }
 
 export function getProviderCredentials(provider: string): ProviderCredentials | null {
@@ -194,6 +195,21 @@ export function getProviderCredentials(provider: string): ProviderCredentials | 
         'HTTP-Referer': 'https://worldmonitor.app',
         'X-Title': 'WorldMonitor',
       },
+    };
+  }
+
+  if (provider === 'claude') {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return null;
+    return {
+      apiUrl: 'https://api.anthropic.com/v1/messages',
+      model: 'claude-haiku-4-5',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      responseFormat: 'anthropic',
     };
   }
 

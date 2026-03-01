@@ -38,6 +38,7 @@ import {
   TelegramIntelPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
+import { EarthquakesPanel } from '@/components/EarthquakesPanel';
 import { PositiveNewsFeedPanel } from '@/components/PositiveNewsFeedPanel';
 import { CountersPanel } from '@/components/CountersPanel';
 import { ProgressChartsPanel } from '@/components/ProgressChartsPanel';
@@ -57,6 +58,7 @@ import {
   STORAGE_KEYS,
   SITE_VARIANT,
 } from '@/config';
+import { PANEL_CATEGORY_MAP } from '@/config/panels';
 import { BETA_MODE } from '@/config/beta';
 import { t } from '@/services/i18n';
 import { getCurrentTheme } from '@/utils';
@@ -184,6 +186,24 @@ export class PanelLayoutManager implements AppModule {
       : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
   }
 
+  private buildSidebarNav(): string {
+    let html = '';
+    for (const [, cat] of Object.entries(PANEL_CATEGORY_MAP)) {
+      if (cat.variants && !cat.variants.includes(SITE_VARIANT)) continue;
+      const keys = cat.panelKeys.filter(k => k !== 'map' && k in this.ctx.panelSettings);
+      if (keys.length === 0) continue;
+      html += `<div class="mac-sidebar-section"><span class="mac-sidebar-section-label">${t(cat.labelKey)}</span>`;
+      for (const key of keys) {
+        const cfg = this.ctx.panelSettings[key];
+        if (!cfg) continue;
+        const disabled = cfg.enabled ? '' : ' is-disabled';
+        html += `<button class="mac-sidebar-panel-item${disabled}" data-panel-key="${key}"><span class="mac-sidebar-panel-dot"></span>${cfg.name}</button>`;
+      }
+      html += `</div>`;
+    }
+    return html;
+  }
+
   private buildDesktopLayout(): string {
     return `
       <!-- Original header kept for compatibility; hidden via CSS on desktop -->
@@ -192,18 +212,7 @@ export class PanelLayoutManager implements AppModule {
           <div class="variant-switcher">${this.buildVariantSwitcherItems()}</div>
           <span class="logo">MONITOR</span><span class="version">v${__APP_VERSION__}</span>
           <div class="status-indicator"><span class="status-dot"></span><span>${t('header.live')}</span></div>
-          <div class="region-selector" style="display:none">
-            <select id="regionSelect" class="region-select">
-              <option value="global">${t('components.deckgl.views.global')}</option>
-              <option value="america">${t('components.deckgl.views.americas')}</option>
-              <option value="mena">${t('components.deckgl.views.mena')}</option>
-              <option value="eu">${t('components.deckgl.views.europe')}</option>
-              <option value="asia">${t('components.deckgl.views.asia')}</option>
-              <option value="latam">${t('components.deckgl.views.latam')}</option>
-              <option value="africa">${t('components.deckgl.views.africa')}</option>
-              <option value="oceania">${t('components.deckgl.views.oceania')}</option>
-            </select>
-          </div>
+          <div class="region-selector" style="display:none"></div>
         </div>
         <div class="header-right">
           <button class="search-btn" id="searchBtn" style="display:none"><kbd>⌘K</kbd> ${t('header.search')}</button>
@@ -221,63 +230,18 @@ export class PanelLayoutManager implements AppModule {
           <!-- Drag region / traffic-lights safe area -->
           <div class="mac-sidebar-drag"></div>
 
-          <!-- Navigation -->
+          <!-- Navigation: variant pills + live panel list -->
           <nav class="mac-sidebar-nav">
-            <div class="mac-sidebar-section">
-              <span class="mac-sidebar-section-label">Views</span>
-              <a href="${this.ctx.isDesktopApp ? '#' : 'https://worldmonitor.app'}"
-                 class="mac-sidebar-item ${SITE_VARIANT === 'full' ? 'active' : ''}"
-                 data-variant="full"
-                 title="${t('header.world')}">
-                <span class="mac-sidebar-item-icon">🌍</span>
-                ${t('header.world')}
-              </a>
-              <a href="${this.ctx.isDesktopApp ? '#' : 'https://tech.worldmonitor.app'}"
-                 class="mac-sidebar-item ${SITE_VARIANT === 'tech' ? 'active' : ''}"
-                 data-variant="tech"
-                 title="${t('header.tech')}">
-                <span class="mac-sidebar-item-icon">💻</span>
-                ${t('header.tech')}
-              </a>
-              <a href="${this.ctx.isDesktopApp ? '#' : 'https://finance.worldmonitor.app'}"
-                 class="mac-sidebar-item ${SITE_VARIANT === 'finance' ? 'active' : ''}"
-                 data-variant="finance"
-                 title="${t('header.finance')}">
-                <span class="mac-sidebar-item-icon">📈</span>
-                ${t('header.finance')}
-              </a>
-              ${SITE_VARIANT === 'happy' ? `
-              <a href="#"
-                 class="mac-sidebar-item active"
-                 data-variant="happy"
-                 title="Good News">
-                <span class="mac-sidebar-item-icon">☀️</span>
-                Good News
-              </a>` : ''}
+            <div class="mac-variant-pills">
+              <button class="mac-variant-pill ${SITE_VARIANT === 'full' ? 'active' : ''}" data-variant="full" title="${t('header.world')}">🌍 World</button>
+              <button class="mac-variant-pill ${SITE_VARIANT === 'tech' ? 'active' : ''}" data-variant="tech" title="${t('header.tech')}">💻 Tech</button>
+              <button class="mac-variant-pill ${SITE_VARIANT === 'finance' ? 'active' : ''}" data-variant="finance" title="${t('header.finance')}">📈 Fin</button>
             </div>
-
-            <div class="mac-sidebar-section">
-              <span class="mac-sidebar-section-label">Map Region</span>
-              <div class="mac-sidebar-item" style="padding: 4px 10px; margin: 1px 8px;">
-                <select id="regionSelect" class="region-select" style="width:100%; background:transparent; border:none; color:inherit; font:inherit; cursor:pointer; padding:2px 0; outline:none;">
-                  <option value="global">${t('components.deckgl.views.global')}</option>
-                  <option value="america">${t('components.deckgl.views.americas')}</option>
-                  <option value="mena">${t('components.deckgl.views.mena')}</option>
-                  <option value="eu">${t('components.deckgl.views.europe')}</option>
-                  <option value="asia">${t('components.deckgl.views.asia')}</option>
-                  <option value="latam">${t('components.deckgl.views.latam')}</option>
-                  <option value="africa">${t('components.deckgl.views.africa')}</option>
-                  <option value="oceania">${t('components.deckgl.views.oceania')}</option>
-                </select>
-              </div>
-            </div>
-
+            ${this.buildSidebarNav()}
             ${SITE_VARIANT === 'happy' ? `
             <div class="mac-sidebar-section">
-              <span class="mac-sidebar-section-label">TV</span>
-              <button class="mac-sidebar-item" id="tvModeBtn" style="width:100%; background:transparent; border:none; text-align:left; cursor:pointer;">
-                <span class="mac-sidebar-item-icon">📺</span>
-                TV Mode
+              <button class="mac-sidebar-panel-item" id="tvModeBtn">
+                <span class="mac-sidebar-panel-dot" style="background:var(--mac-orange)"></span>TV Mode
               </button>
             </div>` : ''}
           </nav>
@@ -304,6 +268,18 @@ export class PanelLayoutManager implements AppModule {
               <span>${t('header.live')}</span>
             </div>
             <div class="mac-toolbar-spacer"></div>
+            <div class="region-selector">
+              <select id="regionSelect" class="region-select">
+                <option value="global">${t('components.deckgl.views.global')}</option>
+                <option value="america">${t('components.deckgl.views.americas')}</option>
+                <option value="mena">${t('components.deckgl.views.mena')}</option>
+                <option value="eu">${t('components.deckgl.views.europe')}</option>
+                <option value="asia">${t('components.deckgl.views.asia')}</option>
+                <option value="latam">${t('components.deckgl.views.latam')}</option>
+                <option value="africa">${t('components.deckgl.views.africa')}</option>
+                <option value="oceania">${t('components.deckgl.views.oceania')}</option>
+              </select>
+            </div>
             <span class="header-clock" id="headerClock"></span>
             <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> ${t('header.search')}</button>
           </div>
@@ -450,6 +426,13 @@ export class PanelLayoutManager implements AppModule {
       }
       const panel = this.ctx.panels[key];
       panel?.toggle(config.enabled);
+    });
+    // Sync sidebar dot states when panels are toggled
+    document.querySelectorAll<HTMLElement>('.mac-sidebar-panel-item[data-panel-key]').forEach(item => {
+      const key = item.dataset.panelKey;
+      if (!key) return;
+      const enabled = this.ctx.panelSettings[key]?.enabled ?? false;
+      item.classList.toggle('is-disabled', !enabled);
     });
   }
 
@@ -666,6 +649,9 @@ export class PanelLayoutManager implements AppModule {
       const satelliteFiresPanel = new SatelliteFiresPanel();
       this.ctx.panels['satellite-fires'] = satelliteFiresPanel;
 
+      const earthquakesPanel = new EarthquakesPanel();
+      this.ctx.panels['earthquakes'] = earthquakesPanel;
+
       const strategicRiskPanel = new StrategicRiskPanel();
       strategicRiskPanel.setLocationClickHandler((lat, lon) => {
         this.ctx.map?.setCenter(lat, lon, 4);
@@ -833,6 +819,18 @@ export class PanelLayoutManager implements AppModule {
         panelsGrid.appendChild(el);
       }
     });
+
+    // Wire sidebar panel items → scroll to panel
+    if (this.ctx.isDesktopApp) {
+      document.querySelectorAll<HTMLElement>('.mac-sidebar-panel-item[data-panel-key]').forEach(item => {
+        item.addEventListener('click', () => {
+          const key = item.dataset.panelKey;
+          if (!key) return;
+          const panel = this.ctx.panels[key];
+          panel?.getElement().scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    }
 
     this.ctx.map.onTimeRangeChanged((range) => {
       this.ctx.currentTimeRange = range;

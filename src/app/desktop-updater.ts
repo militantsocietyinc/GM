@@ -3,19 +3,7 @@ import { invokeTauri } from '@/services/tauri-bridge';
 import { trackUpdateShown, trackUpdateClicked, trackUpdateDismissed } from '@/services/analytics';
 import { escapeHtml } from '@/utils/sanitize';
 
-interface DesktopRuntimeInfo {
-  os: string;
-  arch: string;
-}
-
 type UpdaterOutcome = 'no_update' | 'update_available' | 'open_failed' | 'fetch_failed';
-type DesktopBuildVariant = 'full' | 'tech' | 'finance';
-
-const DESKTOP_BUILD_VARIANT: DesktopBuildVariant = (
-  import.meta.env.VITE_VARIANT === 'tech' || import.meta.env.VITE_VARIANT === 'finance'
-    ? import.meta.env.VITE_VARIANT
-    : 'full'
-);
 
 export class DesktopUpdater implements AppModule {
   private ctx: AppContext;
@@ -61,19 +49,20 @@ export class DesktopUpdater implements AppModule {
     logger('[updater]', outcome, context);
   }
 
-  private getDesktopBuildVariant(): DesktopBuildVariant {
-    return DESKTOP_BUILD_VARIANT;
-  }
-
   private async checkForUpdate(): Promise<void> {
     try {
-      const res = await fetch('https://worldmonitor.app/api/version');
+      const res = await fetch(
+        'https://api.github.com/repos/bradleybond512/worldmonitor-macos/releases/latest',
+        { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(10000) }
+      );
       if (!res.ok) {
         this.logUpdaterOutcome('fetch_failed', { status: res.status });
         return;
       }
       const data = await res.json();
-      const remote = data.version as string;
+
+      const tagName = typeof data.tag_name === 'string' ? data.tag_name : '';
+      const remote = tagName.replace(/^v/, '');
       if (!remote) {
         this.logUpdaterOutcome('fetch_failed', { reason: 'missing_remote_version' });
         return;
@@ -91,12 +80,16 @@ export class DesktopUpdater implements AppModule {
         return;
       }
 
-      const releaseUrl = typeof data.url === 'string' && data.url
-        ? data.url
-        : 'https://github.com/koala73/worldmonitor/releases/latest';
+      // Find the macOS DMG asset in the release
+      const assets: Array<{ name: string; browser_download_url: string }> =
+        Array.isArray(data.assets) ? data.assets : [];
+      const dmg = assets.find(a => typeof a.name === 'string' && a.name.endsWith('.dmg'));
+      const downloadUrl = dmg?.browser_download_url
+        ?? 'https://github.com/bradleybond512/worldmonitor-macos/releases/latest';
+
       this.logUpdaterOutcome('update_available', { current, remote, dismissed: false });
       trackUpdateShown(current, remote);
-      await this.showUpdateToast(remote, releaseUrl);
+      await this.showUpdateToast(remote, downloadUrl);
     } catch (error) {
       this.logUpdaterOutcome('fetch_failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -116,52 +109,14 @@ export class DesktopUpdater implements AppModule {
     return false;
   }
 
-  private mapDesktopDownloadPlatform(os: string, arch: string): string | null {
-    const normalizedOs = os.toLowerCase();
-    const normalizedArch = arch.toLowerCase()
-      .replace('amd64', 'x86_64')
-      .replace('x64', 'x86_64')
-      .replace('arm64', 'aarch64');
-
-    if (normalizedOs === 'windows') {
-      return normalizedArch === 'x86_64' ? 'windows-exe' : null;
-    }
-
-    if (normalizedOs === 'macos' || normalizedOs === 'darwin') {
-      if (normalizedArch === 'aarch64') return 'macos-arm64';
-      if (normalizedArch === 'x86_64') return 'macos-x64';
-      return null;
-    }
-
-    if (normalizedOs === 'linux') {
-      if (normalizedArch === 'x86_64') return 'linux-appimage';
-      if (normalizedArch === 'aarch64') return 'linux-appimage-arm64';
-      return null;
-    }
-
-    return null;
-  }
-
-  private async resolveUpdateDownloadUrl(releaseUrl: string): Promise<string> {
-    try {
-      const runtimeInfo = await invokeTauri<DesktopRuntimeInfo>('get_desktop_runtime_info');
-      const platform = this.mapDesktopDownloadPlatform(runtimeInfo.os, runtimeInfo.arch);
-      if (platform) {
-        const variant = this.getDesktopBuildVariant();
-        return `https://worldmonitor.app/api/download?platform=${platform}&variant=${variant}`;
-      }
-    } catch {
-      // Silent fallback to release page when desktop runtime info is unavailable.
-    }
-    return releaseUrl;
-  }
-
-  private async showUpdateToast(version: string, releaseUrl: string): Promise<void> {
+  private async showUpdateToast(version: string, downloadUrl: string): Promise<void> {
     const existing = document.querySelector<HTMLElement>('.update-toast');
     if (existing?.dataset.version === version) return;
     existing?.remove();
 
-    const url = await this.resolveUpdateDownloadUrl(releaseUrl);
+    // On macOS desktop, show "Update Now" (auto-install). Otherwise show "Download".
+    const canAutoInstall = this.ctx.isDesktopApp && downloadUrl.endsWith('.dmg');
+    const actionLabel = canAutoInstall ? 'Update Now' : 'Download';
 
     const toast = document.createElement('div');
     toast.className = 'update-toast';
@@ -178,22 +133,42 @@ export class DesktopUpdater implements AppModule {
         <div class="update-toast-title">Update Available</div>
         <div class="update-toast-detail">v${escapeHtml(__APP_VERSION__)} \u2192 v${escapeHtml(version)}</div>
       </div>
-      <button class="update-toast-action" data-action="download">Download</button>
+      <button class="update-toast-action" data-action="install">${actionLabel}</button>
       <button class="update-toast-dismiss" data-action="dismiss" aria-label="Dismiss">\u00d7</button>
     `;
 
     toast.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
-      if (action === 'download') {
+
+      if (action === 'install') {
         trackUpdateClicked(version);
-        if (this.ctx.isDesktopApp) {
-          void invokeTauri<void>('open_url', { url }).catch((error) => {
-            this.logUpdaterOutcome('open_failed', { url, error: error instanceof Error ? error.message : String(error) });
-            window.open(url, '_blank', 'noopener');
-          });
+        const btn = toast.querySelector<HTMLButtonElement>('[data-action="install"]');
+
+        if (canAutoInstall) {
+          // Auto-install: download DMG, mount, replace app, relaunch
+          if (btn) { btn.textContent = 'Downloading…'; btn.disabled = true; }
+          invokeTauri<void>('install_update', { downloadUrl })
+            .catch((error: unknown) => {
+              this.logUpdaterOutcome('open_failed', {
+                downloadUrl,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              if (btn) { btn.textContent = 'Failed — retry?'; btn.disabled = false; }
+              // Fall back to opening the releases page
+              void invokeTauri<void>('open_url', {
+                url: 'https://github.com/bradleybond512/worldmonitor-macos/releases/latest',
+              }).catch(() => {});
+            });
         } else {
-          window.open(url, '_blank', 'noopener');
+          // Web or non-DMG: open in browser
+          if (this.ctx.isDesktopApp) {
+            void invokeTauri<void>('open_url', { url: downloadUrl }).catch(() => {
+              window.open(downloadUrl, '_blank', 'noopener');
+            });
+          } else {
+            window.open(downloadUrl, '_blank', 'noopener');
+          }
         }
       } else if (action === 'dismiss') {
         trackUpdateDismissed(version);

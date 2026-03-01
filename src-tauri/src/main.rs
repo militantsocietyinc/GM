@@ -520,6 +520,95 @@ fn close_live_channels_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Download a macOS DMG release, mount it, copy the app bundle to /Applications, and relaunch.
+/// On non-macOS platforms returns an error immediately (no-op — only called on macOS).
+#[tauri::command]
+async fn install_update(download_url: String) -> Result<(), String> {
+    // Validate the URL comes from GitHub
+    let parsed = reqwest::Url::parse(&download_url)
+        .map_err(|e| format!("Invalid update URL: {e}"))?;
+    let host = parsed.host_str().unwrap_or("");
+    if !matches!(host, "objects.githubusercontent.com" | "github.com" | "codeload.github.com") {
+        return Err(format!("Update URL host '{host}' is not trusted — must be from github.com"));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = download_url;
+        return Err("Auto-install is only supported on macOS".into());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let tmp_dmg = "/tmp/wm-update.dmg";
+        let mount_point = "/tmp/wm-update-vol";
+
+        // 1. Download the DMG
+        let client = reqwest::Client::builder()
+            .use_native_tls()
+            .user_agent(concat!("WorldMonitor-Desktop/", env!("CARGO_PKG_VERSION")))
+            .timeout(std::time::Duration::from_secs(300))
+            .build()
+            .map_err(|e| format!("HTTP client init failed: {e}"))?;
+
+        let resp = client
+            .get(&download_url)
+            .send()
+            .await
+            .map_err(|e| format!("Download failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("Download HTTP {}", resp.status()));
+        }
+
+        let bytes = resp.bytes().await
+            .map_err(|e| format!("Download read failed: {e}"))?;
+
+        std::fs::write(tmp_dmg, &bytes)
+            .map_err(|e| format!("Write DMG to /tmp failed: {e}"))?;
+
+        // 2. Mount the DMG
+        let attach = Command::new("hdiutil")
+            .args(["attach", tmp_dmg, "-mountpoint", mount_point, "-nobrowse", "-quiet"])
+            .output()
+            .map_err(|e| format!("hdiutil attach failed: {e}"))?;
+
+        if !attach.status.success() {
+            let _ = std::fs::remove_file(tmp_dmg);
+            return Err(format!(
+                "hdiutil attach error: {}",
+                String::from_utf8_lossy(&attach.stderr)
+            ));
+        }
+
+        // 3. Copy the app bundle to /Applications
+        let source = format!("{}/World Monitor.app", mount_point);
+        let dest = "/Applications/World Monitor.app";
+
+        let _ = Command::new("rm").args(["-rf", dest]).output();
+
+        let copy = Command::new("cp")
+            .args(["-r", &source, dest])
+            .output()
+            .map_err(|e| format!("cp failed: {e}"))?;
+
+        // 4. Detach the DMG and clean up regardless of copy result
+        let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
+        let _ = std::fs::remove_file(tmp_dmg);
+
+        if !copy.status.success() {
+            return Err(format!(
+                "Copy to /Applications failed: {}",
+                String::from_utf8_lossy(&copy.stderr)
+            ));
+        }
+
+        // 5. Relaunch and exit
+        let _ = Command::new("open").args(["-a", "World Monitor"]).spawn();
+        std::process::exit(0);
+    }
+}
+
 /// Fetch JSON from Polymarket Gamma API using native TLS (bypasses Cloudflare JA3 blocking).
 /// Called from frontend when browser CORS and sidecar Node.js TLS both fail.
 #[tauri::command]
@@ -732,7 +821,7 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             }
         }
         MENU_HELP_GITHUB_ID => {
-            let _ = open_in_shell("https://github.com/koala73/worldmonitor");
+            let _ = open_in_shell("https://github.com/bradleybond512/worldmonitor-macos");
         }
         #[cfg(feature = "devtools")]
         MENU_HELP_DEVTOOLS_ID => {
@@ -1278,7 +1367,8 @@ fn main() {
             close_live_channels_window,
             open_url,
             open_youtube_login,
-            fetch_polymarket
+            fetch_polymarket,
+            install_update
         ])
         .setup(|app| {
             // Load persistent cache into memory (avoids 14MB file I/O on every IPC call)

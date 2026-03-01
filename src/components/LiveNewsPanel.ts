@@ -129,6 +129,11 @@ export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'ktn-news', name: 'KTN News', handle: '@ktnnews_kenya', fallbackVideoId: 'RmHtsdVb3mo' },
   { id: 'enca', name: 'eNCA', handle: '@encanews' },
   { id: 'sabc-news', name: 'SABC News', handle: '@SABCDigitalNews' },
+  // Intelligence & OSINT
+  { id: 's2underground', name: 'S2 Underground', handle: '@S2Underground', fallbackVideoId: 'c7SRaYZVToY', useFallbackOnly: false },
+  { id: 'recoilmag', name: 'Task & Purpose', handle: '@TaskandPurpose', fallbackVideoId: 'I0Ro7j4mFGk', useFallbackOnly: false },
+  { id: 'warzone', name: 'The War Zone', handle: '@TheWarZone', fallbackVideoId: 'vXzmpBHoIac', useFallbackOnly: false },
+  { id: 'militarysummary', name: 'Military Summary', handle: '@MilitarySummaryChannel', fallbackVideoId: 'hQ2sB_bFLWE', useFallbackOnly: false },
 ];
 
 export const OPTIONAL_CHANNEL_REGIONS: { key: string; labelKey: string; channelIds: string[] }[] = [
@@ -138,6 +143,7 @@ export const OPTIONAL_CHANNEL_REGIONS: { key: string; labelKey: string; channelI
   { key: 'asia', labelKey: 'components.liveNews.regionAsia', channelIds: ['tbs-news', 'ann-news', 'ntv-news', 'cti-news', 'wion', 'cna-asia', 'nhk-world'] },
   { key: 'me', labelKey: 'components.liveNews.regionMiddleEast', channelIds: ['al-hadath', 'sky-news-arabia', 'trt-world', 'iran-intl', 'cgtn-arabic'] },
   { key: 'africa', labelKey: 'components.liveNews.regionAfrica', channelIds: ['africanews', 'channels-tv', 'ktn-news', 'enca', 'sabc-news'] },
+  { key: 'osint', labelKey: 'components.liveNews.regionOsint', channelIds: ['s2underground', 'recoilmag', 'warzone', 'militarysummary'] },
 ];
 
 const DEFAULT_LIVE_CHANNELS = SITE_VARIANT === 'tech' ? TECH_LIVE_CHANNELS : SITE_VARIANT === 'happy' ? [] : FULL_LIVE_CHANNELS;

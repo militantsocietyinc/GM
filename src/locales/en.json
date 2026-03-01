@@ -1457,7 +1457,8 @@
       "regionAfrica": "Africa",
       "invalidHandle": "Enter a valid YouTube handle (e.g. @ChannelName)",
       "channelNotFound": "YouTube channel not found",
-      "verifying": "Verifying…"
+      "verifying": "Verifying…",
+      "regionOsint": "Intelligence & OSINT"
     }
   },
   "popups": {

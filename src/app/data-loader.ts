@@ -113,6 +113,8 @@ import {
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { EarthquakesPanel } from '@/components/EarthquakesPanel';
+import { CyberThreatPanel } from '@/components/CyberThreatPanel';
+import { AlertCenterPanel } from '@/components/AlertCenterPanel';
 import { classifyNewsItem } from '@/services/positive-classifier';
 import { fetchGivingSummary } from '@/services/giving';
 import { GivingPanel } from '@/components';
@@ -1158,12 +1160,14 @@ export class DataLoaderManager implements AppModule {
           if (surgeAlerts.length > 0) {
             const surgeSignals = surgeAlerts.map(surgeAlertToSignal);
             addToSignalHistory(surgeSignals);
+            (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(surgeSignals);
             if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(surgeSignals);
           }
           const foreignAlerts = detectForeignMilitaryPresence(flightData.flights);
           if (foreignAlerts.length > 0) {
             const foreignSignals = foreignAlerts.map(foreignPresenceToSignal);
             addToSignalHistory(foreignSignals);
+            (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(foreignSignals);
             if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(foreignSignals);
           }
         }
@@ -1355,6 +1359,7 @@ export class DataLoaderManager implements AppModule {
       this.ctx.map?.setLayerReady('cyberThreats', this.ctx.cyberThreatsCache.length > 0);
       ingestCyberThreatsForCII(this.ctx.cyberThreatsCache);
       (this.ctx.panels['cii'] as CIIPanel)?.refresh();
+      (this.ctx.panels['cyber-threats'] as CyberThreatPanel)?.update(this.ctx.cyberThreatsCache);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'ok', itemCount: this.ctx.cyberThreatsCache.length });
       return;
     }
@@ -1366,10 +1371,12 @@ export class DataLoaderManager implements AppModule {
       this.ctx.map?.setLayerReady('cyberThreats', threats.length > 0);
       ingestCyberThreatsForCII(threats);
       (this.ctx.panels['cii'] as CIIPanel)?.refresh();
+      (this.ctx.panels['cyber-threats'] as CyberThreatPanel)?.update(threats);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'ok', itemCount: threats.length });
       this.ctx.statusPanel?.updateApi('Cyber Threats API', { status: 'ok' });
       dataFreshness.recordUpdate('cyber_threats', threats.length);
     } catch (error) {
+      (this.ctx.panels['cyber-threats'] as CyberThreatPanel)?.update([]);
       this.ctx.map?.setLayerReady('cyberThreats', false);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'error', errorMessage: String(error) });
       this.ctx.statusPanel?.updateApi('Cyber Threats API', { status: 'error' });
@@ -1624,12 +1631,14 @@ export class DataLoaderManager implements AppModule {
         if (surgeAlerts.length > 0) {
           const surgeSignals = surgeAlerts.map(surgeAlertToSignal);
           addToSignalHistory(surgeSignals);
+          (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(surgeSignals);
           if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(surgeSignals);
         }
         const foreignAlerts = detectForeignMilitaryPresence(flightData.flights);
         if (foreignAlerts.length > 0) {
           const foreignSignals = foreignAlerts.map(foreignPresenceToSignal);
           addToSignalHistory(foreignSignals);
+          (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(foreignSignals);
           if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(foreignSignals);
         }
       }
@@ -1895,6 +1904,7 @@ export class DataLoaderManager implements AppModule {
       const allSignals = [...signals, ...geoSignals, ...keywordSpikeSignals];
       if (allSignals.length > 0) {
         addToSignalHistory(allSignals);
+        (this.ctx.panels['alert-center'] as AlertCenterPanel)?.addSignals(allSignals);
         if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(allSignals);
       }
     } catch (error) {

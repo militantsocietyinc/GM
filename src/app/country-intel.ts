@@ -17,6 +17,7 @@ import { mlWorker } from '@/services/ml-worker';
 import { t } from '@/services/i18n';
 import { trackCountrySelected, trackCountryBriefOpened } from '@/services/analytics';
 import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
+import { fetchWorldBankProfile, formatWorldBankContext } from '@/services/world-bank';
 
 type IntlDisplayNamesCtor = new (
   locales: string | string[],
@@ -129,6 +130,8 @@ export class CountryIntelManager implements AppModule {
     this.ctx.countryBriefPage.show(country, code, score, signals);
     this.ctx.map?.highlightCountry(code);
 
+    const worldBankPromise = fetchWorldBankProfile(code).catch(() => null);
+
     const marketClient = new MarketServiceClient('', { fetch: (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args) });
     const stockPromise = marketClient.getCountryStockIndex({ countryCode: code })
       .then((resp) => ({
@@ -208,10 +211,14 @@ export class CountryIntelManager implements AppModule {
       if (headlines.length) context.headlines = headlines;
       const briefHeadlines = (context.headlines as string[] | undefined) || [];
 
-      const stockData = await stockPromise;
+      const [stockData, wbProfile] = await Promise.all([stockPromise, worldBankPromise]);
       if (stockData.available) {
         const pct = parseFloat(stockData.weekChangePercent);
         context.stockIndex = `${stockData.indexName}: ${stockData.price} (${pct >= 0 ? '+' : ''}${stockData.weekChangePercent}% week)`;
+      }
+      if (wbProfile) {
+        const wbLine = formatWorldBankContext(wbProfile);
+        if (wbLine) context.worldBankEconomic = wbLine;
       }
 
       let briefText = '';
@@ -313,6 +320,9 @@ export class CountryIntelManager implements AppModule {
 
     const stockIndex = typeof context.stockIndex === 'string' ? context.stockIndex : '';
     if (stockIndex) lines.push(`Stock index: ${stockIndex}`);
+
+    const worldBankEconomic = typeof context.worldBankEconomic === 'string' ? context.worldBankEconomic : '';
+    if (worldBankEconomic) lines.push(worldBankEconomic);
 
     const convergenceScore = typeof context.convergenceScore === 'number' ? context.convergenceScore : null;
     const signalTypes = Array.isArray(context.signalTypes) ? context.signalTypes as string[] : [];

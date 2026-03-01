@@ -39,6 +39,8 @@ import {
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { EarthquakesPanel } from '@/components/EarthquakesPanel';
+import { CyberThreatPanel } from '@/components/CyberThreatPanel';
+import { AlertCenterPanel } from '@/components/AlertCenterPanel';
 import { PositiveNewsFeedPanel } from '@/components/PositiveNewsFeedPanel';
 import { CountersPanel } from '@/components/CountersPanel';
 import { ProgressChartsPanel } from '@/components/ProgressChartsPanel';
@@ -651,6 +653,12 @@ export class PanelLayoutManager implements AppModule {
 
       const earthquakesPanel = new EarthquakesPanel();
       this.ctx.panels['earthquakes'] = earthquakesPanel;
+
+      const cyberThreatPanel = new CyberThreatPanel();
+      this.ctx.panels['cyber-threats'] = cyberThreatPanel;
+
+      const alertCenterPanel = new AlertCenterPanel();
+      this.ctx.panels['alert-center'] = alertCenterPanel;
 
       const strategicRiskPanel = new StrategicRiskPanel();
       strategicRiskPanel.setLocationClickHandler((lat, lon) => {

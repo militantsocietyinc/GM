@@ -1513,8 +1513,8 @@ Transactions are sampled at 10% to balance observability with cost. Release trac
 
 ```bash
 # Clone and run
-git clone https://github.com/bradleybond512/worldmonitor-macos.git
-cd worldmonitor-macos
+git clone https://github.com/bradleybond512/crystal-ball.git
+cd crystal-ball
 npm install
 vercel dev       # Runs frontend + all 60+ API edge functions
 ```
@@ -1854,9 +1854,9 @@ If you discover a vulnerability, please see our [Security Policy](./SECURITY.md)
 
 ## Star History
 
-<a href="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date">
+<a href="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date&theme=dark" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bradleybond512/worldmonitor-macos&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date&theme=dark" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bradleybond512/crystal-ball&type=Date" />
  </picture>
 </a>

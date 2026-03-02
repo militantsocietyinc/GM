@@ -26,7 +26,6 @@ The desktop vault schema (Rust `SUPPORTED_SECRET_KEYS`) supports the following 2
 - `AISSTREAM_API_KEY`
 - `OLLAMA_API_URL`
 - `OLLAMA_MODEL`
-- `WORLDMONITOR_API_KEY` — gates cloud fallback access (min 16 chars)
 - `WTO_API_KEY`
 
 Note: `UC_DP_KEY` exists in the TypeScript `RuntimeSecretKey` union but is not in the desktop Rust keychain or sidecar.

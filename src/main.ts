@@ -116,7 +116,6 @@ Sentry.init({
     /__isInQueue__/,
     /^(?:LIDNotify(?:Id)?|onWebViewAppeared|onGetWiFiBSSID) is not defined$/,
     /signal timed out/,
-    /Se requiere plan premium/,
     /hybridExecute is not defined/,
     /reading 'postMessage'/,
     /NotSupportedError/,

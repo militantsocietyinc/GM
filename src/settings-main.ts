@@ -18,14 +18,13 @@ import {
   isFeatureAvailable,
   isFeatureEnabled,
   setFeatureToggle,
-  setSecretValue,
   validateSecret,
   loadDesktopSecrets,
   type RuntimeFeatureDefinition,
   type RuntimeFeatureId,
   type RuntimeSecretKey,
 } from '@/services/runtime-config';
-import { getApiBaseUrl, getRemoteApiBaseUrl, isDesktopRuntime, resolveLocalApiPort } from '@/services/runtime';
+import { getApiBaseUrl, isDesktopRuntime, resolveLocalApiPort } from '@/services/runtime';
 import { tryInvokeTauri, invokeTauri } from '@/services/tauri-bridge';
 import { escapeHtml } from '@/utils/sanitize';
 import { initI18n, t } from '@/services/i18n';
@@ -186,11 +185,6 @@ function renderOverview(area: HTMLElement): void {
   const dashOffset = circumference - (pct / 100) * circumference;
   const ringColor = ready === total ? 'var(--settings-green)' : ready > 0 ? 'var(--settings-blue)' : 'var(--settings-yellow)';
 
-  const wmState = getSecretState('WORLDMONITOR_API_KEY');
-  const wmStatusText = wmState.present ? 'Active' : 'Not set';
-  const wmStatusClass = wmState.present ? 'ok' : 'warn';
-  const alreadyRegistered = localStorage.getItem('wm-waitlist-registered') === '1';
-
   const catCards = SETTINGS_CATEGORIES.map(cat => {
     const { ready: catReady, total: catTotal } = getFeatureStatusCounts(cat);
     const cls = catReady === catTotal ? 'ov-cat-ok' : catReady > 0 ? 'ov-cat-partial' : 'ov-cat-warn';
@@ -216,103 +210,12 @@ function renderOverview(area: HTMLElement): void {
       </div>
       <div class="settings-ov-cats">${catCards}</div>
     </div>
-
-    <div class="settings-ov-license">
-      <section class="wm-section">
-        <h2 class="wm-section-title">${t('modals.settingsWindow.worldMonitor.apiKey.title')}</h2>
-        <p class="wm-section-desc">${t('modals.settingsWindow.worldMonitor.apiKey.description')}</p>
-        <div class="wm-key-row">
-          <div class="wm-input-wrap">
-            <input type="password" class="wm-input" data-wm-key-input
-              placeholder="${t('modals.settingsWindow.worldMonitor.apiKey.placeholder')}"
-              autocomplete="off" spellcheck="false"
-              ${wmState.present ? `value="${MASKED_SENTINEL}"` : ''} />
-            <button type="button" class="wm-toggle-vis" data-wm-toggle title="Show/hide">&#x1f441;</button>
-          </div>
-          <span class="wm-badge ${wmStatusClass}">${wmStatusText}</span>
-        </div>
-      </section>
-
-      <div class="wm-divider"><span>${t('modals.settingsWindow.worldMonitor.dividerOr')}</span></div>
-
-      <section class="wm-section">
-        <h2 class="wm-section-title">${t('modals.settingsWindow.worldMonitor.register.title')}</h2>
-        <p class="wm-section-desc">${t('modals.settingsWindow.worldMonitor.register.description')}</p>
-        ${alreadyRegistered ? `
-        <p class="wm-reg-status ok">${t('modals.settingsWindow.worldMonitor.register.alreadyRegistered')}</p>
-        ` : `
-        <div class="wm-register-row">
-          <input type="email" class="wm-input wm-email" data-wm-email
-            placeholder="${t('modals.settingsWindow.worldMonitor.register.emailPlaceholder')}" />
-          <button type="button" class="wm-submit-btn" data-wm-register>
-            ${t('modals.settingsWindow.worldMonitor.register.submitBtn')}
-          </button>
-        </div>
-        <p class="wm-reg-status" data-wm-reg-status></p>
-        `}
-      </section>
-    </div>
   `;
 
   initOverviewListeners(area);
 }
 
 function initOverviewListeners(area: HTMLElement): void {
-  area.querySelector('[data-wm-toggle]')?.addEventListener('click', () => {
-    const input = area.querySelector<HTMLInputElement>('[data-wm-key-input]');
-    if (input) input.type = input.type === 'password' ? 'text' : 'password';
-  });
-
-  area.querySelector<HTMLInputElement>('[data-wm-key-input]')?.addEventListener('input', (e) => {
-    const input = e.target as HTMLInputElement;
-    if (input.value.startsWith(MASKED_SENTINEL)) {
-      input.value = input.value.slice(MASKED_SENTINEL.length);
-    }
-  });
-
-  area.querySelector('[data-wm-register]')?.addEventListener('click', async () => {
-    const emailInput = area.querySelector<HTMLInputElement>('[data-wm-email]');
-    const regStatus = area.querySelector<HTMLElement>('[data-wm-reg-status]');
-    const btn = area.querySelector<HTMLButtonElement>('[data-wm-register]');
-    if (!emailInput || !regStatus || !btn) return;
-
-    const email = emailInput.value.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      regStatus.textContent = t('modals.settingsWindow.worldMonitor.register.invalidEmail');
-      regStatus.className = 'wm-reg-status error';
-      return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = t('modals.settingsWindow.worldMonitor.register.submitting');
-
-    try {
-      const base = isDesktopRuntime() ? getRemoteApiBaseUrl() : '';
-      const res = await fetch(`${base}/api/register-interest`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, source: 'desktop-settings' }),
-      });
-      const data = await res.json() as { status?: string; error?: string };
-      if (data.status === 'already_registered' || data.status === 'registered') {
-        localStorage.setItem('wm-waitlist-registered', '1');
-        regStatus.textContent = data.status === 'already_registered'
-          ? t('modals.settingsWindow.worldMonitor.register.alreadyRegistered')
-          : t('modals.settingsWindow.worldMonitor.register.success');
-        regStatus.className = 'wm-reg-status ok';
-      } else {
-        regStatus.textContent = data.error || t('modals.settingsWindow.worldMonitor.register.error');
-        regStatus.className = 'wm-reg-status error';
-      }
-    } catch {
-      regStatus.textContent = t('modals.settingsWindow.worldMonitor.register.error');
-      regStatus.className = 'wm-reg-status error';
-    } finally {
-      btn.disabled = false;
-      btn.textContent = t('modals.settingsWindow.worldMonitor.register.submitBtn');
-    }
-  });
-
   area.querySelectorAll<HTMLButtonElement>('.settings-ov-cat[data-section]').forEach(btn => {
     btn.addEventListener('click', () => {
       const section = btn.dataset.section;
@@ -875,21 +778,13 @@ async function initSettingsWindow(): Promise<void> {
   document.getElementById('okBtn')?.addEventListener('click', () => {
     void (async () => {
       try {
-        const wmKeyInput = document.querySelector<HTMLInputElement>('[data-wm-key-input]');
-        const wmKeyValue = wmKeyInput?.value.trim();
-        const hasWmKeyChange = !!(wmKeyValue && wmKeyValue !== MASKED_SENTINEL && wmKeyValue.length > 0);
-
         const contentArea = document.getElementById('contentArea');
         if (contentArea) settingsManager.captureUnsavedInputs(contentArea);
 
         const hasPending = settingsManager.hasPendingChanges();
-        if (!hasPending && !hasWmKeyChange) {
+        if (!hasPending) {
           closeSettingsWindow();
           return;
-        }
-
-        if (hasWmKeyChange && wmKeyValue) {
-          await setSecretValue('WORLDMONITOR_API_KEY', wmKeyValue);
         }
 
         if (hasPending) {

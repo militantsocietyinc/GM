@@ -420,25 +420,6 @@
         "tabLabel": "Crystal Ball",
         "heroTitle": "Free & Open Source.",
         "heroDescription": "Crystal Ball is free and open source. Configure your own free API keys below to unlock all data sources — AI summaries, real-time intelligence, market data, conflict tracking, fire detection, satellite imagery.",
-        "apiKey": {
-          "title": "License Key",
-          "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
-          "description": "Paste your license to unlock every data source and AI feature instantly.",
-          "statusValid": "LICENSED",
-          "statusMissing": "NO LICENSE"
-        },
-        "dividerOr": "OR",
-        "register": {
-          "title": "Reserve Your Spot",
-          "description": "Join the community and get notified about new Crystal Ball releases.",
-          "emailPlaceholder": "your@email.com",
-          "submitBtn": "Join Waitlist",
-          "submitting": "Submitting...",
-          "success": "You're on the list! We'll notify you first.",
-          "alreadyRegistered": "You're already on the waitlist.",
-          "error": "Registration failed. Please try again.",
-          "invalidEmail": "Please enter a valid email address."
-        },
         "byokTitle": "Or bring your own keys",
         "byokDescription": "Prefer full control? Head to the API Keys and LLMs tabs to configure each data source and AI provider individually."
       },

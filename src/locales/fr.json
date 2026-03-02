@@ -2094,6 +2094,11 @@
       }
     }
   },
+  "unifiedSettings": {
+    "dataManagementLabel": "Gestion des données",
+    "exportSettings": "Exporter les réglages",
+    "importSettings": "Importer les réglages"
+  },
   "common": {
     "loading": "Chargement...",
     "error": "Erreur",

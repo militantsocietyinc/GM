@@ -8,6 +8,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { trackLanguageChange } from '@/services/analytics';
 import type { PanelConfig } from '@/types';
 import type { StatusPanel } from './StatusPanel';
+import { exportSettings, importSettings } from '@/utils/settings-persistence';
 
 const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
@@ -132,6 +133,17 @@ export class UnifiedSettings {
         this.updateSourcesCounter();
         return;
       }
+
+      if (target.closest('#usExportBtn')) {
+        exportSettings();
+        return;
+      }
+
+      if (target.closest('#usImportBtn')) {
+        const input = this.overlay.querySelector<HTMLInputElement>('#usImportInput');
+        input?.click();
+        return;
+      }
     });
 
     // Handle input events for search
@@ -150,6 +162,17 @@ export class UnifiedSettings {
     // Handle change events for toggles and language select
     this.overlay.addEventListener('change', (e) => {
       const target = e.target as HTMLInputElement;
+
+      if (target.id === 'usImportInput') {
+        const file = target.files?.[0];
+        if (!file) return;
+        importSettings(file).catch(err => {
+          console.error('Failed to import settings', err);
+          alert('Failed to import settings: Invalid file format');
+        });
+        target.value = '';
+        return;
+      }
 
       // Stream quality select
       if (target.id === 'us-stream-quality') {
@@ -349,6 +372,16 @@ export class UnifiedSettings {
       html += `<option value="${lang.code}"${selected}>${lang.flag} ${lang.label}</option>`;
     }
     html += `</select>`;
+
+    // Data Management section
+    html += `<div class="ai-flow-section-label">Data Management</div>`;
+    html += `
+      <div style="display: flex; gap: 10px; padding: 0 16px 16px;">
+        <button type="button" id="usExportBtn" style="flex: 1; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: inherit; cursor: pointer; transition: background 0.2s;">📥 Export Settings</button>
+        <button type="button" id="usImportBtn" style="flex: 1; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: inherit; cursor: pointer; transition: background 0.2s;">📤 Import Settings</button>
+        <input type="file" id="usImportInput" accept=".json" style="display: none;" />
+      </div>
+    `;
 
     // AI status footer (web-only)
     if (!this.config.isDesktopApp) {

@@ -10,6 +10,8 @@
  * This is absolute-time based (not delta accumulation) to avoid drift.
  */
 
+import { getLocale } from './i18n';
+
 export interface CounterMetric {
   id: string;
   label: string;
@@ -100,7 +102,7 @@ export function getCounterValue(metric: CounterMetric): number {
  * Uses Intl.NumberFormat for clean formatting like "372,891" or "8.23".
  */
 export function formatCounterValue(value: number, precision: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(getLocale(), {
     minimumFractionDigits: precision,
     maximumFractionDigits: precision,
   }).format(value);

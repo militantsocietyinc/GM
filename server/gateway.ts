@@ -16,11 +16,7 @@ import { validateApiKey } from '../api/_api-key.js';
 import { mapErrorToResponse } from './error-mapper';
 import { checkRateLimit } from './_shared/rate-limit';
 import { drainResponseHeaders } from './_shared/response-headers';
-/** Defined locally to avoid a fragile cross-domain import from seismology's generated file. */
-export interface ServerOptions {
-  onError?: (error: unknown, req: Request) => Response | Promise<Response>;
-  validateRequest?: (methodName: string, body: unknown) => { field: string; description: string }[] | undefined;
-}
+import type { ServerOptions } from '../src/generated/server/worldmonitor/seismology/v1/service_server';
 
 export const serverOptions: ServerOptions = { onError: mapErrorToResponse };
 

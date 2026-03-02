@@ -4,7 +4,6 @@
   "mainBinaryName": "world-monitor",
   "version": "2.5.25",
   "identifier": "app.worldmonitor.desktop",
-  "copyright": "Copyright 2026 Bradley Bond. Based on World Monitor by Elie Habib (AGPL-3.0).",
   "build": {
     "beforeDevCommand": "npm run build:sidecar-sebuf && npm run dev",
     "beforeBuildCommand": "npm run build:desktop",

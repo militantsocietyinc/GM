@@ -182,11 +182,15 @@ export class DesktopUpdater implements AppModule {
       <button class="update-toast-dismiss" data-action="dismiss" aria-label="Dismiss">\u00d7</button>
     `;
 
+    const dismissToast = () => {
+      localStorage.setItem(`wm-update-dismissed-${version}`, '1');
+      toast.classList.remove('visible');
+      setTimeout(() => toast.remove(), 300);
+    };
+
     toast.addEventListener('click', (e) => {
-      e.stopPropagation();
       const target = e.target as HTMLElement;
       const action = target.closest<HTMLElement>('[data-action]')?.dataset.action;
-      
       if (action === 'download') {
         trackUpdateClicked(version);
         if (this.ctx.isDesktopApp) {
@@ -197,16 +201,10 @@ export class DesktopUpdater implements AppModule {
         } else {
           window.open(url, '_blank', 'noopener');
         }
-        
-        localStorage.setItem(`wm-update-dismissed-${version}`, '1');
-        toast.classList.remove('visible')
-        setTimeout(() => toast.remove(), 300)
-        
+        dismissToast();
       } else if (action === 'dismiss') {
         trackUpdateDismissed(version);
-        localStorage.setItem(`wm-update-dismissed-${version}`, '1');
-        toast.classList.remove('visible');
-        setTimeout(() => toast.remove(), 300);
+        dismissToast();
       }
     });
 

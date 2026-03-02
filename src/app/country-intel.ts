@@ -1,19 +1,19 @@
 import type { AppContext, AppModule, CountryBriefSignals } from '@/app/app-context';
 import type { TimelineEvent } from '@/components/CountryTimeline';
 import { CountryTimeline } from '@/components/CountryTimeline';
-import {
-  CountryDeepDivePanel,
-  type CountryDeepDiveEconomicIndicator,
-  type CountryDeepDiveMilitarySummary,
-  type CountryDeepDiveSignalDetails,
-} from '@/components/CountryDeepDivePanel';
+import type {
+  CountryDeepDiveEconomicIndicator,
+  CountryDeepDiveMilitarySummary,
+  CountryDeepDiveSignalDetails,
+} from '@/components/CountryBriefPanel';
+import { CountryDeepDivePanel } from '@/components/CountryDeepDivePanel';
 import { reverseGeocode } from '@/utils/reverse-geocode';
 import {
   getCountryAtCoordinates,
+  getCountryCentroid,
   hasCountryGeometry,
   isCoordinateInCountry,
   ME_STRIKE_BOUNDS,
-  getCountryBbox,
   iso3ToIso2Code,
   nameToCountryCode,
 } from '@/services/country-geometry';
@@ -141,7 +141,7 @@ export class CountryIntelManager implements AppModule {
     this.openCountryBriefByCode(geo.code, geo.country);
   }
 
-  async openCountryBriefByCode(code: string, country: string): Promise<void> {
+  async openCountryBriefByCode(code: string, country: string, opts?: { maximize?: boolean }): Promise<void> {
     if (!this.ctx.countryBriefPage) return;
     this.ctx.map?.setRenderPaused(true);
     trackCountryBriefOpened(code);
@@ -152,15 +152,21 @@ export class CountryIntelManager implements AppModule {
     const scores = calculateCII();
     const score = scores.find((s) => s.code === code) ?? null;
     const signals = this.getCountrySignals(code, country);
-    const deepDivePanel = this.ctx.countryBriefPage instanceof CountryDeepDivePanel
-      ? this.ctx.countryBriefPage
-      : null;
 
     this.ctx.countryBriefPage.show(country, code, score, signals);
     this.ctx.map?.highlightCountry(code);
-    deepDivePanel?.updateSignalDetails(this.buildSignalDetails(code));
-    deepDivePanel?.updateMilitaryActivity(this.buildMilitarySummary(code, country));
-    deepDivePanel?.updateEconomicIndicators(this.buildEconomicIndicators(code, score, null));
+
+    if (opts?.maximize) {
+      requestAnimationFrame(() => {
+        const panel = this.ctx.countryBriefPage;
+        if (panel?.isVisible() && panel.getCode() === code) {
+          panel.maximize?.();
+        }
+      });
+    }
+    this.ctx.countryBriefPage.updateSignalDetails?.(this.buildSignalDetails(code));
+    this.ctx.countryBriefPage.updateMilitaryActivity?.(this.buildMilitarySummary(code, country));
+    this.ctx.countryBriefPage.updateEconomicIndicators?.(this.buildEconomicIndicators(code, score, null));
 
     const marketClient = new MarketServiceClient('', { fetch: (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args) });
     const stockPromise = marketClient.getCountryStockIndex({ countryCode: code })
@@ -178,9 +184,7 @@ export class CountryIntelManager implements AppModule {
     stockPromise.then((stock) => {
       if (this.ctx.countryBriefPage?.getCode() !== code) return;
       this.ctx.countryBriefPage.updateStock(stock);
-      if (deepDivePanel) {
-        deepDivePanel.updateEconomicIndicators(this.buildEconomicIndicators(code, score, stock));
-      }
+      this.ctx.countryBriefPage.updateEconomicIndicators?.(this.buildEconomicIndicators(code, score, stock));
     });
 
     fetchCountryMarkets(country)
@@ -207,9 +211,7 @@ export class CountryIntelManager implements AppModule {
       if (severityDelta !== 0) return severityDelta;
       return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
     });
-    if (filteredNews.length > 0) {
-      this.ctx.countryBriefPage.updateNews(filteredNews.slice(0, 5));
-    }
+    this.ctx.countryBriefPage.updateNews(filteredNews.slice(0, 15));
 
     this.ctx.countryBriefPage.updateInfrastructure(code);
 
@@ -672,7 +674,7 @@ export class CountryIntelManager implements AppModule {
     );
     const foreignVessels = vesselsInCountry.filter((vessel) => !this.sameCountry(code, country, vessel.operatorCountry)).length;
 
-    const centroid = this.countryCentroid(code);
+    const centroid = getCountryCentroid(code, CountryIntelManager.COUNTRY_BOUNDS);
     const nearbyBases = centroid
       ? getNearbyInfrastructure(centroid.lat, centroid.lon, ['base']).slice(0, 3).map((base) => ({
         id: base.id,
@@ -744,24 +746,6 @@ export class CountryIntelManager implements AppModule {
     }
 
     return indicators.slice(0, 3);
-  }
-
-  private countryCentroid(code: string): { lat: number; lon: number } | null {
-    const bbox = getCountryBbox(code);
-    if (bbox) {
-      const [minLon, minLat, maxLon, maxLat] = bbox;
-      return {
-        lat: (minLat + maxLat) / 2,
-        lon: (minLon + maxLon) / 2,
-      };
-    }
-
-    const fallback = CountryIntelManager.COUNTRY_BOUNDS[code];
-    if (!fallback) return null;
-    return {
-      lat: (fallback.n + fallback.s) / 2,
-      lon: (fallback.e + fallback.w) / 2,
-    };
   }
 
   private sameCountry(code: string, country: string, raw: string | undefined): boolean {

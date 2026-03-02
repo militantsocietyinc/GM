@@ -281,21 +281,166 @@ body.is-desktop-macos .mac-sidebar {
   background: rgba(255, 159, 10, 0.22);
 }
 
-/* Body-level mode accents for the sidebar chrome */
+/* ─── MODE THEMES ──────────────────────────────────────────────────────────── */
+
+/* ── WAR MODE — red alert, battle station ─────────────────────────────────── */
 body.is-desktop-macos[data-app-mode="war"] .mac-sidebar {
-  border-right-color: rgba(255, 69, 58, 0.35);
+  border-right-color: rgba(255, 69, 58, 0.45);
+  background: linear-gradient(
+    170deg,
+    rgba(140, 20, 15, 0.18) 0%,
+    var(--mac-sidebar-bg) 55%
+  );
+  box-shadow: inset -1px 0 0 rgba(255, 69, 58, 0.25),
+              2px 0 20px rgba(200, 30, 20, 0.08);
+}
+
+body.is-desktop-macos[data-app-mode="war"] .mac-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 69, 58, 0.8) 50%,
+    transparent 100%
+  );
+  animation: wm-war-topline 3s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes wm-war-topline {
+  0%, 100% { opacity: 0.35; transform: scaleX(0.6); }
+  50%       { opacity: 0.9;  transform: scaleX(1); }
+}
+
+body.is-desktop-macos[data-app-mode="war"] .mac-content-toolbar {
+  border-bottom-color: rgba(255, 69, 58, 0.3);
+  background: linear-gradient(
+    to right,
+    rgba(180, 20, 15, 0.1) 0%,
+    transparent 50%
+  );
 }
 
 body.is-desktop-macos[data-app-mode="war"] .mac-toolbar-title {
   color: var(--mac-red);
+  text-shadow: 0 0 14px rgba(255, 69, 58, 0.5);
+  letter-spacing: 0.04em;
 }
 
+body.is-desktop-macos[data-app-mode="war"] .mac-toolbar-status .status-dot {
+  background: var(--mac-red);
+  box-shadow: 0 0 6px rgba(255, 69, 58, 0.7);
+}
+
+body.is-desktop-macos[data-app-mode="war"] .mac-mode-section {
+  border-top-color: rgba(255, 69, 58, 0.3);
+}
+
+body.is-desktop-macos[data-app-mode="war"] .mac-sidebar-item.active {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--mac-red);
+}
+
+body.is-desktop-macos[data-app-mode="war"] .mac-sidebar-item.active .mac-sidebar-item-icon {
+  filter: drop-shadow(0 0 4px rgba(255, 69, 58, 0.5));
+}
+
+body.is-desktop-macos[data-app-mode="war"] .panel {
+  border-top: 1px solid rgba(255, 69, 58, 0.18);
+}
+
+body.is-desktop-macos[data-app-mode="war"] .panel-header {
+  border-bottom-color: rgba(255, 69, 58, 0.15);
+  background: linear-gradient(
+    to right,
+    rgba(180, 20, 15, 0.06) 0%,
+    transparent 60%
+  );
+}
+
+/* ── FINANCE MODE — green trading floor ───────────────────────────────────── */
 body.is-desktop-macos[data-app-mode="finance"] .mac-sidebar {
-  border-right-color: rgba(50, 215, 75, 0.25);
+  border-right-color: rgba(50, 215, 75, 0.4);
+  background: linear-gradient(
+    170deg,
+    rgba(10, 100, 30, 0.16) 0%,
+    var(--mac-sidebar-bg) 55%
+  );
+  box-shadow: inset -1px 0 0 rgba(50, 215, 75, 0.2),
+              2px 0 20px rgba(20, 120, 40, 0.06);
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .mac-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(50, 215, 75, 0.7) 50%,
+    transparent 100%
+  );
+  animation: wm-finance-topline 4s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes wm-finance-topline {
+  0%, 100% { opacity: 0.3; transform: scaleX(0.5); }
+  50%       { opacity: 0.8; transform: scaleX(1); }
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .mac-content-toolbar {
+  border-bottom-color: rgba(50, 215, 75, 0.2);
+  background: linear-gradient(
+    to right,
+    rgba(10, 100, 30, 0.08) 0%,
+    transparent 50%
+  );
 }
 
 body.is-desktop-macos[data-app-mode="finance"] .mac-toolbar-title {
   color: var(--mac-green);
+  text-shadow: 0 0 12px rgba(50, 215, 75, 0.4);
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .mac-toolbar-status .status-dot {
+  background: var(--mac-green);
+  box-shadow: 0 0 6px rgba(50, 215, 75, 0.6);
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .mac-mode-section {
+  border-top-color: rgba(50, 215, 75, 0.25);
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .mac-sidebar-item.active {
+  background: rgba(50, 215, 75, 0.1);
+  color: var(--mac-green);
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .mac-sidebar-item.active .mac-sidebar-item-icon {
+  filter: drop-shadow(0 0 3px rgba(50, 215, 75, 0.4));
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .panel {
+  border-top: 1px solid rgba(50, 215, 75, 0.12);
+}
+
+body.is-desktop-macos[data-app-mode="finance"] .panel-header {
+  border-bottom-color: rgba(50, 215, 75, 0.1);
+  background: linear-gradient(
+    to right,
+    rgba(10, 100, 30, 0.05) 0%,
+    transparent 60%
+  );
+}
+
+/* ── PEACE MODE — calm Apple blue (clean, mostly default) ─────────────────── */
+body.is-desktop-macos[data-app-mode="peace"] .mac-toolbar-title {
+  color: var(--mac-label);
 }
 
 /* Sidebar footer — settings / theme */

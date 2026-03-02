@@ -8,7 +8,10 @@ All notable changes to World Monitor are documented here.
 
 - **API Keys tab in Settings** — Desktop Configuration panel removed from sidebar; all API key management now lives in the gear-icon Settings modal under a new "API Keys" tab (matches original upstream fork design)
 - **AI Summary button** — ✦ button added to every non-video panel header; calls the configured AI provider (Ollama / Groq / Claude) and overlays a contextual summary of current panel data
-- **Finance Mode auto-trigger** — automatically switches from Peace Mode to Finance Mode when S&P 500 moves ≥2.5% or BTC moves ≥5% intraday
+- **Immersive monitoring modes** — Peace / Finance / War modes now each carry a full visual theme (War: red alert with animated glow; Finance: green trading floor; Peace: clean default) plus distinct synthesized audio cues
+- **Intelligent mode auto-triggers with deescalation** — War Mode now triggers on 5 signal types (hotspot escalation, military surge, geo convergence, velocity spike, keyword spike); Finance Mode triggers on S&P 500 ≥2.5%, BTC ≥5%, Oil ≥4%, or Gold ≥2% moves; both modes auto-restore to Peace after signals quiet down
+- **Panel reordering on mode switch** — panels dynamically reorder when mode changes (war panels to top in War Mode, finance panels to top in Finance Mode); original order restored on Peace Mode
+- **Mode-change sound design** — synthesized audio for each mode transition: War (staccato sawtooth alarm), Finance (ascending C-E-G chime), Peace (432 Hz resonant bell)
 - **Apple-style map controls** — map layer panel, zoom buttons, time slider, and basemap selector redesigned with macOS frosted-glass aesthetic (dark translucent backgrounds, backdrop-filter blur, Apple system blue, rounded corners)
 - **Basemap button layout** — Dark/Light/Satellite/Terrain now displayed in a 2×2 grid (previously 4 buttons in one cramped row)
 - **Performance optimizations** — VirtualList ResizeObserver disconnected on destroy (memory leak fix), DeckGL theme color calculation cached (CPU reduction), 5 MB log rotation for desktop.log and local-api.log
@@ -16,10 +19,14 @@ All notable changes to World Monitor are documented here.
 
 ### Added
 
+- `src/services/sound-manager.ts` — Web Audio API synthesizer for mode-transition sounds; War (sawtooth alarm), Finance (sine arpeggio), Peace (resonant 432 Hz bell); lazy AudioContext init; mute toggle persisted in localStorage
+- `src/services/mode-manager.ts` — `evaluateCommodityTrigger()`: Oil (CL=F) ≥4% or Gold (GC=F) ≥2% daily move triggers Finance Mode; `velocity_spike` and `keyword_spike` signal types added to War Mode detector; auto-deescalation: War Mode auto-restores to Peace after 20 min of zero signals; Finance Mode auto-restores after 60 min of calm markets; Finance Mode auto-trigger dispatches system notification
+- `src/app/panel-layout.ts` — `_applyModePanelOrder()`: reorders sidebar panels on mode change; War panels to top (alert-center, cyber-threats, oref-sirens, etc.), Finance panels to top (crypto, markets, stablecoins, etc.); original order saved and restored on Peace Mode
+- `src/styles/macos-native.css` — immersive War Mode theme (red sidebar gradient, animated top-line glow, red panel borders/headers, red toolbar title with text-shadow); Finance Mode theme (green equivalent); Peace Mode resets to default
 - `src/components/UnifiedSettings.ts` — "API Keys" tab (desktop only); lazy-creates and mounts `RuntimeConfigPanel` in full mode inside the Settings modal
 - `src/components/Panel.ts` — `getContentElement()` public accessor; `_runAiSummary()` / `_extractSummaryText()` methods; AI summary overlay with loading spinner, provider label, and close button; excludes `live-webcams`, `live-news`, `map` from AI button
-- `src/services/mode-manager.ts` — `evaluateFinanceTrigger()`: checks ^GSPC ≥2.5% or BTC ≥5% absolute daily move, calls `setMode('finance')` when in peace mode
-- `src/app/data-loader.ts` — wires `evaluateFinanceTrigger()` after crypto data loads
+- `src/app/data-loader.ts` — wires `evaluateCommodityTrigger()` after commodity data loads; wires `evaluateFinanceTrigger()` after crypto data loads
+- `src/App.ts` — calls `initSoundManager()` during Phase 3 init
 - `src/styles/main.css` — AI summary panel CSS (`.panel-ai-btn`, `.panel-ai-overlay`, spinner, result header); API Keys tab overflow scroll; Apple-style map control CSS with backdrop-filter blur and system blue accents
 - All 18 locale files — `header.tabApiKeys` translated (ar, de, el, es, fr, it, ja, ko, nl, pl, pt, ru, sv, th, tr, vi, zh)
 
@@ -33,6 +40,7 @@ All notable changes to World Monitor are documented here.
 - `src/components/DeckGLMap.ts` — module-level `_cachedTheme` variable; `getOverlayColors()` only recomputed when theme actually changes
 - `src-tauri/src/main.rs` — `rotate_log_if_needed()` rotates desktop.log and local-api.log at 5 MB (3 backups each)
 - Map basemap buttons layout: `display: flex` → `display: grid; grid-template-columns: 1fr 1fr`
+- War Mode auto-trigger threshold lowered from 3 to 2 signals; signal set expanded from 3 to 5 types
 
 ### Removed
 

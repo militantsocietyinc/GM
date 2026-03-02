@@ -83,6 +83,25 @@ export class PanelLayoutManager implements AppModule {
   private criticalBannerEl: HTMLElement | null = null;
   private readonly applyTimeRangeFilterDebounced: () => void;
 
+  /** Saved panel order from before a mode switch so Peace Mode can restore it. */
+  private _preModeOrder: string[] = [];
+
+  /** Panels always kept at the top regardless of mode (video feeds / live streams). */
+  private static readonly MODE_ANCHORS = ['live-news', 'live-webcams'];
+
+  /** Panels floated to top in Finance Mode. */
+  private static readonly FINANCE_PRIORITY = [
+    'crypto', 'markets', 'stablecoins', 'commodities',
+    'macro-signals', 'heatmap', 'etf-flows', 'economic',
+  ];
+
+  /** Panels floated to top in War Mode. */
+  private static readonly WAR_PRIORITY = [
+    'alert-center', 'cyber-threats', 'oref-sirens', 'telegram-intel',
+    'gdelt-intel', 'cascade', 'strategic-posture', 'strategic-risk',
+    'cii', 'satellite-fires', 'ucdp-events', 'displacement',
+  ];
+
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {
     this.ctx = ctx;
     this.callbacks = callbacks;
@@ -931,6 +950,58 @@ export class PanelLayoutManager implements AppModule {
         warBtn.title = 'War Mode — Conflict escalation monitoring';
       }
     }) as EventListener);
+
+    // Apply panel reorder for the initial mode on startup
+    this._applyModePanelOrder(getMode());
+
+    // Reorder panels whenever mode changes
+    document.addEventListener('wm:mode-changed', ((e: CustomEvent) => {
+      this._applyModePanelOrder((e.detail as { mode: AppMode }).mode);
+    }) as EventListener);
+  }
+
+  /**
+   * Reorder the panels grid to surface the most relevant panels for the
+   * active mode. Anchors (live-news, live-webcams) always stay at the top.
+   * Returning to Peace Mode restores the user's original order.
+   */
+  private _applyModePanelOrder(mode: AppMode): void {
+    const grid = document.getElementById('panelsGrid');
+    if (!grid) return;
+
+    // Keys of panels currently in the DOM, in order
+    const currentKeys = Array.from(grid.children)
+      .map(el => (el as HTMLElement).dataset.panel ?? '')
+      .filter(k => k.length > 0);
+
+    if (mode === 'peace') {
+      // Restore pre-mode order (or leave as-is if we never stored one)
+      const order = this._preModeOrder.length > 0 ? this._preModeOrder : currentKeys;
+      order.forEach(key => {
+        const panel = this.ctx.panels[key];
+        if (panel) grid.appendChild(panel.getElement());
+      });
+      this._preModeOrder = [];
+      return;
+    }
+
+    // Save the user's current order before the first mode switch away from peace
+    if (this._preModeOrder.length === 0) {
+      this._preModeOrder = [...currentKeys];
+    }
+
+    const priority =
+      mode === 'finance' ? PanelLayoutManager.FINANCE_PRIORITY :
+      mode === 'war'     ? PanelLayoutManager.WAR_PRIORITY : [];
+
+    const anchors = PanelLayoutManager.MODE_ANCHORS.filter(k => currentKeys.includes(k));
+    const priorityPresent = priority.filter(k => currentKeys.includes(k) && !anchors.includes(k));
+    const rest = currentKeys.filter(k => !anchors.includes(k) && !priorityPresent.includes(k));
+
+    [...anchors, ...priorityPresent, ...rest].forEach(key => {
+      const panel = this.ctx.panels[key];
+      if (panel) grid.appendChild(panel.getElement());
+    });
   }
 
   private applyTimeRangeFilterToNewsPanels(): void {

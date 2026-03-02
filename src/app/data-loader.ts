@@ -58,7 +58,7 @@ import {
   fetchCriticalMinerals,
 } from '@/services';
 import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
-import { evaluateWarThreat, evaluateFinanceTrigger } from '@/services/mode-manager';
+import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger } from '@/services/mode-manager';
 import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid } from '@/services/clustering';
 import { ingestProtests, ingestFlights, ingestVessels, ingestEarthquakes, detectGeoConvergence, geoConvergenceToSignal } from '@/services/geo-convergence';
@@ -890,6 +890,8 @@ export class DataLoaderManager implements AppModule {
         if (mapped.some(d => d.price !== null)) {
           commoditiesPanel.renderCommodities(mapped);
           commoditiesLoaded = true;
+          // Auto-trigger Finance Mode on large Oil or Gold moves
+          evaluateCommodityTrigger(commoditiesResult.data);
         }
       }
       if (!commoditiesLoaded) {

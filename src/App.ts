@@ -17,6 +17,7 @@ import { loadFromStorage, parseMapUrlState, saveToStorage, isMobileDevice } from
 import type { ParsedMapUrlState } from '@/utils';
 import { SignalModal, IntelligenceGapBadge, BreakingNewsBanner } from '@/components';
 import { initBreakingNewsAlerts, destroyBreakingNewsAlerts } from '@/services/breaking-news-alerts';
+import { initSoundManager } from '@/services/sound-manager';
 import type { ServiceStatusPanel } from '@/components/ServiceStatusPanel';
 import type { StablecoinPanel } from '@/components/StablecoinPanel';
 import type { ETFFlowsPanel } from '@/components/ETFFlowsPanel';
@@ -371,6 +372,7 @@ export class App {
     }
 
     // Phase 3: UI setup methods
+    initSoundManager();
     this.eventHandlers.startHeaderClock();
     this.eventHandlers.setupMobileWarning();
     this.eventHandlers.setupPlaybackControl();

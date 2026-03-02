@@ -33,7 +33,10 @@
 
 | Feature | Detail |
 |---|---|
+| **Peace / Finance / War Modes** | Three monitoring lenses switchable from the sidebar — Peace (standard), Finance (markets focus, auto-triggers on ≥2.5% S&P or ≥5% BTC move), War (conflict escalation; auto-activates when 3+ threat signals detected). Red/green sidebar accents, one-tap Alert Family clipboard message in War Mode |
+| **AI Panel Summaries** | ✦ button on every data panel generates an on-demand AI summary of current panel content using your configured provider (Ollama · Groq · Claude · OpenRouter) |
 | **Native sidebar** | SF Pro, vibrancy-backed, collapsible, HIG-compliant panel navigation |
+| **API Keys in Settings** | All data-source API keys managed in the gear-icon Settings modal (API Keys tab) — no prominent config panel cluttering the sidebar |
 | **Auto-update** | GitHub Releases API polling — "Update Now" downloads DMG, mounts, replaces app, relaunches |
 | **Native notifications** | macOS notification center alerts for critical/high breaking intelligence events |
 | **Live cyber threat map** | 500 IOCs geo-plotted on the 3D globe (Feodo · URLhaus · C2Intel · OTX · AbuseIPDB) |

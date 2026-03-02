@@ -48,10 +48,6 @@ export class Toast {
     this.startAutoDismiss(options.duration ?? DEFAULT_DURATION);
   }
 
-  private generateId(): string {
-    return `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-  }
-
   private createElement(options: ToastOptions): HTMLElement {
     const config = TYPE_CONFIG[options.type];
     return h('div', {

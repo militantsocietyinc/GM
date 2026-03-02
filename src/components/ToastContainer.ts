@@ -164,8 +164,7 @@ export class ToastContainer {
 export const toast = new ToastContainer();
 
 // Re-export types for convenience
-export type { ToastOptions, ToastAction } from './Toast';
-export { ToastType } from './Toast';
+export type { ToastOptions, ToastAction, ToastType } from './Toast';
 
 /**
  * Test usage examples (for development):

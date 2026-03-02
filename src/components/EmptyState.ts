@@ -207,6 +207,9 @@ export class EmptyState {
    * Destroys the current empty state and cleans up.
    */
   public destroy(): void {
+    if (this.currentElement && this.currentElement.parentNode) {
+      this.currentElement.parentNode.removeChild(this.currentElement);
+    }
     this.currentElement = null;
   }
 }

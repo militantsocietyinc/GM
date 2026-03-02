@@ -455,7 +455,7 @@ export class NewsPanel extends Panel {
     const articleLinks = this.content.querySelectorAll<HTMLAnchorElement>('.item-title');
     articleLinks.forEach(link => {
       link.addEventListener('click', () => {
-        const item = link.closest('.item');
+        const item = link.closest('.item') as HTMLElement | null;
         if (item) {
           const articleId = item.dataset.articleId;
           if (articleId) {

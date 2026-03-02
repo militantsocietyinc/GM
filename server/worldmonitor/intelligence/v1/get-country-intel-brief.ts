@@ -46,7 +46,7 @@ export async function getCountryIntelBrief(
   }
 
   const contextHash = contextSnapshot ? hashString(contextSnapshot) : 'base';
-  const cacheKey = `ci-sebuf:v2:${req.countryCode}:${contextHash}`;
+  const cacheKey = `ci-sebuf:v2:${req.countryCode}:${lang}:${contextHash}`;
   const countryName = TIER1_COUNTRIES[req.countryCode] || req.countryCode;
   const dateStr = new Date().toISOString().split('T')[0];
 

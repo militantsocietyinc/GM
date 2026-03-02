@@ -29,7 +29,7 @@ import { BETA_MODE } from '@/config/beta';
 import { MILITARY_BASES } from '@/config';
 import { mlWorker } from '@/services/ml-worker';
 import { isHeadlineMemoryEnabled } from '@/services/ai-flow-settings';
-import { t } from '@/services/i18n';
+import { t, getCurrentLanguage } from '@/services/i18n';
 import { trackCountrySelected, trackCountryBriefOpened } from '@/services/analytics';
 import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
 import type { NewsItem } from '@/types';
@@ -284,8 +284,8 @@ export class CountryIntelManager implements AppModule {
         const sumModelId = BETA_MODE ? 'summarization-beta' : 'summarization';
         if (briefHeadlines.length >= 2 && mlWorker.isAvailable && mlWorker.isModelLoaded(sumModelId)) {
           try {
-            const isFr = window.localStorage.getItem('i18nextLng') === 'fr';
-            const prompt = isFr
+            const lang = getCurrentLanguage();
+            const prompt = lang === 'fr'
               ? `Résumez la situation actuelle en ${country} à partir de ces titres : ${briefHeadlines.slice(0, 8).join('. ')}`
               : `Summarize the current situation in ${country} based on these headlines: ${briefHeadlines.slice(0, 8).join('. ')}`;
 
@@ -332,7 +332,7 @@ export class CountryIntelManager implements AppModule {
   }
 
   private async fetchCountryIntelBrief(code: string, contextSnapshot: string): Promise<string> {
-    const lang = window.localStorage.getItem('i18nextLng') || 'en';
+    const lang = getCurrentLanguage();
     const params = new URLSearchParams({ country_code: code, lang });
     const trimmed = contextSnapshot.trim();
     if (trimmed.length > 0) {

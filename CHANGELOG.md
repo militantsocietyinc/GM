@@ -2,6 +2,41 @@
 
 All notable changes to World Monitor are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Natural Disaster Mode** — 4th monitoring mode (`'disaster'`) with amber/orange Apple system orange theme
+  - Auto-triggers from Peace Mode on: any GDACS Red alert, 3+ simultaneous GDACS Orange alerts, or M6.5+ earthquake
+  - Auto-deescalates to Peace Mode after 30 min with no new disaster events
+  - Synthesized audio: low sub-bass rumble (80 Hz square wave) + descending klaxon (480→340 Hz sawtooth)
+  - Amber/orange CSS theme: sidebar gradient, animated top-line, toolbar title, panel borders, button pulse
+  - Panel priority: natural-disasters, earthquakes, satellite-fires, gdacs, alert-center, displacement
+  - System notification on auto-trigger
+- `src/services/oref-locations.ts` — 1,478 Hebrew→English location translations (cherry-picked from upstream)
+
+### Changed
+
+- `src/services/mode-manager.ts` — `AppMode` extended to `'peace' | 'finance' | 'war' | 'disaster'`; `evaluateDisasterTrigger()` added; `initMode()` accepts `'disaster'`
+- `src/services/sound-manager.ts` — `_playDisasterAlert()` added; switch statement covers all 4 modes
+- `src/styles/macos-native.css` — Disaster Mode amber/orange theme + button `.mac-mode-disaster-active` style
+- `src/app/panel-layout.ts` — `DISASTER_PRIORITY` array; disaster sidebar button; `mac-mode-disaster-active` toggle in event handler; `_applyModePanelOrder` covers `'disaster'`
+- `src/app/data-loader.ts` — `evaluateDisasterTrigger()` wired after `loadNatural()` completes
+
+### Upstream sync (cherry-picked from koala73/worldmonitor)
+
+- `8970335` fix: suppress map renders during resize drag
+- `7c8943d` feat: add Iran & Strait of Hormuz zones, upgrade Ukraine polygon
+- `697f334` fix: replace dead Tel Aviv live stream
+- `cd86433` fix(oref): prevent LLM translation cache poisoning + add static Hebrew→English translations
+- `1933b3a` feat(cmdk): disambiguate Map vs Panel commands + add Czech locale
+- `58cb2b6` feat(cmdk): rotating contextual tips in empty state
+- `f4e1159` feat(header): add Download App button for web users
+- `bb31b43` feat(header): download dropdown + move system status into Settings (merged with API Keys tab)
+- `8a41422` fix: harden Windows installer update path and map resize behavior
+
+---
+
 ## [2.5.25] - 2026-03-01
 
 ### Highlights

@@ -58,7 +58,8 @@ import {
   fetchCriticalMinerals,
 } from '@/services';
 import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
-import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger } from '@/services/mode-manager';
+import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger, evaluateDisasterTrigger } from '@/services/mode-manager';
+import { fetchGDACSEvents } from '@/services/gdacs';
 import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid } from '@/services/clustering';
 import { ingestProtests, ingestFlights, ingestVessels, ingestEarthquakes, detectGeoConvergence, geoConvergenceToSignal } from '@/services/geo-convergence';
@@ -976,6 +977,10 @@ export class DataLoaderManager implements AppModule {
     const hasEarthquakes = earthquakeResult.status === 'fulfilled' && earthquakeResult.value.length > 0;
     const hasEonet = eonetResult.status === 'fulfilled' && eonetResult.value.length > 0;
     this.ctx.map?.setLayerReady('natural', hasEarthquakes || hasEonet);
+
+    // Evaluate disaster auto-trigger (uses cached GDACS data — no extra fetch)
+    const earthquakes = earthquakeResult.status === 'fulfilled' ? earthquakeResult.value : [];
+    fetchGDACSEvents().then(gdacs => evaluateDisasterTrigger(gdacs, earthquakes)).catch(() => {});
   }
 
   async loadTechEvents(): Promise<void> {

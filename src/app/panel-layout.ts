@@ -102,6 +102,12 @@ export class PanelLayoutManager implements AppModule {
     'cii', 'satellite-fires', 'ucdp-events', 'displacement',
   ];
 
+  /** Panels floated to top in Disaster Mode. */
+  private static readonly DISASTER_PRIORITY = [
+    'natural-disasters', 'earthquakes', 'satellite-fires', 'gdacs',
+    'alert-center', 'displacement', 'oref-sirens', 'weather',
+  ];
+
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {
     this.ctx = ctx;
     this.callbacks = callbacks;
@@ -277,6 +283,7 @@ export class PanelLayoutManager implements AppModule {
               <button class="mac-mode-btn${initMode() === 'peace' ? ' mac-mode-active' : ''}" data-mode="peace" title="Peace Mode — Standard world monitoring">🕊 Peace</button>
               <button class="mac-mode-btn${getMode() === 'finance' ? ' mac-mode-active mac-mode-finance-active' : ''}" data-mode="finance" title="Finance Mode — Markets &amp; economic focus">💰 Finance</button>
               <button class="mac-mode-btn${getMode() === 'war' ? ' mac-mode-active mac-mode-war-active' : ''}" data-mode="war" title="War Mode — Conflict escalation monitoring">⚔ War</button>
+              <button class="mac-mode-btn${getMode() === 'disaster' ? ' mac-mode-active mac-mode-disaster-active' : ''}" data-mode="disaster" title="Disaster Mode — Natural disaster monitoring">🌋 Disaster</button>
             </div>
             ${getMode() === 'war' ? '<button class="mac-alert-family-btn" id="alertFamilyBtn">⚠ Alert Family</button>' : ''}
           </div>` : ''}
@@ -920,6 +927,7 @@ export class PanelLayoutManager implements AppModule {
         btn.classList.toggle('mac-mode-active', btnMode === mode);
         btn.classList.toggle('mac-mode-finance-active', btnMode === 'finance' && mode === 'finance');
         btn.classList.toggle('mac-mode-war-active', btnMode === 'war' && mode === 'war');
+        btn.classList.toggle('mac-mode-disaster-active', btnMode === 'disaster' && mode === 'disaster');
       });
 
       // Show / hide Alert Family button
@@ -997,8 +1005,9 @@ export class PanelLayoutManager implements AppModule {
     }
 
     const priority =
-      mode === 'finance' ? PanelLayoutManager.FINANCE_PRIORITY :
-      mode === 'war'     ? PanelLayoutManager.WAR_PRIORITY : [];
+      mode === 'finance'  ? PanelLayoutManager.FINANCE_PRIORITY :
+      mode === 'war'      ? PanelLayoutManager.WAR_PRIORITY :
+      mode === 'disaster' ? PanelLayoutManager.DISASTER_PRIORITY : [];
 
     const anchors = PanelLayoutManager.MODE_ANCHORS.filter(k => currentKeys.includes(k));
     const priorityPresent = priority.filter(k => currentKeys.includes(k) && !anchors.includes(k));

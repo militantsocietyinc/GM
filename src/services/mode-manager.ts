@@ -1,16 +1,18 @@
 /**
- * App Mode Manager — Peace / Finance / War
+ * App Mode Manager — Peace / Finance / War / Disaster
  *
- * Three monitoring modes that shift panel focus and visual accent.
- * War Mode and Finance Mode can auto-trigger when data signals reach a threshold.
- * Auto-triggered modes restore to Peace after signals quiet for a cooldown period.
- * Persists selection to localStorage so it survives page reload.
+ * Four monitoring modes that shift panel focus and visual accent.
+ * War Mode, Finance Mode, and Disaster Mode can auto-trigger when data signals
+ * reach a threshold. Auto-triggered modes restore to Peace after signals quiet
+ * for a cooldown period. Persists selection to localStorage so it survives reload.
  */
 
 import type { CorrelationSignal } from '@/services/correlation';
 import type { MarketData, CryptoData } from '@/types';
+import type { GDACSEvent } from '@/services/gdacs';
+import type { Earthquake } from '@/services/earthquakes';
 
-export type AppMode = 'peace' | 'finance' | 'war';
+export type AppMode = 'peace' | 'finance' | 'war' | 'disaster';
 
 const MODE_STORAGE_KEY = 'wm-app-mode';
 
@@ -60,6 +62,20 @@ const FINANCE_TRIGGER_GOLD_PCT = 2.0;
 const FINANCE_QUIET_RESTORE_MS = 60 * 60 * 1000; // 60 minutes
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Thresholds — Disaster Mode
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** GDACS Red alert triggers Disaster Mode immediately (any event type). */
+const DISASTER_GDACS_RED = true;
+/** Number of simultaneous GDACS Orange alerts that trigger Disaster Mode. */
+const DISASTER_GDACS_ORANGE_COUNT = 3;
+/** Earthquake magnitude that triggers Disaster Mode (major earthquake). */
+const DISASTER_EQ_MAGNITUDE = 6.5;
+
+/** After this many ms with no new disaster events, auto-restore to Peace. */
+const DISASTER_QUIET_RESTORE_MS = 30 * 60 * 1000; // 30 minutes
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Runtime state
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -76,6 +92,9 @@ let _lastWarSignalTime = 0;
 
 /** Timestamp of when Finance auto-trigger last fired, used for quiet-window detection. */
 let _financeAutoTriggerTime = 0;
+
+/** Timestamp of when Disaster auto-trigger last fired, used for quiet-window detection. */
+let _disasterAutoTriggerTime = 0;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Public API
@@ -116,6 +135,9 @@ export function setMode(mode: AppMode, auto = false): void {
   if (auto && mode === 'finance') {
     _notifyFinanceModeActivated();
   }
+  if (auto && mode === 'disaster') {
+    _notifyDisasterModeActivated();
+  }
 }
 
 /**
@@ -125,7 +147,7 @@ export function setMode(mode: AppMode, auto = false): void {
 export function initMode(): AppMode {
   try {
     const saved = localStorage.getItem(MODE_STORAGE_KEY) as AppMode | null;
-    if (saved === 'peace' || saved === 'finance' || saved === 'war') {
+    if (saved === 'peace' || saved === 'finance' || saved === 'war' || saved === 'disaster') {
       currentMode = saved;
     }
   } catch {
@@ -243,6 +265,46 @@ export function evaluateCommodityTrigger(commodities: MarketData[]): void {
 }
 
 /**
+ * Evaluate GDACS events and earthquake data and auto-switch from Peace → Disaster Mode
+ * when a major natural disaster is detected.
+ *
+ * Triggers:
+ *  - Any GDACS Red alert event
+ *  - 3+ simultaneous GDACS Orange alert events
+ *  - Any earthquake with magnitude ≥ 6.5
+ *
+ * Auto-deescalation: if Disaster Mode was auto-triggered and no new trigger fires
+ * within DISASTER_QUIET_RESTORE_MS, restores to Peace Mode.
+ */
+export function evaluateDisasterTrigger(gdacs: GDACSEvent[], earthquakes: Earthquake[]): void {
+  const now = Date.now();
+
+  // Auto-deescalation check (runs regardless of current mode)
+  if (
+    currentMode === 'disaster' &&
+    _autoTriggeredMode === 'disaster' &&
+    _disasterAutoTriggerTime > 0 &&
+    now - _disasterAutoTriggerTime > DISASTER_QUIET_RESTORE_MS
+  ) {
+    _autoTriggeredMode = null;
+    setMode('peace', true);
+    return;
+  }
+
+  if (currentMode !== 'peace') return;
+
+  const hasRedAlert = DISASTER_GDACS_RED && gdacs.some(e => e.alertLevel === 'Red');
+  const orangeCount = gdacs.filter(e => e.alertLevel === 'Orange').length;
+  const hasManyOrange = orangeCount >= DISASTER_GDACS_ORANGE_COUNT;
+  const hasMajorQuake = earthquakes.some(eq => (eq.magnitude ?? 0) >= DISASTER_EQ_MAGNITUDE);
+
+  if (hasRedAlert || hasManyOrange || hasMajorQuake) {
+    _disasterAutoTriggerTime = now;
+    setMode('disaster', true);
+  }
+}
+
+/**
  * Copy a pre-formatted family safety alert to the clipboard.
  * The user can then paste it into SMS / messaging apps.
  */
@@ -298,6 +360,20 @@ function _notifyFinanceModeActivated(): void {
       new Notification('📈 World Monitor — Finance Mode Activated', {
         body: 'Significant market movement detected. Monitoring has switched to Finance Mode.',
         tag: 'wm-finance-mode',
+        requireInteraction: false,
+      });
+    }
+  } catch {
+    // Notifications unavailable in this environment
+  }
+}
+
+function _notifyDisasterModeActivated(): void {
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('🌋 World Monitor — Disaster Mode Activated', {
+        body: 'Major natural disaster event detected. Monitoring has switched to Disaster Mode.',
+        tag: 'wm-disaster-mode',
         requireInteraction: false,
       });
     }

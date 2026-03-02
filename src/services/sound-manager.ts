@@ -4,9 +4,10 @@
  * Synthesizes distinct sounds for each monitoring mode using the Web Audio API.
  * No audio files required — all sounds are generated procedurally.
  *
- * War Mode:   rapid staccato alarm (submarine battle stations feel)
- * Finance Mode: ascending market chime (trading floor open)
- * Peace Mode: soft resonant tone (situation resolved)
+ * War Mode:      rapid staccato alarm (submarine battle stations feel)
+ * Finance Mode:  ascending market chime (trading floor open)
+ * Peace Mode:    soft resonant tone (situation resolved)
+ * Disaster Mode: low rumble + urgent descending klaxon (seismic alert)
  *
  * Sounds respect the global mute setting stored at localStorage key 'wm-sound-muted'.
  * AudioContext is created lazily on first interaction to satisfy browser autoplay policy.
@@ -80,9 +81,10 @@ function _getCtx(): AudioContext | null {
 function _playModeSound(mode: AppMode): void {
   if (isMuted()) return;
   switch (mode) {
-    case 'war':     return _playWarAlarm();
-    case 'finance': return _playFinanceChime();
-    case 'peace':   return _playPeaceTone();
+    case 'war':      return _playWarAlarm();
+    case 'finance':  return _playFinanceChime();
+    case 'peace':    return _playPeaceTone();
+    case 'disaster': return _playDisasterAlert();
   }
 }
 
@@ -146,6 +148,48 @@ function _playFinanceChime(): void {
     gain.connect(ctx.destination);
     osc.start(start);
     osc.stop(start + noteMs / 1000 + 0.1);
+  });
+}
+
+/**
+ * Disaster Mode alert — low seismic rumble followed by descending klaxon.
+ * Sub-bass drone (80 Hz) for the rumble, then two urgent descending tones.
+ */
+function _playDisasterAlert(): void {
+  const ctx = _getCtx();
+  if (!ctx) return;
+
+  // Sub-bass rumble — square wave at 80 Hz, 0.6s decay
+  const rumbleOsc = ctx.createOscillator();
+  const rumbleGain = ctx.createGain();
+  rumbleOsc.type = 'square';
+  rumbleOsc.frequency.setValueAtTime(80, ctx.currentTime);
+  rumbleGain.gain.setValueAtTime(0, ctx.currentTime);
+  rumbleGain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.05);
+  rumbleGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+  rumbleOsc.connect(rumbleGain);
+  rumbleGain.connect(ctx.destination);
+  rumbleOsc.start(ctx.currentTime);
+  rumbleOsc.stop(ctx.currentTime + 0.65);
+
+  // Descending klaxon — two sawtooth bursts dropping 480→340 Hz
+  const klaxonFreqs = [480, 340];
+  const noteMs = 180;
+  const gapMs = 60;
+  klaxonFreqs.forEach((freq, i) => {
+    const start = ctx.currentTime + 0.4 + i * ((noteMs + gapMs) / 1000);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, start);
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.30, start + 0.01);
+    gain.gain.setValueAtTime(0.30, start + noteMs / 1000 - 0.02);
+    gain.gain.linearRampToValueAtTime(0, start + noteMs / 1000);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + noteMs / 1000 + 0.02);
   });
 }
 

@@ -229,6 +229,19 @@ body.is-desktop-macos .mac-sidebar {
   color: var(--mac-green);
 }
 
+/* Disaster active — amber/orange with slow pulse */
+.mac-mode-btn.mac-mode-disaster-active {
+  background: rgba(255, 149, 0, 0.18);
+  border-color: rgba(255, 149, 0, 0.55);
+  color: #ff9500;
+  animation: wm-disaster-pulse 3s ease-in-out infinite;
+}
+
+@keyframes wm-disaster-pulse {
+  0%, 100% { box-shadow: none; }
+  50%       { box-shadow: 0 0 0 2px rgba(255, 149, 0, 0.28); }
+}
+
 /* War active — red with pulse */
 .mac-mode-btn.mac-mode-war-active {
   background: rgba(255, 69, 58, 0.18);
@@ -434,6 +447,83 @@ body.is-desktop-macos[data-app-mode="finance"] .panel-header {
   background: linear-gradient(
     to right,
     rgba(10, 100, 30, 0.05) 0%,
+    transparent 60%
+  );
+}
+
+/* ── DISASTER MODE — amber/orange Apple system orange ─────────────────────── */
+body.is-desktop-macos[data-app-mode="disaster"] .mac-sidebar {
+  border-right-color: rgba(255, 149, 0, 0.4);
+  background: linear-gradient(
+    170deg,
+    rgba(120, 60, 0, 0.16) 0%,
+    var(--mac-sidebar-bg) 55%
+  );
+  box-shadow: inset -1px 0 0 rgba(255, 149, 0, 0.2),
+              2px 0 20px rgba(180, 90, 0, 0.06);
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .mac-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 149, 0, 0.8) 50%,
+    transparent 100%
+  );
+  animation: wm-disaster-topline 3s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes wm-disaster-topline {
+  0%, 100% { opacity: 0.35; transform: scaleX(0.6); }
+  50%       { opacity: 0.9; transform: scaleX(1); }
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .mac-content-toolbar {
+  border-bottom-color: rgba(255, 149, 0, 0.22);
+  background: linear-gradient(
+    to right,
+    rgba(120, 60, 0, 0.08) 0%,
+    transparent 50%
+  );
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .mac-toolbar-title {
+  color: #ff9500;
+  text-shadow: 0 0 12px rgba(255, 149, 0, 0.35);
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .mac-toolbar-status .status-dot {
+  background: #ff9500;
+  box-shadow: 0 0 6px rgba(255, 149, 0, 0.6);
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .mac-mode-section {
+  border-top-color: rgba(255, 149, 0, 0.25);
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .mac-sidebar-item.active {
+  background: rgba(255, 149, 0, 0.10);
+  color: #ff9500;
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .mac-sidebar-item.active .mac-sidebar-item-icon {
+  filter: drop-shadow(0 0 3px rgba(255, 149, 0, 0.4));
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .panel {
+  border-top: 1px solid rgba(255, 149, 0, 0.12);
+}
+
+body.is-desktop-macos[data-app-mode="disaster"] .panel-header {
+  border-bottom-color: rgba(255, 149, 0, 0.1);
+  background: linear-gradient(
+    to right,
+    rgba(120, 60, 0, 0.05) 0%,
     transparent 60%
   );
 }

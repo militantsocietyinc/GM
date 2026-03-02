@@ -37,6 +37,7 @@ import type { HappinessData } from '@/services/happiness-data';
 import type { SpeciesRecovery } from '@/services/conservation-data';
 import type { RenewableInstallation } from '@/services/renewable-installations';
 import type { GpsJamHex } from '@/services/gps-interference';
+import type { AirstrikeEvent } from '@/services/airstrikes';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -324,6 +325,12 @@ export class MapContainer {
   public setUcdpEvents(events: UcdpGeoEvent[]): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setUcdpEvents(events);
+    }
+  }
+
+  public setAirstrikes(events: AirstrikeEvent[]): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setAirstrikes(events);
     }
   }
 

@@ -120,6 +120,8 @@ import { AlertCenterPanel } from '@/components/AlertCenterPanel';
 import { SpaceWeatherPanel } from '@/components/SpaceWeatherPanel';
 import { DiseaseOutbreakPanel } from '@/components/DiseaseOutbreakPanel';
 import { AirQualityPanel } from '@/components/AirQualityPanel';
+import { AirstrikesPanel } from '@/components/AirstrikesPanel';
+import { fetchAirstrikes } from '@/services/airstrikes';
 import { fetchSpaceWeather } from '@/services/space-weather';
 import { fetchDiseaseOutbreaks } from '@/services/disease-outbreak';
 import { fetchGlobalAirQuality } from '@/services/air-quality';
@@ -1224,6 +1226,21 @@ export class DataLoaderManager implements AppModule {
       } catch (error) {
         console.error('[Intelligence] UCDP events fetch failed:', error);
         dataFreshness.recordError('ucdp_events', String(error));
+      }
+    })());
+
+    // Air strikes & drone events (ACLED)
+    tasks.push((async () => {
+      try {
+        const events = await fetchAirstrikes();
+        (this.ctx.panels['airstrikes'] as AirstrikesPanel)?.update(events);
+        if (this.ctx.mapLayers.airstrikes) {
+          this.ctx.map?.setAirstrikes(events);
+        }
+        if (events.length > 0) dataFreshness.recordUpdate('acled_airstrikes', events.length);
+      } catch (error) {
+        console.error('[Intelligence] Airstrikes fetch failed:', error);
+        dataFreshness.recordError('acled_airstrikes', String(error));
       }
     })());
 

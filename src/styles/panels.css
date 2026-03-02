@@ -392,3 +392,21 @@
 .ac-age { font-size: 9px; color: var(--text-muted); white-space: nowrap; }
 .ac-row-critical td { background: color-mix(in srgb, var(--semantic-critical, #ef4444) 4%, transparent); }
 .ac-row-high td { background: color-mix(in srgb, var(--semantic-high, #f97316) 3%, transparent); }
+
+/* ----------------------------------------------------------
+   Air Strikes & Drones Panel (ACLED)
+   ---------------------------------------------------------- */
+.as-list { display: flex; flex-direction: column; gap: 1px; }
+.as-row { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--panel-border, rgba(255,255,255,0.06)); transition: background 0.1s; }
+.as-row:hover { background: var(--panel-hover, rgba(255,255,255,0.05)); }
+.as-row:last-child { border-bottom: none; }
+.as-row-header { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.as-pill { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap; }
+.as-pill-drone { background: color-mix(in srgb, #8b5cf6 18%, transparent); color: #a78bfa; }
+.as-pill-missile { background: color-mix(in srgb, #f97316 18%, transparent); color: #fb923c; }
+.as-pill-air { background: color-mix(in srgb, #ef4444 16%, transparent); color: #f87171; }
+.as-date { font-size: 10px; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+.as-fatalities { font-size: 10px; font-weight: 600; color: #f87171; white-space: nowrap; }
+.as-location { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; }
+.as-actor { font-size: 10px; color: var(--text-dim); }
+.as-notes { font-size: 10px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }

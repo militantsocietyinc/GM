@@ -9,6 +9,7 @@ export type RuntimeSecretKey =
   | 'EIA_API_KEY'
   | 'CLOUDFLARE_API_TOKEN'
   | 'ACLED_ACCESS_TOKEN'
+  | 'ACLED_EMAIL'
   | 'URLHAUS_AUTH_KEY'
   | 'OTX_API_KEY'
   | 'ABUSEIPDB_API_KEY'
@@ -36,6 +37,7 @@ export type RuntimeFeatureId =
   | 'energyEia'
   | 'internetOutages'
   | 'acledConflicts'
+  | 'acledAirstrikes'
   | 'abuseChThreatIntel'
   | 'alienvaultOtxThreatIntel'
   | 'abuseIpdbThreatIntel'
@@ -85,6 +87,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   energyEia: true,
   internetOutages: true,
   acledConflicts: true,
+  acledAirstrikes: true,
   abuseChThreatIntel: true,
   alienvaultOtxThreatIntel: true,
   abuseIpdbThreatIntel: true,
@@ -163,6 +166,14 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     requiredSecrets: ['ACLED_ACCESS_TOKEN'],
     desktopRequiredSecrets: [],
     fallback: 'Conflict/protest overlays are hidden.',
+  },
+  {
+    id: 'acledAirstrikes',
+    name: 'ACLED air strikes & drone events',
+    description: 'Air/drone strikes and missile attacks from ACLED (last 30 days, global).',
+    requiredSecrets: ['ACLED_ACCESS_TOKEN', 'ACLED_EMAIL'],
+    desktopRequiredSecrets: [],
+    fallback: 'Air strikes & drone layer is hidden.',
   },
   {
     id: 'abuseChThreatIntel',

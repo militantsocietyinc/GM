@@ -104,6 +104,7 @@ import {
   type ThreatType,
 } from '@/services/arrival-choreography';
 import { isLowPowerMode } from '@/services/low-power';
+import type { AirstrikeEvent } from '@/services/airstrikes';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -315,6 +316,7 @@ export class DeckGLMap {
   private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
   private newsLocationFirstSeen = new Map<string, number>();
   private ucdpEvents: UcdpGeoEvent[] = [];
+  private airstrikesData: AirstrikeEvent[] = [];
   private displacementFlows: DisplacementFlow[] = [];
   private gpsJammingHexes: GpsJamHex[] = [];
   private climateAnomalies: ClimateAnomaly[] = [];
@@ -1260,6 +1262,11 @@ export class DeckGLMap {
     // UCDP georeferenced events layer
     if (mapLayers.ucdpEvents && filteredUcdpEvents.length > 0) {
       layers.push(this.createUcdpEventsLayer(filteredUcdpEvents));
+    }
+
+    // Air strikes & drone events layer
+    if (mapLayers.airstrikes && this.airstrikesData.length > 0) {
+      layers.push(this.createAirstrikesLayer());
     }
 
     // Displacement flows arc layer
@@ -3035,6 +3042,11 @@ export class DeckGLMap {
           </div>`,
         };
       }
+      case 'airstrikes-layer': {
+        const fatStr = obj.fatalities > 0 ? `<br/><span style="color:#f87171">${obj.fatalities} fatalities</span>` : '';
+        const actorStr = obj.actor ? `<br/><span style="opacity:.8">${text(obj.actor)}</span>` : '';
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.subEventType || obj.eventType)}</strong><br/>${text([obj.location, obj.country].filter(Boolean).join(', '))}${actorStr}${fatStr}<br/><span style="opacity:.6">${text(obj.date)}</span></div>` };
+      }
       default:
         return null;
     }
@@ -3879,6 +3891,28 @@ export class DeckGLMap {
     });
   }
 
+  private createAirstrikesLayer(): ScatterplotLayer<AirstrikeEvent> {
+    return new ScatterplotLayer<AirstrikeEvent>({
+      id: 'airstrikes-layer',
+      data: this.airstrikesData,
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: (d) => Math.max(8000, 8000 + Math.sqrt(d.fatalities || 0) * 5000),
+      getFillColor: (d) => {
+        const sub = d.subEventType.toLowerCase();
+        if (sub.includes('drone') || sub.includes('loiter')) return [140, 80, 255, 210];
+        if (sub.includes('missile')) return [255, 100, 20, 220];
+        if (sub.includes('shell') || sub.includes('artill')) return [255, 200, 30, 200];
+        return [255, 40, 40, 220]; // generic airstrike
+      },
+      radiusMinPixels: 4,
+      radiusMaxPixels: 24,
+      stroked: true,
+      getLineColor: [255, 255, 255, 80],
+      lineWidthMinPixels: 1,
+      pickable: true,
+    });
+  }
+
   private createDisplacementArcsLayer(): ArcLayer<DisplacementFlow> {
     const withCoords = this.displacementFlows.filter(f => f.originLat != null && f.asylumLat != null);
     const top50 = withCoords.slice(0, 50);
@@ -4153,6 +4187,11 @@ export class DeckGLMap {
 
   public setUcdpEvents(events: UcdpGeoEvent[]): void {
     this.ucdpEvents = events;
+    this.render();
+  }
+
+  public setAirstrikes(events: AirstrikeEvent[]): void {
+    this.airstrikesData = events;
     this.render();
   }
 

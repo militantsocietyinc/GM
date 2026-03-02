@@ -221,7 +221,8 @@
     "alertCenter": "Alert Center",
     "spaceWeather": "Space Weather",
     "diseaseOutbreaks": "Disease Outbreaks",
-    "airQuality": "Air Quality"
+    "airQuality": "Air Quality",
+    "airstrikes": "Air Strikes & Drones"
   },
   "commands": {
     "prefixes": {

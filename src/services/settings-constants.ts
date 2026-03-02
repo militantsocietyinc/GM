@@ -8,6 +8,7 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   EIA_API_KEY: 'https://www.eia.gov/opendata/register.php',
   CLOUDFLARE_API_TOKEN: 'https://dash.cloudflare.com/profile/api-tokens',
   ACLED_ACCESS_TOKEN: 'https://developer.acleddata.com/',
+  ACLED_EMAIL: 'https://developer.acleddata.com/',
   URLHAUS_AUTH_KEY: 'https://auth.abuse.ch/',
   OTX_API_KEY: 'https://otx.alienvault.com/',
   ABUSEIPDB_API_KEY: 'https://www.abuseipdb.com/login',
@@ -30,6 +31,7 @@ export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
   'OLLAMA_MODEL',
   'WS_RELAY_URL',
   'VITE_OPENSKY_RELAY_URL',
+  'ACLED_EMAIL',
 ]);
 
 export const MASKED_SENTINEL = '__WM_MASKED__';
@@ -42,6 +44,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   EIA_API_KEY: 'EIA API Key',
   CLOUDFLARE_API_TOKEN: 'Cloudflare API Token',
   ACLED_ACCESS_TOKEN: 'ACLED Access Token',
+  ACLED_EMAIL: 'ACLED Registered Email',
   URLHAUS_AUTH_KEY: 'URLhaus Auth Key',
   OTX_API_KEY: 'AlienVault OTX Key',
   ABUSEIPDB_API_KEY: 'AbuseIPDB API Key',
@@ -87,7 +90,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'security',
     label: 'Security & Threats',
-    features: ['internetOutages', 'acledConflicts', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel'],
+    features: ['internetOutages', 'acledConflicts', 'acledAirstrikes', 'abuseChThreatIntel', 'alienvaultOtxThreatIntel', 'abuseIpdbThreatIntel'],
   },
   {
     id: 'tracking',

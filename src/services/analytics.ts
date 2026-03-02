@@ -39,6 +39,7 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   EIA_API_KEY: 'eia',
   CLOUDFLARE_API_TOKEN: 'cloudflare',
   ACLED_ACCESS_TOKEN: 'acled',
+  ACLED_EMAIL: 'acled_email',
   URLHAUS_AUTH_KEY: 'urlhaus',
   OTX_API_KEY: 'otx',
   ABUSEIPDB_API_KEY: 'abuseipdb',

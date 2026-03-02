@@ -49,6 +49,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
   stablecoins: { name: 'Stablecoins', enabled: true, priority: 2 },
   'ucdp-events': { name: 'UCDP Conflict Events', enabled: true, priority: 2 },
+  'airstrikes': { name: 'Air Strikes & Drones', enabled: false, priority: 2 },
   giving: { name: 'Global Giving', enabled: false, priority: 2 },
   displacement: { name: 'UNHCR Displacement', enabled: true, priority: 2 },
   climate: { name: 'Climate Anomalies', enabled: true, priority: 2 },
@@ -88,6 +89,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   fires: false,
   // Data source layers
   ucdpEvents: false,
+  airstrikes: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled in full variant)
@@ -139,6 +141,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
   fires: false,
   // Data source layers
   ucdpEvents: false,
+  airstrikes: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled in full variant)
@@ -229,6 +232,7 @@ const TECH_MAP_LAYERS: MapLayers = {
   fires: false,
   // Data source layers
   ucdpEvents: false,
+  airstrikes: false,
   displacement: false,
   climate: false,
   // Tech layers (enabled in tech variant)
@@ -280,6 +284,7 @@ const TECH_MOBILE_MAP_LAYERS: MapLayers = {
   fires: false,
   // Data source layers
   ucdpEvents: false,
+  airstrikes: false,
   displacement: false,
   climate: false,
   // Tech layers (limited on mobile)
@@ -368,6 +373,7 @@ const FINANCE_MAP_LAYERS: MapLayers = {
   fires: false,
   // Data source layers
   ucdpEvents: false,
+  airstrikes: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled in finance variant)
@@ -419,6 +425,7 @@ const FINANCE_MOBILE_MAP_LAYERS: MapLayers = {
   fires: false,
   // Data source layers
   ucdpEvents: false,
+  airstrikes: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled)
@@ -486,6 +493,7 @@ const HAPPY_MAP_LAYERS: MapLayers = {
   fires: false,
   // Data source layers
   ucdpEvents: false,
+  airstrikes: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled)
@@ -537,6 +545,7 @@ const HAPPY_MOBILE_MAP_LAYERS: MapLayers = {
   fires: false,
   // Data source layers
   ucdpEvents: false,
+  airstrikes: false,
   displacement: false,
   climate: false,
   // Tech layers (disabled)
@@ -620,7 +629,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'satellite-fires', 'earthquakes', 'cyber-threats', 'ucdp-events', 'displacement', 'climate', 'population-exposure', 'security-advisories', 'oref-sirens', 'disease-outbreaks', 'space-weather', 'air-quality'],
+    panelKeys: ['monitors', 'satellite-fires', 'earthquakes', 'cyber-threats', 'ucdp-events', 'airstrikes', 'displacement', 'climate', 'population-exposure', 'security-advisories', 'oref-sirens', 'disease-outbreaks', 'space-weather', 'air-quality'],
     variants: ['full'],
   },
 

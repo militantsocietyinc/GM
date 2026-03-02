@@ -100,7 +100,7 @@ globalThis.fetch = async function ipv4Fetch(input, init) {
 
 const ALLOWED_ENV_KEYS = new Set([
   'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'FRED_API_KEY', 'EIA_API_KEY',
-  'CLOUDFLARE_API_TOKEN', 'ACLED_ACCESS_TOKEN', 'URLHAUS_AUTH_KEY',
+  'CLOUDFLARE_API_TOKEN', 'ACLED_ACCESS_TOKEN', 'ACLED_EMAIL', 'URLHAUS_AUTH_KEY',
   'OTX_API_KEY', 'ABUSEIPDB_API_KEY', 'WINGBITS_API_KEY', 'WS_RELAY_URL',
   'VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET',
   'AISSTREAM_API_KEY', 'VITE_WS_RELAY_URL', 'FINNHUB_API_KEY', 'NASA_FIRMS_API_KEY',
@@ -1188,6 +1188,30 @@ async function dispatch(requestUrl, req, routes, context) {
     } catch (e) {
       context.logger.error(`[register-interest] error: ${e.message}`);
       return json({ error: 'Registration service unreachable' }, 502);
+    }
+  }
+
+  // ACLED air strikes & drone events (last 30 days)
+  if (requestUrl.pathname === '/api/acled-events') {
+    const key = process.env.ACLED_ACCESS_TOKEN;
+    const email = process.env.ACLED_EMAIL;
+    if (!key || !email) {
+      return json({ events: [], error: 'ACLED_ACCESS_TOKEN and ACLED_EMAIL are required' });
+    }
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const fields = 'event_id_cnty|event_date|event_type|sub_event_type|actor1|actor2|country|admin1|location|latitude|longitude|fatalities|notes';
+    const acledUrl = `https://api.acleddata.com/acled/read?key=${encodeURIComponent(key)}&email=${encodeURIComponent(email)}&event_type=Air%2Fdrone+strike%7CShelling%2Fartillery%2Fmissile+attack&event_date=${since}%7C${today}&event_date_where=BETWEEN&fields=${encodeURIComponent(fields)}&limit=200&sort=event_date&order=desc&_format=json`;
+    try {
+      const resp = await fetchWithTimeout(acledUrl, {}, 15000);
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        return json({ events: [], error: `ACLED ${resp.status}: ${errText.slice(0, 120)}` });
+      }
+      const data = await resp.json();
+      return json({ events: data.data ?? [] });
+    } catch (e) {
+      return json({ events: [], error: String(e.message ?? e) });
     }
   }
 

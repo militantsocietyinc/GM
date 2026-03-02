@@ -257,7 +257,24 @@
       }
     },
     "shortcuts": {
-      "title": "Keyboard Shortcuts"
+      "title": "Keyboard Shortcuts",
+      "categories": {
+        "general": "General",
+        "map": "Map Controls",
+        "navigation": "Panel Navigation",
+        "search": "Search"
+      },
+      "keys": {
+        "showShortcuts": "Show keyboard shortcuts",
+        "focusSearch": "Focus search",
+        "closeModals": "Close modals/panels",
+        "zoom": "Zoom in/out",
+        "pan": "Pan map",
+        "resetView": "Reset map view",
+        "prevPanel": "Previous panel",
+        "nextPanel": "Next panel",
+        "toggleExpand": "Toggle panel expand"
+      }
     },
     "signal": {
       "title": "INTELLIGENCE FINDING",
@@ -1253,7 +1270,14 @@
       "summarize": "Summarize this panel",
       "generatingSummary": "Generating summary...",
       "sources": "{{count}} sources",
-      "relatedAssetsNear": "Related assets near {{location}}"
+      "relatedAssetsNear": "Related assets near {{location}}",
+      "latest": "Latest",
+      "saved": "Saved",
+      "addBookmark": "Save for later",
+      "removeBookmark": "Remove bookmark",
+      "noBookmarks": "No saved articles",
+      "bookmarkHint": "Click the star icon on any article to save it here",
+      "savedTag": "Saved"
     },
     "export": {
       "exportData": "Export Data"
@@ -2142,5 +2166,30 @@
     "retry": "Retry",
     "refresh": "Refresh",
     "all": "All"
+  },
+  "toast": {
+    "success": "Success",
+    "warning": "Warning",
+    "error": "Error",
+    "info": "Info",
+    "close": "Close notification"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all read",
+    "dismiss": "Dismiss",
+    "clearAll": "Clear all",
+    "empty": "No notifications yet",
+    "time": {
+      "justNow": "Just now",
+      "secondsAgo": "{{seconds}}s ago",
+      "minutesAgo": "{{minutes}}m ago",
+      "hoursAgo": "{{hours}}h ago",
+      "daysAgo": "{{days}}d ago"
+    }
+  },
+  "breadcrumb": {
+    "dashboard": "Dashboard"
   }
 }

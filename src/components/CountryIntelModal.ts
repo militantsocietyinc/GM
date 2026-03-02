@@ -7,6 +7,8 @@ import { sanitizeUrl } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
 import type { CountryScore } from '@/services/country-instability';
 import type { PredictionMarket } from '@/services/prediction';
+import { getRegionByCountryCode } from '@/services/signal-aggregator';
+import type { DeckMapView } from '@/components/DeckGLMap';
 
 interface CountryIntelData {
   brief: string;
@@ -42,6 +44,8 @@ export class CountryIntelModal {
   private headerEl: HTMLElement;
   private onCloseCallback?: () => void;
   private onShareStory?: (code: string, name: string) => void;
+  private onNavigateHome?: () => void;
+  private onNavigateRegion?: (view: DeckMapView) => void;
   private currentCode: string | null = null;
   private currentName: string | null = null;
 
@@ -50,6 +54,7 @@ export class CountryIntelModal {
     this.overlay.className = 'country-intel-overlay';
     this.overlay.innerHTML = `
       <div class="country-intel-modal">
+        <div class="country-intel-breadcrumb"></div>
         <div class="country-intel-header">
           <div class="country-intel-title"></div>
           <button class="country-intel-close">×</button>
@@ -108,6 +113,10 @@ export class CountryIntelModal {
 
   public showLoading(): void {
     this.currentCode = '__loading__';
+    const breadcrumbEl = this.overlay.querySelector('.country-intel-breadcrumb');
+    if (breadcrumbEl) {
+      breadcrumbEl.innerHTML = this.generateBreadcrumb(t('modals.countryIntel.identifying'), '__loading__');
+    }
     this.headerEl.innerHTML = `
       <span class="country-flag">🌍</span>
       <span class="country-name">${t('modals.countryIntel.identifying')}</span>
@@ -121,6 +130,7 @@ export class CountryIntelModal {
         </div>
       </div>
     `;
+    this.attachBreadcrumbListeners();
     this.overlay.classList.add('active');
   }
 
@@ -130,6 +140,11 @@ export class CountryIntelModal {
     const flag = this.countryFlag(code);
     let html = '';
     this.overlay.classList.add('active');
+
+    const breadcrumbEl = this.overlay.querySelector('.country-intel-breadcrumb');
+    if (breadcrumbEl) {
+      breadcrumbEl.innerHTML = this.generateBreadcrumb(country, code);
+    }
 
     this.headerEl.innerHTML = `
       <span class="country-flag">${flag}</span>
@@ -187,6 +202,7 @@ export class CountryIntelModal {
         this.onShareStory(this.currentCode, this.currentName);
       }
     });
+    this.attachBreadcrumbListeners();
   }
 
   public updateBrief(data: CountryIntelData & { skipped?: boolean; reason?: string; fallback?: boolean }): void {
@@ -279,5 +295,59 @@ export class CountryIntelModal {
 
   public isVisible(): boolean {
     return this.overlay.classList.contains('active');
+  }
+
+  public setShareStoryHandler(handler: (code: string, name: string) => void): void {
+    this.onShareStory = handler;
+  }
+
+  public setNavigateHomeHandler(handler: () => void): void {
+    this.onNavigateHome = handler;
+  }
+
+  public setNavigateRegionHandler(handler: (view: DeckMapView) => void): void {
+    this.onNavigateRegion = handler;
+  }
+
+  private generateBreadcrumb(country: string, code: string): string {
+    const region = getRegionByCountryCode(code);
+    const dashboardLabel = t('breadcrumb.dashboard') || 'Dashboard';
+    
+    let breadcrumbHtml = '<nav class="cii-breadcrumb" aria-label="Breadcrumb">';
+    breadcrumbHtml += '<ol class="cii-breadcrumb-list">';
+    
+    // Dashboard link
+    breadcrumbHtml += `<li class="cii-breadcrumb-item"><button class="cii-breadcrumb-link" data-action="home">${escapeHtml(dashboardLabel)}</button></li>`;
+    
+    // Region link (if region found)
+    if (region) {
+      breadcrumbHtml += `<li class="cii-breadcrumb-separator" aria-hidden="true">&gt;</li>`;
+      breadcrumbHtml += `<li class="cii-breadcrumb-item"><button class="cii-breadcrumb-link" data-action="region" data-view="${region.mapView}">${escapeHtml(region.name)}</button></li>`;
+    }
+    
+    // Current country (not clickable)
+    breadcrumbHtml += `<li class="cii-breadcrumb-separator" aria-hidden="true">&gt;</li>`;
+    breadcrumbHtml += `<li class="cii-breadcrumb-item cii-breadcrumb-current" aria-current="page"><span class="cii-flag-small">${this.countryFlag(code)}</span>${escapeHtml(country)}</li>`;
+    
+    breadcrumbHtml += '</ol></nav>';
+    return breadcrumbHtml;
+  }
+
+  private attachBreadcrumbListeners(): void {
+    const homeBtn = this.overlay.querySelector('[data-action="home"]');
+    const regionBtn = this.overlay.querySelector('[data-action="region"]');
+    
+    homeBtn?.addEventListener('click', () => {
+      this.hide();
+      this.onNavigateHome?.();
+    });
+    
+    regionBtn?.addEventListener('click', (e) => {
+      const view = (e.currentTarget as HTMLElement).dataset.view as DeckMapView;
+      if (view) {
+        this.hide();
+        this.onNavigateRegion?.(view);
+      }
+    });
   }
 }

@@ -63,32 +63,53 @@ export interface SignalSummary {
   aiContext: string;
 }
 
-const REGION_DEFINITIONS: Record<string, { countries: string[]; name: string }> = {
+export const REGION_DEFINITIONS: Record<string, { countries: string[]; name: string; mapView?: string }> = {
   middle_east: {
     name: 'Middle East',
     countries: ['IR', 'IL', 'SA', 'AE', 'IQ', 'SY', 'YE', 'JO', 'LB', 'KW', 'QA', 'OM', 'BH'],
+    mapView: 'mena',
   },
   east_asia: {
     name: 'East Asia',
     countries: ['CN', 'TW', 'JP', 'KR', 'KP', 'HK', 'MN'],
+    mapView: 'asia',
   },
   south_asia: {
     name: 'South Asia',
     countries: ['IN', 'PK', 'BD', 'AF', 'NP', 'LK', 'MM'],
+    mapView: 'asia',
   },
   europe_east: {
     name: 'Eastern Europe',
     countries: ['UA', 'RU', 'BY', 'PL', 'RO', 'MD', 'HU', 'CZ', 'SK', 'BG'],
+    mapView: 'eu',
   },
   africa_north: {
     name: 'North Africa',
     countries: ['EG', 'LY', 'DZ', 'TN', 'MA', 'SD', 'SS'],
+    mapView: 'africa',
   },
   africa_sahel: {
     name: 'Sahel Region',
     countries: ['ML', 'NE', 'BF', 'TD', 'NG', 'CM', 'CF'],
+    mapView: 'africa',
   },
 };
+
+/**
+ * Get region information for a country code
+ * @param countryCode - 2-letter country code (e.g., 'SY', 'US')
+ * @returns Region info or null if not found
+ */
+export function getRegionByCountryCode(countryCode: string): { name: string; mapView: string } | null {
+  const code = countryCode.toUpperCase();
+  for (const [_key, def] of Object.entries(REGION_DEFINITIONS)) {
+    if (def.countries.includes(code)) {
+      return { name: def.name, mapView: def.mapView || 'global' };
+    }
+  }
+  return null;
+}
 
 function normalizeCountryCode(country: string): string {
   if (country.length === 2) return country.toUpperCase();

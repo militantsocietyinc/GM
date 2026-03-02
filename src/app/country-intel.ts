@@ -73,6 +73,15 @@ export class CountryIntelManager implements AppModule {
       }
     });
 
+    // Breadcrumb navigation handlers
+    this.ctx.countryBriefPage.setNavigateHomeHandler(() => {
+      this.ctx.map?.setView('global');
+    });
+
+    this.ctx.countryBriefPage.setNavigateRegionHandler((view) => {
+      this.ctx.map?.setView(view);
+    });
+
     this.ctx.map.onCountryClicked(async (countryClick) => {
       if (countryClick.code && countryClick.name) {
         trackCountrySelected(countryClick.code, countryClick.name, 'map');

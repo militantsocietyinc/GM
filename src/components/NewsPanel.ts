@@ -15,6 +15,23 @@ const VIRTUAL_SCROLL_THRESHOLD = 15;
 /** Summary cache TTL in milliseconds (10 minutes) */
 const SUMMARY_CACHE_TTL = 10 * 60 * 1000;
 
+/** localStorage key for bookmarks */
+const BOOKMARKS_KEY = 'worldmonitor-bookmarks';
+
+/** Maximum number of bookmarks (FIFO eviction) */
+const MAX_BOOKMARKS = 100;
+
+/** Bookmarked article data structure */
+interface BookmarkedArticle {
+  id: string;
+  title: string;
+  source: string;
+  url: string;
+  summary?: string;
+  timestamp: string;
+  savedAt: number;
+}
+
 /** Prepared cluster data for rendering */
 interface PreparedCluster {
   cluster: ClusteredEvent;
@@ -22,6 +39,9 @@ interface PreparedCluster {
   shouldHighlight: boolean;
   showNewTag: boolean;
 }
+
+/** Current tab type */
+type NewsTab = 'latest' | 'saved';
 
 export class NewsPanel extends Panel {
   private clusteredMode = true;
@@ -44,12 +64,226 @@ export class NewsPanel extends Panel {
   private lastHeadlineSignature = '';
   private isSummarizing = false;
 
+  // Bookmark feature
+  private bookmarks: Map<string, BookmarkedArticle> = new Map();
+  private currentTab: NewsTab = 'latest';
+  private tabContainer: HTMLElement | null = null;
+  private latestTabBtn: HTMLButtonElement | null = null;
+  private savedTabBtn: HTMLButtonElement | null = null;
+  private currentClusters: ClusteredEvent[] = [];
+  private currentFlatItems: NewsItem[] = [];
+
+  // Read/Unread tracking (TODO-048)
+  private readArticleIds: Set<string> = new Set();
+  private currentArticles: NewsItem[] = [];
+  private readonly READ_ARTICLES_KEY = 'worldmonitor-read-articles';
+  private readonly MAX_READ_ARTICLES = 1000;
+  private markAllReadBtn: HTMLButtonElement | null = null;
+  private unreadBadge: HTMLElement | null = null;
+
   constructor(id: string, title: string) {
     super({ id, title, showCount: true, trackActivity: true });
     this.createDeviationIndicator();
     this.createSummarizeButton();
     this.setupActivityTracking();
     this.initWindowedList();
+    this.loadBookmarks();
+    this.createTabContainer();
+    this.createMarkAllReadButton();
+    this.loadReadState();
+  }
+
+  private createTabContainer(): void {
+    // Create tab container (inserted between header and content)
+    this.tabContainer = document.createElement('div');
+    this.tabContainer.className = 'news-tab-container';
+
+    // Latest tab button
+    this.latestTabBtn = document.createElement('button');
+    this.latestTabBtn.className = 'news-tab-btn active';
+    this.latestTabBtn.textContent = t('components.newsPanel.latest');
+    this.latestTabBtn.addEventListener('click', () => this.switchTab('latest'));
+
+    // Saved tab button
+    this.savedTabBtn = document.createElement('button');
+    this.savedTabBtn.className = 'news-tab-btn';
+    this.savedTabBtn.textContent = t('components.newsPanel.saved');
+    this.savedTabBtn.addEventListener('click', () => this.switchTab('saved'));
+
+    // Bookmark count badge
+    const bookmarkCount = document.createElement('span');
+    bookmarkCount.className = 'news-tab-count';
+    bookmarkCount.dataset.bookmarkCount = 'true';
+    bookmarkCount.textContent = String(this.bookmarks.size);
+    this.savedTabBtn.appendChild(bookmarkCount);
+
+    this.tabContainer.appendChild(this.latestTabBtn);
+    this.tabContainer.appendChild(this.savedTabBtn);
+
+    // Insert after summary container (if exists) or before content
+    const insertBeforeElement = this.summaryContainer || this.content;
+    this.element.insertBefore(this.tabContainer, insertBeforeElement);
+  }
+
+  private switchTab(tab: NewsTab): void {
+    if (this.currentTab === tab) return;
+
+    this.currentTab = tab;
+
+    // Update tab button styles
+    if (this.latestTabBtn) {
+      this.latestTabBtn.classList.toggle('active', tab === 'latest');
+    }
+    if (this.savedTabBtn) {
+      this.savedTabBtn.classList.toggle('active', tab === 'saved');
+    }
+
+    // Re-render with current data
+    if (this.clusteredMode && this.currentClusters.length > 0) {
+      this.renderClusters(this.currentClusters);
+    } else if (this.currentFlatItems.length > 0) {
+      this.renderFlat(this.currentFlatItems);
+    } else {
+      // Show empty state for saved tab when no bookmarks
+      if (tab === 'saved') {
+        this.renderSavedEmpty();
+      }
+    }
+  }
+
+  private renderSavedEmpty(): void {
+    this.setCount(0);
+    this.currentArticles = []; // Clear current articles for read tracking (TODO-048)
+    this.updateUnreadBadge();
+    this.setContent(`
+      <div class="panel-empty">
+        <div class="panel-empty-icon">☆</div>
+        <div class="panel-empty-text">${t('components.newsPanel.noBookmarks')}</div>
+        <div class="panel-empty-hint">${t('components.newsPanel.bookmarkHint')}</div>
+      </div>
+    `);
+  }
+
+  private loadBookmarks(): void {
+    try {
+      const stored = localStorage.getItem(BOOKMARKS_KEY);
+      if (stored) {
+        const parsed: BookmarkedArticle[] = JSON.parse(stored);
+        this.bookmarks = new Map(parsed.map(b => [b.id, b]));
+      }
+    } catch {
+      this.bookmarks = new Map();
+    }
+  }
+
+  private saveBookmarks(): void {
+    try {
+      const data = Array.from(this.bookmarks.values());
+      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(data));
+      this.updateBookmarkCount();
+    } catch { /* storage full */ }
+  }
+
+  private updateBookmarkCount(): void {
+    const countEl = this.savedTabBtn?.querySelector('[data-bookmark-count]');
+    if (countEl) {
+      countEl.textContent = String(this.bookmarks.size);
+    }
+  }
+
+  private toggleBookmark(cluster: ClusteredEvent): void {
+    const id = cluster.id;
+
+    if (this.bookmarks.has(id)) {
+      this.bookmarks.delete(id);
+    } else {
+      // Evict oldest if at max
+      if (this.bookmarks.size >= MAX_BOOKMARKS) {
+        const oldest = Array.from(this.bookmarks.values())
+          .sort((a, b) => a.savedAt - b.savedAt)[0];
+        if (oldest) {
+          this.bookmarks.delete(oldest.id);
+        }
+      }
+
+      this.bookmarks.set(id, {
+        id,
+        title: cluster.primaryTitle,
+        source: cluster.primarySource,
+        url: cluster.primaryLink,
+        summary: cluster.threat?.category,
+        timestamp: cluster.lastUpdated.toISOString(),
+        savedAt: Date.now()
+      });
+    }
+
+    this.saveBookmarks();
+    this.updateBookmarkIcon(id);
+
+    // If in saved tab, re-render to show changes
+    if (this.currentTab === 'saved') {
+      this.renderSavedBookmarks();
+    }
+  }
+
+  private updateBookmarkIcon(clusterId: string): void {
+    const icon = this.content.querySelector(`[data-bookmark-icon="${clusterId}"]`) as HTMLElement | null;
+    if (icon) {
+      const isBookmarked = this.bookmarks.has(clusterId);
+      icon.classList.toggle('bookmarked', isBookmarked);
+      icon.textContent = isBookmarked ? '★' : '☆';
+      icon.title = isBookmarked ? t('components.newsPanel.removeBookmark') : t('components.newsPanel.addBookmark');
+    }
+  }
+
+  private removeBookmark(id: string): void {
+    this.bookmarks.delete(id);
+    this.saveBookmarks();
+    this.renderSavedBookmarks();
+  }
+
+  private renderSavedBookmarks(): void {
+    const bookmarks = Array.from(this.bookmarks.values())
+      .sort((a, b) => b.savedAt - a.savedAt);
+
+    if (bookmarks.length === 0) {
+      this.renderSavedEmpty();
+      return;
+    }
+
+    this.setCount(bookmarks.length);
+    this.currentArticles = []; // Clear current articles for read tracking (TODO-048)
+    this.updateUnreadBadge();
+
+    const html = bookmarks
+      .map((bookmark) => `
+        <div class="item clustered saved-bookmark" data-bookmark-id="${escapeHtml(bookmark.id)}">
+          <div class="item-source">
+            <span class="saved-tag">${t('components.newsPanel.savedTag')}</span>
+            ${escapeHtml(bookmark.source)}
+            <button class="news-remove-bookmark" data-remove-id="${escapeHtml(bookmark.id)}" title="${t('components.newsPanel.removeBookmark')}">×</button>
+          </div>
+          <a class="item-title" href="${sanitizeUrl(bookmark.url)}" target="_blank" rel="noopener">${escapeHtml(bookmark.title)}</a>
+          <div class="cluster-meta">
+            <span class="item-time">${formatTime(new Date(bookmark.timestamp))}</span>
+          </div>
+        </div>
+      `)
+      .join('');
+
+    this.setContent(html);
+    this.bindBookmarkRemovalEvents();
+  }
+
+  private bindBookmarkRemovalEvents(): void {
+    const removeButtons = this.content.querySelectorAll<HTMLButtonElement>('.news-remove-bookmark');
+    removeButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.removeId;
+        if (id) this.removeBookmark(id);
+      });
+    });
   }
 
   private initWindowedList(): void {
@@ -65,8 +299,171 @@ export class NewsPanel extends Panel {
         prepared.shouldHighlight,
         prepared.showNewTag
       ),
-      () => this.bindRelatedAssetEvents()
+      () => {
+        this.bindRelatedAssetEvents();
+        this.bindReadStateEvents();
+        this.updateUnreadBadge();
+      }
     );
+  }
+
+  // ==================== Read/Unread State (TODO-048) ====================
+
+  private createMarkAllReadButton(): void {
+    // Create mark all read button (inserted before summarize button)
+    this.markAllReadBtn = document.createElement('button');
+    this.markAllReadBtn.className = 'panel-mark-all-read-btn';
+    this.markAllReadBtn.innerHTML = '✓';
+    this.markAllReadBtn.title = 'Mark all as read';
+    this.markAllReadBtn.addEventListener('click', () => this.handleMarkAllRead());
+
+    // Insert before summarize button
+    if (this.summaryBtn) {
+      this.header.insertBefore(this.markAllReadBtn, this.summaryBtn);
+    } else {
+      const countEl = this.header.querySelector('.panel-count');
+      if (countEl) {
+        this.header.insertBefore(this.markAllReadBtn, countEl);
+      } else {
+        this.header.appendChild(this.markAllReadBtn);
+      }
+    }
+
+    // Create unread badge (hidden by default)
+    this.unreadBadge = document.createElement('span');
+    this.unreadBadge.className = 'panel-unread-badge hidden';
+    this.header.insertBefore(this.unreadBadge, this.markAllReadBtn);
+  }
+
+  private loadReadState(): void {
+    try {
+      const stored = localStorage.getItem(this.READ_ARTICLES_KEY);
+      if (stored) {
+        const ids = JSON.parse(stored) as string[];
+        this.readArticleIds = new Set(ids);
+      }
+    } catch {
+      // localStorage unavailable or corrupt, start fresh
+      this.readArticleIds = new Set();
+    }
+  }
+
+  private saveReadState(): void {
+    try {
+      // Limit to MAX_READ_ARTICLES to prevent storage bloat
+      let ids = Array.from(this.readArticleIds);
+      if (ids.length > this.MAX_READ_ARTICLES) {
+        // Keep only the most recent IDs (assuming newer IDs are added later)
+        ids = ids.slice(-this.MAX_READ_ARTICLES);
+        this.readArticleIds = new Set(ids);
+      }
+      localStorage.setItem(this.READ_ARTICLES_KEY, JSON.stringify(ids));
+    } catch {
+      // localStorage unavailable
+    }
+  }
+
+  private getArticleId(article: NewsItem | ClusteredEvent): string {
+    // Use link as ID, or generate from title + source + pubDate
+    if ('link' in article && article.link) {
+      return this.hashString(article.link);
+    }
+    if ('primaryLink' in article && article.primaryLink) {
+      return this.hashString(article.primaryLink);
+    }
+    // Fallback hash from title + source
+    const title = 'title' in article ? article.title : article.primaryTitle;
+    const source = 'source' in article ? article.source : article.primarySource;
+    const date = 'pubDate' in article ? article.pubDate.getTime() : article.lastUpdated.getTime();
+    return this.hashString(`${title}-${source}-${date}`);
+  }
+
+  private hashString(str: string): string {
+    // Simple hash function for strings
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  private markAsRead(articleId: string): void {
+    if (!this.readArticleIds.has(articleId)) {
+      this.readArticleIds.add(articleId);
+      this.saveReadState();
+    }
+    this.updateArticleVisualState(articleId);
+    this.updateUnreadBadge();
+  }
+
+  private isRead(articleId: string): boolean {
+    return this.readArticleIds.has(articleId);
+  }
+
+  private getUnreadCount(): number {
+    return this.currentArticles.filter(a => !this.isRead(this.getArticleId(a))).length;
+  }
+
+  private updateArticleVisualState(articleId: string): void {
+    const element = this.content.querySelector(`[data-article-id="${articleId}"]`);
+    if (element) {
+      element.classList.remove('unread');
+      element.classList.add('read');
+    }
+  }
+
+  private updateUnreadBadge(): void {
+    if (!this.unreadBadge) return;
+    
+    const unreadCount = this.getUnreadCount();
+    if (unreadCount > 0) {
+      this.unreadBadge.textContent = String(unreadCount);
+      this.unreadBadge.classList.remove('hidden');
+      if (this.markAllReadBtn) {
+        this.markAllReadBtn.disabled = false;
+      }
+    } else {
+      this.unreadBadge.classList.add('hidden');
+      if (this.markAllReadBtn) {
+        this.markAllReadBtn.disabled = true;
+      }
+    }
+  }
+
+  private handleMarkAllRead(): void {
+    // Mark all current articles as read
+    this.currentArticles.forEach(article => {
+      const articleId = this.getArticleId(article);
+      this.readArticleIds.add(articleId);
+    });
+    this.saveReadState();
+
+    // Update all visual states
+    const unreadElements = this.content.querySelectorAll('.item.unread');
+    unreadElements.forEach(el => {
+      el.classList.remove('unread');
+      el.classList.add('read');
+    });
+
+    this.updateUnreadBadge();
+  }
+
+  private bindReadStateEvents(): void {
+    // Bind click events to article links for read tracking
+    const articleLinks = this.content.querySelectorAll<HTMLAnchorElement>('.item-title');
+    articleLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        const item = link.closest('.item');
+        if (item) {
+          const articleId = item.dataset.articleId;
+          if (articleId) {
+            this.markAsRead(articleId);
+          }
+        }
+      });
+    });
   }
 
   private setupActivityTracking(): void {
@@ -288,11 +685,21 @@ export class NewsPanel extends Panel {
     if (items.length === 0) {
       this.renderRequestId += 1; // Cancel in-flight clustering from previous renders.
       this.setDataBadge('unavailable');
+      this.currentArticles = []; // Clear current articles for read tracking (TODO-048)
+      this.updateUnreadBadge();
       this.showError(t('common.noNewsAvailable'));
       return;
     }
 
     this.setDataBadge('live');
+
+    // Store for tab switching
+    this.currentFlatItems = items;
+
+    // If in saved tab, don't overwrite
+    if (this.currentTab === 'saved') {
+      return;
+    }
 
     // Always show flat items immediately for instant visual feedback,
     // then upgrade to clustered view in the background when ready.
@@ -310,6 +717,10 @@ export class NewsPanel extends Panel {
     this.relatedAssetContext.clear();
     this.currentHeadlines = [];
     this.updateHeadlineSignature();
+    this.currentFlatItems = [];
+    this.currentClusters = [];
+    this.currentArticles = []; // Clear current articles for read tracking (TODO-048)
+    this.updateUnreadBadge();
     this.setContent(`<div class="panel-empty">${escapeHtml(message)}</div>`);
   }
 
@@ -329,7 +740,13 @@ export class NewsPanel extends Panel {
   }
 
   private renderFlat(items: NewsItem[]): void {
+    // If in saved tab, don't render flat items
+    if (this.currentTab === 'saved') {
+      return;
+    }
+
     this.setCount(items.length);
+    this.currentArticles = items; // Store for read tracking (TODO-048)
     this.currentHeadlines = items
       .slice(0, 5)
       .map(item => item.title)
@@ -339,8 +756,12 @@ export class NewsPanel extends Panel {
 
     const html = items
       .map(
-        (item) => `
-      <div class="item ${item.isAlert ? 'alert' : ''}" ${item.monitorColor ? `style="border-inline-start-color: ${escapeHtml(item.monitorColor)}"` : ''}>
+        (item) => {
+          const articleId = this.getArticleId(item);
+          const isRead = this.isRead(articleId);
+          const readClass = isRead ? 'read' : 'unread';
+          return `
+      <div class="item ${readClass} ${item.isAlert ? 'alert' : ''}" data-article-id="${escapeHtml(articleId)}" ${item.monitorColor ? `style="border-inline-start-color: ${escapeHtml(item.monitorColor)}"` : ''}>
         <div class="item-source">
           ${escapeHtml(item.source)}
           ${item.lang && item.lang !== getCurrentLanguage() ? `<span class="lang-badge">${item.lang.toUpperCase()}</span>` : ''}
@@ -352,14 +773,26 @@ export class NewsPanel extends Panel {
           ${getCurrentLanguage() !== 'en' ? `<button class="item-translate-btn" title="Translate" data-text="${escapeHtml(item.title)}">文</button>` : ''}
         </div>
       </div>
-    `
+    `;
+        }
       )
       .join('');
 
     this.setContent(html);
+    this.bindReadStateEvents();
+    this.updateUnreadBadge();
   }
 
   private renderClusters(clusters: ClusteredEvent[]): void {
+    // Store for tab switching
+    this.currentClusters = clusters;
+
+    // If in saved tab, render saved bookmarks instead
+    if (this.currentTab === 'saved') {
+      this.renderSavedBookmarks();
+      return;
+    }
+
     // Sort by threat priority, then by time within same level
     const sorted = [...clusters].sort((a, b) => {
       const pa = THREAT_PRIORITY[a.threat?.level ?? 'info'];
@@ -406,9 +839,22 @@ export class NewsPanel extends Panel {
       };
     });
 
+    // Store clusters as current articles for read tracking (TODO-048)
+    this.currentArticles = sorted.map(c => ({
+      id: c.id,
+      title: c.primaryTitle,
+      source: c.primarySource,
+      link: c.primaryLink,
+      pubDate: c.lastUpdated,
+      description: '',
+      isAlert: c.isAlert,
+      lang: c.lang,
+    } as NewsItem));
+
     // Use windowed rendering for large lists, direct render for small
     if (this.useVirtualScroll && sorted.length > VIRTUAL_SCROLL_THRESHOLD && this.windowedList) {
       this.windowedList.setItems(prepared);
+      this.updateUnreadBadge();
     } else {
       // Direct render for small lists
       const html = prepared
@@ -416,7 +862,27 @@ export class NewsPanel extends Panel {
         .join('');
       this.setContent(html);
       this.bindRelatedAssetEvents();
+      this.bindBookmarkEvents();
+      this.bindReadStateEvents();
+      this.updateUnreadBadge();
     }
+  }
+
+  private bindBookmarkEvents(): void {
+    const bookmarkIcons = this.content.querySelectorAll<HTMLElement>('.news-bookmark-icon');
+    bookmarkIcons.forEach(icon => {
+      icon.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const clusterId = icon.dataset.bookmarkIcon;
+        if (!clusterId) return;
+
+        const cluster = this.currentClusters.find(c => c.id === clusterId);
+        if (cluster) {
+          this.toggleBookmark(cluster);
+        }
+      });
+    });
   }
 
   private renderClusterHtmlSafely(
@@ -529,17 +995,27 @@ export class NewsPanel extends Panel {
       ? `<span class="category-tag" style="color:${catColor};border-color:${catColor}40;background:${catColor}20">${catLabel}</span>`
       : '';
 
+    // Bookmark icon
+    const isBookmarked = this.bookmarks.has(cluster.id);
+    const bookmarkIcon = `<span class="news-bookmark-icon ${isBookmarked ? 'bookmarked' : ''}" data-bookmark-icon="${escapeHtml(cluster.id)}" title="${isBookmarked ? t('components.newsPanel.removeBookmark') : t('components.newsPanel.addBookmark')}">${isBookmarked ? '★' : '☆'}</span>`;
+
+    // Read/Unread state tracking (TODO-048)
+    const articleId = this.getArticleId(cluster);
+    const isRead = this.isRead(articleId);
+    const readClass = isRead ? 'read' : 'unread';
+
     // Build class list for item
     const itemClasses = [
       'item',
       'clustered',
+      readClass,
       cluster.isAlert ? 'alert' : '',
       shouldHighlight ? 'item-new-highlight' : '',
       isNew ? 'item-new' : '',
     ].filter(Boolean).join(' ');
 
     return `
-      <div class="${itemClasses}" ${cluster.monitorColor ? `style="border-inline-start-color: ${escapeHtml(cluster.monitorColor)}"` : ''} data-cluster-id="${escapeHtml(cluster.id)}" data-news-id="${escapeHtml(cluster.primaryLink)}">
+      <div class="${itemClasses}" ${cluster.monitorColor ? `style="border-inline-start-color: ${escapeHtml(cluster.monitorColor)}"` : ''} data-cluster-id="${escapeHtml(cluster.id)}" data-article-id="${escapeHtml(articleId)}" data-news-id="${escapeHtml(cluster.primaryLink)}">
         <div class="item-source">
           ${tierBadge}
           ${escapeHtml(cluster.primarySource)}
@@ -551,6 +1027,7 @@ export class NewsPanel extends Panel {
           ${sentimentBadge}
           ${cluster.isAlert ? '<span class="alert-tag">ALERT</span>' : ''}
           ${categoryBadge}
+          ${bookmarkIcon}
         </div>
         <a class="item-title" href="${sanitizeUrl(cluster.primaryLink)}" target="_blank" rel="noopener">${escapeHtml(cluster.primaryTitle)}</a>
         <div class="cluster-meta">
@@ -605,6 +1082,9 @@ export class NewsPanel extends Panel {
         if (text) this.handleTranslate(btn, text);
       });
     });
+
+    // Bookmark icons
+    this.bindBookmarkEvents();
   }
 
   private getLocalizedAssetLabel(type: RelatedAsset['type']): string {

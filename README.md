@@ -1,30 +1,30 @@
-# World Monitor — macOS Native Edition
+# Crystal Ball
 
 **Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface.
 
-> **This is the macOS-native fork** of [World Monitor](https://github.com/koala73/worldmonitor), rebuilt with SF Pro typography, sidebar navigation, native vibrancy effects, HIG-compliant layout, and macOS-specific intelligence features including a live cyber threat map, persistent alert center, and World Bank economic country profiles.
+> **Crystal Ball** is a free, open-source macOS desktop application built on top of [World Monitor](https://github.com/koala73/worldmonitor) by Elie Habib. It adds SF Pro typography, sidebar navigation, native vibrancy effects, HIG-compliant layout, and macOS-specific intelligence features including a live cyber threat map, persistent alert center, Air Strikes & Drones panel (ACLED), and World Bank economic country profiles.
 
-[![GitHub stars](https://img.shields.io/github/stars/bradleybond512/worldmonitor-macos?style=social)](https://github.com/bradleybond512/worldmonitor-macos/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/bradleybond512/worldmonitor-macos?style=social)](https://github.com/bradleybond512/worldmonitor-macos/network/members)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![GitHub stars](https://img.shields.io/github/stars/bradleybond512/crystal-ball?style=social)](https://github.com/bradleybond512/crystal-ball/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/bradleybond512/crystal-ball?style=social)](https://github.com/bradleybond512/crystal-ball/network/members)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-FFC131?style=flat&logo=tauri&logoColor=white)](https://tauri.app/)
-[![Last commit](https://img.shields.io/github/last-commit/bradleybond512/worldmonitor-macos)](https://github.com/bradleybond512/worldmonitor-macos/commits/main)
-[![Latest release](https://img.shields.io/github/v/release/bradleybond512/worldmonitor-macos?style=flat)](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
+[![Last commit](https://img.shields.io/github/last-commit/bradleybond512/crystal-ball)](https://github.com/bradleybond512/crystal-ball/commits/main)
+[![Latest release](https://img.shields.io/github/v/release/bradleybond512/crystal-ball?style=flat)](https://github.com/bradleybond512/crystal-ball/releases/latest)
 
 <p align="center">
-  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon_(DMG)-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
+  <a href="https://github.com/bradleybond512/crystal-ball/releases/latest"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon_(DMG)-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
 </p>
 
 <p align="center">
-  <a href="https://worldmonitor.app"><img src="https://img.shields.io/badge/Web_App-worldmonitor.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>&nbsp;
-  <a href="https://tech.worldmonitor.app"><img src="https://img.shields.io/badge/Tech_Variant-tech.worldmonitor.app-0891b2?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Tech Variant"></a>&nbsp;
-  <a href="https://finance.worldmonitor.app"><img src="https://img.shields.io/badge/Finance_Variant-finance.worldmonitor.app-059669?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Finance Variant"></a>
+  <a href="https://worldmonitor.app"><img src="https://img.shields.io/badge/Upstream_Web_App-worldmonitor.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Upstream Web App"></a>&nbsp;
+  <a href="https://github.com/koala73/worldmonitor"><img src="https://img.shields.io/badge/Upstream_Repo-World_Monitor-gray?style=for-the-badge&logo=github&logoColor=white" alt="Upstream Repo"></a>
 </p>
 
 <p align="center">
   <a href="./docs/DOCUMENTATION.md"><strong>Full Documentation</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases"><strong>All Releases</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/koala73/worldmonitor"><strong>Upstream Repo</strong></a>
+  <a href="https://github.com/bradleybond512/crystal-ball/releases"><strong>All Releases</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/koala73/worldmonitor"><strong>Upstream: World Monitor</strong></a>
 </p>
 
 ---
@@ -55,7 +55,7 @@
 | **Free & Open Source** | No license key, no paywalls, no paid tiers — fully MIT licensed |
 | **Security hardened** | Bundle ID verification on auto-update, CSP object-src/base-uri/form-action, href scheme validation, notification rate limiting |
 
-![World Monitor Dashboard](new-world-monitor.png)
+![Crystal Ball Dashboard](new-world-monitor.png)
 
 ---
 
@@ -63,8 +63,8 @@
 
 ### Installation
 
-1. Download the latest `.dmg` from [GitHub Releases](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
-2. Open the DMG, drag **World Monitor** to `/Applications`
+1. Download the latest `.dmg` from [GitHub Releases](https://github.com/bradleybond512/crystal-ball/releases/latest)
+2. Open the DMG, drag **Crystal Ball** to `/Applications`
 3. Launch the app — on first run macOS may prompt you to allow it (System Settings → Privacy & Security → Open Anyway)
 
 ### First Steps
@@ -117,13 +117,19 @@ Switch modes with the mode button in the bottom-left sidebar:
 
 ---
 
+## Attribution
+
+Crystal Ball is based on **[World Monitor](https://github.com/koala73/worldmonitor)** by [Elie Habib](https://github.com/koala73), licensed under AGPL-3.0. All original copyright notices are preserved. Crystal Ball is a modified fork distributed under the same AGPL-3.0 license — see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md) for full attribution details.
+
+---
+
 ## Security
 
 This fork includes several security hardening measures beyond the base project:
 
 | Area | Protection |
 |---|---|
-| **Auto-update** | Bundle identifier verified via `plutil` before any file is replaced — rejects DMGs whose app is not `app.worldmonitor.desktop` |
+| **Auto-update** | Bundle identifier verified via `plutil` before any file is replaced — rejects DMGs whose app is not `com.bradleybond.crystalball` |
 | **URL opening** | `open_url` Tauri command blocks loopback/LAN addresses and non-HTTPS schemes — a compromised webview cannot trigger browser access to the local API server |
 | **Notifications** | Input length-capped, control characters stripped, 30-second global rate limit to prevent AppleScript injection and notification spam |
 | **XSS (href)** | All external URLs used in `href` attributes go through `sanitizeUrl()` which validates `https:`/`http:` scheme — blocks `javascript:` and `data:` injection |
@@ -133,7 +139,7 @@ This fork includes several security hardening measures beyond the base project:
 
 ---
 
-## Why World Monitor?
+## Why Crystal Ball?
 
 | Problem                            | Solution                                                                                                   |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -152,6 +158,8 @@ This fork includes several security hardening measures beyond the base project:
 ---
 
 ## Live Demos
+
+> These are the **upstream World Monitor web app** variants — Crystal Ball Desktop uses the same codebase and can connect to them as a cloud fallback.
 
 | Variant             | URL                                                          | Focus                                            |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------ |

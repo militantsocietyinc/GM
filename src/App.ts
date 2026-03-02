@@ -47,6 +47,7 @@ export type { CountryBriefSignals } from '@/app/app-context';
 export class App {
   private state: AppContext;
   private pendingDeepLinkCountry: string | null = null;
+  private pendingDeepLinkExpanded = false;
 
   private panelLayout: PanelLayoutManager;
   private dataLoader: DataLoaderManager;
@@ -313,6 +314,7 @@ export class App {
       loadDataForLayer: (layer) => { void this.dataLoader.loadDataForLayer(layer as keyof MapLayers); },
       waitForAisData: () => this.dataLoader.waitForAisData(),
       syncDataFreshnessWithLayers: () => this.dataLoader.syncDataFreshnessWithLayers(),
+      ensureCorrectZones: () => this.panelLayout.ensureCorrectZones(),
     });
 
     // Wire cross-module callback: DataLoader → SearchManager
@@ -337,13 +339,13 @@ export class App {
     const aiFlow = getAiFlowSettings();
     if (aiFlow.browserModel || isDesktopRuntime()) {
       await mlWorker.init();
-      if (BETA_MODE) mlWorker.loadModel('summarization-beta').catch(() => {});
+      if (BETA_MODE) mlWorker.loadModel('summarization-beta').catch(() => { });
     }
 
     if (aiFlow.headlineMemory) {
       mlWorker.init().then(ok => {
-        if (ok) mlWorker.loadModel('embeddings').catch(() => {});
-      }).catch(() => {});
+        if (ok) mlWorker.loadModel('embeddings').catch(() => { });
+      }).catch(() => { });
     }
 
     this.unsubAiFlow = subscribeAiFlowChange((key) => {
@@ -358,10 +360,10 @@ export class App {
       if (key === 'headlineMemory') {
         if (isHeadlineMemoryEnabled()) {
           mlWorker.init().then(ok => {
-            if (ok) mlWorker.loadModel('embeddings').catch(() => {});
-          }).catch(() => {});
+            if (ok) mlWorker.loadModel('embeddings').catch(() => { });
+          }).catch(() => { });
         } else {
-          mlWorker.unloadModel('embeddings').catch(() => {});
+          mlWorker.unloadModel('embeddings').catch(() => { });
           const s = getAiFlowSettings();
           if (!s.browserModel && !isDesktopRuntime()) {
             mlWorker.terminate();
@@ -456,10 +458,15 @@ export class App {
 
     // Phase 5: Event listeners + URL sync
     this.eventHandlers.init();
-    // Capture ?country= BEFORE URL sync overwrites it
+    // Capture ?country= and ?expanded= BEFORE URL sync overwrites them
     const initState = parseMapUrlState(window.location.search, this.state.mapLayers);
     this.pendingDeepLinkCountry = initState.country ?? null;
+    this.pendingDeepLinkExpanded = initState.expanded === true;
     this.eventHandlers.setupUrlStateSync();
+
+    this.state.countryBriefPage?.onStateChange?.(() => {
+      this.eventHandlers.syncUrlState();
+    });
 
     // Phase 6: Data loading
     this.dataLoader.syncDataFreshnessWithLayers();
@@ -548,16 +555,21 @@ export class App {
       }
     }
 
-    // Check for country brief deep link: ?country=UA
+    // Check for country brief deep link: ?country=UA or ?country=UA&expanded=1
     const deepLinkCountry = this.pendingDeepLinkCountry;
+    const deepLinkExpanded = this.pendingDeepLinkExpanded;
     this.pendingDeepLinkCountry = null;
+    this.pendingDeepLinkExpanded = false;
     if (deepLinkCountry) {
       trackDeeplinkOpened('country', deepLinkCountry);
       const cName = CountryIntelManager.resolveCountryName(deepLinkCountry);
       let attempts = 0;
       const checkAndOpenBrief = () => {
         if (dataFreshness.hasSufficientData()) {
-          this.countryIntel.openCountryBriefByCode(deepLinkCountry, cName);
+          this.countryIntel.openCountryBriefByCode(deepLinkCountry, cName, {
+            maximize: deepLinkExpanded,
+          });
+          this.eventHandlers.syncUrlState();
           return;
         }
         attempts += 1;
@@ -593,10 +605,12 @@ export class App {
         { name: 'cables', fn: () => this.dataLoader.loadCableActivity(), intervalMs: 30 * 60 * 1000, condition: () => this.state.mapLayers.cables },
         { name: 'cableHealth', fn: () => this.dataLoader.loadCableHealth(), intervalMs: 2 * 60 * 60 * 1000, condition: () => this.state.mapLayers.cables },
         { name: 'flights', fn: () => this.dataLoader.loadFlightDelays(), intervalMs: 2 * 60 * 60 * 1000, condition: () => this.state.mapLayers.flights },
-        { name: 'cyberThreats', fn: () => {
-          this.state.cyberThreatsCache = null;
-          return this.dataLoader.loadCyberThreats();
-        }, intervalMs: 10 * 60 * 1000, condition: () => CYBER_LAYER_ENABLED && this.state.mapLayers.cyberThreats },
+        {
+          name: 'cyberThreats', fn: () => {
+            this.state.cyberThreatsCache = null;
+            return this.dataLoader.loadCyberThreats();
+          }, intervalMs: 10 * 60 * 1000, condition: () => CYBER_LAYER_ENABLED && this.state.mapLayers.cyberThreats
+        },
       ]);
     }
 

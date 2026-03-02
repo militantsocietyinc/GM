@@ -183,6 +183,7 @@
     "macroSignals": "Radar Thị trường",
     "etfFlows": "Theo dõi BTC ETF",
     "stablecoins": "Stablecoin",
+    "deduction": "Suy luận tình huống",
     "ucdpEvents": "Sự kiện Xung đột UCDP",
     "displacement": "Di dời UNHCR",
     "climate": "Bất thường Khí hậu",
@@ -217,6 +218,39 @@
     "gulfIndices": "Chỉ số vùng Vịnh",
     "gulfCurrencies": "Tiền tệ vùng Vịnh",
     "gulfOil": "Dầu vùng Vịnh"
+  },
+  "commands": {
+    "prefixes": {
+      "map": "Bản đồ",
+      "panel": "Bảng",
+      "brief": "Tóm tắt"
+    },
+    "categories": {
+      "navigate": "Điều hướng",
+      "layers": "Lớp",
+      "panels": "Bảng",
+      "view": "Xem",
+      "actions": "Hành động",
+      "country": "Quốc gia"
+    },
+    "regions": {
+      "global": "Toàn cầu",
+      "mena": "Trung Đông & Bắc Phi",
+      "eu": "Châu Âu",
+      "asia": "Châu Á - Thái Bình Dương",
+      "america": "Châu Mỹ",
+      "africa": "Châu Phi",
+      "latam": "Mỹ Latinh",
+      "oceania": "Châu Đại Dương"
+    },
+    "tips": {
+      "map": "Nhập tên quốc gia để bay đến vị trí đó trên bản đồ",
+      "panel": "Nhập tên bảng điều khiển để cuộn đến đó",
+      "brief": "Nhập tên quốc gia để xem báo cáo tình báo",
+      "layers": "Nhập \"military\" hoặc \"finance\" để áp dụng bộ lớp có sẵn",
+      "time": "Nhập \"1h\", \"24h\" hoặc \"7d\" để lọc theo thời gian",
+      "settings": "Nhập \"dark mode\", \"settings\" hoặc \"fullscreen\""
+    }
   },
   "modals": {
     "search": {
@@ -1296,8 +1330,8 @@
         "regime": "Chế độ",
         "btcTrend": "Xu hướng BTC",
         "hashRate": "Hash Rate",
-        "mining": "Khai thác",
-        "fearGreed": "Sợ hãi & Tham lam"
+        "fearGreed": "Sợ hãi & Tham lam",
+        "momentum": "Momentum"
       }
     },
     "panel": {
@@ -1355,7 +1389,7 @@
     "liveNews": {
       "retry": "Thử lại",
       "notLive": "{{name}} hiện không phát trực tiếp",
-      "cannotEmbed": "{{name}} không thể nhúng trong ứng dụng này (YouTube {{code}})",
+      "cannotEmbed": "Không thể phát {{name}} tại đây — có thể bị hạn chế ở khu vực của bạn (lỗi {{code}})",
       "openOnYouTube": "Mở trên YouTube",
       "manage": "Quản lý kênh",
       "addChannel": "Thêm kênh",
@@ -1372,6 +1406,7 @@
       "restoreDefaults": "Khôi phục kênh mặc định",
       "availableChannels": "Kênh có sẵn",
       "customChannel": "Kênh tùy chỉnh",
+      "regionAll": "Tất cả",
       "regionNorthAmerica": "Bắc Mỹ",
       "regionEurope": "Châu Âu",
       "regionLatinAmerica": "Mỹ Latinh",

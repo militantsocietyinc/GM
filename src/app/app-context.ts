@@ -8,7 +8,7 @@ import type { MarketData, ClusteredEvent } from '@/types';
 import type { PredictionMarket } from '@/services/prediction';
 import type { TimeRange } from '@/components';
 import type { Earthquake } from '@/services/earthquakes';
-import type { CountryBriefPage } from '@/components/CountryBriefPage';
+import type { CountryBriefPanel } from '@/components/CountryBriefPanel';
 import type { CountryTimeline } from '@/components/CountryTimeline';
 import type { PlaybackControl } from '@/components';
 import type { ExportPanel } from '@/utils';
@@ -107,7 +107,7 @@ export interface AppContext {
   mobileWarningModal: MobileWarningModal | null;
   pizzintIndicator: PizzIntIndicator | null;
   keyboardShortcutsModal: KeyboardShortcutsModal | null;
-  countryBriefPage: CountryBriefPage | null;
+  countryBriefPage: CountryBriefPanel | null;
   countryTimeline: CountryTimeline | null;
 
   // Happy variant state

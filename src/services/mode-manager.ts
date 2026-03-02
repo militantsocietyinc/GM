@@ -7,6 +7,7 @@
  */
 
 import type { CorrelationSignal } from '@/services/correlation';
+import type { MarketData, CryptoData } from '@/types';
 
 export type AppMode = 'peace' | 'finance' | 'war';
 
@@ -14,6 +15,11 @@ const MODE_STORAGE_KEY = 'wm-app-mode';
 
 /** Number of war-class signals (above confidence threshold) that trigger auto War Mode */
 const WAR_AUTO_TRIGGER_SCORE = 3;
+
+/** S&P 500 daily move (absolute %) that auto-triggers Finance Mode from Peace Mode */
+const FINANCE_TRIGGER_SP500_PCT = 2.5;
+/** BTC daily move (absolute %) that auto-triggers Finance Mode from Peace Mode */
+const FINANCE_TRIGGER_BTC_PCT = 5.0;
 
 /** Correlation signal types that count toward the war threat score */
 const WAR_SIGNAL_TYPES = new Set<string>([
@@ -93,6 +99,29 @@ export function evaluateWarThreat(signals: CorrelationSignal[]): void {
   // Only auto-escalate from Peace → War; never override an explicit user choice
   if (score >= WAR_AUTO_TRIGGER_SCORE && currentMode === 'peace') {
     setMode('war', true);
+  }
+}
+
+/**
+ * Evaluate live market data and auto-switch from Peace → Finance Mode when
+ * the S&P 500 OR Bitcoin makes a significant intraday move.
+ *
+ * Only triggers from Peace Mode — never overrides an explicit user choice.
+ */
+export function evaluateFinanceTrigger(
+  markets: MarketData[],
+  crypto: CryptoData[],
+): void {
+  if (currentMode !== 'peace') return;
+
+  const sp500 = markets.find(m => m.symbol === '^GSPC');
+  const btc = crypto.find(c => c.symbol === 'BTC');
+
+  const sp500Big = sp500?.change != null && Math.abs(sp500.change) >= FINANCE_TRIGGER_SP500_PCT;
+  const btcBig = btc?.change != null && Math.abs(btc.change) >= FINANCE_TRIGGER_BTC_PCT;
+
+  if (sp500Big || btcBig) {
+    setMode('finance', true);
   }
 }
 

@@ -20,7 +20,6 @@ import {
   StrategicPosturePanel,
   TechEventsPanel,
   ServiceStatusPanel,
-  RuntimeConfigPanel,
   InsightsPanel,
   TechReadinessPanel,
   MacroSignalsPanel,
@@ -758,11 +757,6 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['stablecoins'] = new StablecoinPanel();
     }
 
-    if (this.ctx.isDesktopApp) {
-      const runtimeConfigPanel = new RuntimeConfigPanel({ mode: 'alert' });
-      this.ctx.panels['runtime-config'] = runtimeConfigPanel;
-    }
-
     const insightsPanel = new InsightsPanel();
     this.ctx.panels['insights'] = insightsPanel;
 
@@ -830,16 +824,6 @@ export class PanelLayoutManager implements AppModule {
         panelOrder.splice(webcamsIdx, 1);
         const afterNews = panelOrder.indexOf('live-news') + 1;
         panelOrder.splice(afterNews, 0, 'live-webcams');
-      }
-    }
-
-    if (this.ctx.isDesktopApp) {
-      const runtimeIdx = panelOrder.indexOf('runtime-config');
-      if (runtimeIdx > 1) {
-        panelOrder.splice(runtimeIdx, 1);
-        panelOrder.splice(1, 0, 'runtime-config');
-      } else if (runtimeIdx === -1) {
-        panelOrder.splice(1, 0, 'runtime-config');
       }
     }
 
@@ -1195,9 +1179,6 @@ export class PanelLayoutManager implements AppModule {
   }
 
   getLocalizedPanelName(panelKey: string, fallback: string): string {
-    if (panelKey === 'runtime-config') {
-      return t('modals.runtimeConfig.title');
-    }
     const key = panelKey.replace(/-([a-z])/g, (_match, group: string) => group.toUpperCase());
     const lookup = `panels.${key}`;
     const localized = t(lookup);

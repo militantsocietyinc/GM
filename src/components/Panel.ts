@@ -162,6 +162,9 @@ export class Panel {
   protected element: HTMLElement;
   protected content: HTMLElement;
   protected header: HTMLElement;
+
+  /** Returns the panel's content element for external mounting (e.g. embedding in settings modal). */
+  public getContentElement(): HTMLElement { return this.content; }
   protected countEl: HTMLElement | null = null;
   protected statusBadgeEl: HTMLElement | null = null;
   protected newBadgeEl: HTMLElement | null = null;
@@ -193,6 +196,12 @@ export class Panel {
   private readonly contentDebounceMs = 150;
   private pendingContentHtml: string | null = null;
   private contentDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private aiSummaryOverlay: HTMLElement | null = null;
+
+  /** Panel IDs that should not offer AI Summary (video streams or already-AI panels). */
+  private static readonly AI_SUMMARY_EXCLUDED = new Set([
+    'live-webcams', 'live-news', 'map',
+  ]);
 
   constructor(options: PanelOptions) {
     this.panelId = options.id;
@@ -252,6 +261,20 @@ export class Panel {
       this.countEl.className = 'panel-count';
       this.countEl.textContent = '0';
       this.header.appendChild(this.countEl);
+    }
+
+    // AI Summary button — skip video/live panels and the map
+    if (!Panel.AI_SUMMARY_EXCLUDED.has(options.id)) {
+      const aiBtn = h('button', {
+        className: 'panel-ai-btn',
+        title: 'AI Summary',
+        'aria-label': 'Generate AI summary of this panel',
+      }, '✦');
+      aiBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        void this._runAiSummary(aiBtn);
+      });
+      this.header.appendChild(aiBtn);
     }
 
     this.content = document.createElement('div');
@@ -779,8 +802,90 @@ export class Panel {
     return error instanceof DOMException && error.name === 'AbortError';
   }
 
+  /**
+   * Extract readable text lines from the panel's current content for AI summarization.
+   * Strips UI chrome, keeps only meaningful lines (≥ 20 chars, not pure numbers).
+   */
+  private _extractSummaryText(): string[] {
+    const raw = this.content.textContent || '';
+    return raw
+      .split(/[\n\r]+/)
+      .map(l => l.trim())
+      .filter(l => l.length >= 20 && !/^[\d\s%$.,±+\-:]+$/.test(l))
+      .slice(0, 20);
+  }
+
+  /** Run the AI summary flow: show overlay, call summarization service, display result. */
+  private async _runAiSummary(triggerBtn: HTMLElement): Promise<void> {
+    // Remove any existing overlay first (toggle behaviour)
+    if (this.aiSummaryOverlay) {
+      this.aiSummaryOverlay.remove();
+      this.aiSummaryOverlay = null;
+      triggerBtn.classList.remove('panel-ai-btn--active');
+      return;
+    }
+
+    const lines = this._extractSummaryText();
+    if (lines.length === 0) {
+      // Nothing to summarize yet
+      triggerBtn.classList.add('panel-ai-btn--no-data');
+      setTimeout(() => triggerBtn.classList.remove('panel-ai-btn--no-data'), 1200);
+      return;
+    }
+
+    // Build overlay
+    const overlay = h('div', { className: 'panel-ai-overlay panel-ai-overlay--loading' });
+    overlay.innerHTML = '<span class="panel-ai-spinner"></span> Generating AI summary…';
+    this.element.appendChild(overlay);
+    this.aiSummaryOverlay = overlay;
+    triggerBtn.classList.add('panel-ai-btn--active');
+    triggerBtn.setAttribute('disabled', '');
+
+    try {
+      const { generateSummary } = await import('@/services/summarization');
+      const result = await generateSummary(lines, undefined, this.panelId);
+      overlay.classList.remove('panel-ai-overlay--loading');
+
+      if (result?.summary) {
+        const providerLabel = result.cached ? 'cached' : result.provider;
+        overlay.innerHTML = '';
+        overlay.appendChild(
+          h('div', { className: 'panel-ai-result' },
+            h('div', { className: 'panel-ai-result-header' },
+              h('span', { className: 'panel-ai-provider' }, `AI · ${providerLabel}`),
+              h('button', {
+                className: 'panel-ai-close',
+                'aria-label': 'Close AI summary',
+                onClick: () => {
+                  overlay.remove();
+                  this.aiSummaryOverlay = null;
+                  triggerBtn.classList.remove('panel-ai-btn--active');
+                },
+              }, '×'),
+            ),
+            h('p', { className: 'panel-ai-text' }, result.summary),
+          ),
+        );
+      } else {
+        overlay.remove();
+        this.aiSummaryOverlay = null;
+        triggerBtn.classList.remove('panel-ai-btn--active');
+      }
+    } catch {
+      overlay.remove();
+      this.aiSummaryOverlay = null;
+      triggerBtn.classList.remove('panel-ai-btn--active');
+    } finally {
+      triggerBtn.removeAttribute('disabled');
+    }
+  }
+
   public destroy(): void {
     this.abortController.abort();
+    if (this.aiSummaryOverlay) {
+      this.aiSummaryOverlay.remove();
+      this.aiSummaryOverlay = null;
+    }
     if (this.colSpanReconcileRaf !== null) {
       cancelAnimationFrame(this.colSpanReconcileRaf);
       this.colSpanReconcileRaf = null;

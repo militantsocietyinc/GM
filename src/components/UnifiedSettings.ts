@@ -7,6 +7,7 @@ import type { StreamQuality } from '@/services/ai-flow-settings';
 import { escapeHtml } from '@/utils/sanitize';
 import { trackLanguageChange } from '@/services/analytics';
 import type { PanelConfig } from '@/types';
+import { RuntimeConfigPanel } from './RuntimeConfigPanel';
 
 const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
@@ -23,7 +24,7 @@ export interface UnifiedSettingsConfig {
   isDesktopApp: boolean;
 }
 
-type TabId = 'general' | 'panels' | 'sources';
+type TabId = 'general' | 'panels' | 'sources' | 'api-keys';
 
 export class UnifiedSettings {
   private overlay: HTMLElement;
@@ -34,6 +35,7 @@ export class UnifiedSettings {
   private activePanelCategory = 'all';
   private panelFilter = '';
   private escapeHandler: (e: KeyboardEvent) => void;
+  private apiConfigPanel: RuntimeConfigPanel | null = null;
 
   constructor(config: UnifiedSettingsConfig) {
     this.config = config;
@@ -209,6 +211,8 @@ export class UnifiedSettings {
 
   public destroy(): void {
     document.removeEventListener('keydown', this.escapeHandler);
+    this.apiConfigPanel?.destroy();
+    this.apiConfigPanel = null;
     this.overlay.remove();
   }
 
@@ -225,6 +229,7 @@ export class UnifiedSettings {
           <button class="${tabClass('general')}" data-tab="general">${t('header.tabGeneral')}</button>
           <button class="${tabClass('panels')}" data-tab="panels">${t('header.tabPanels')}</button>
           <button class="${tabClass('sources')}" data-tab="sources">${t('header.tabSources')}</button>
+          ${this.config.isDesktopApp ? `<button class="${tabClass('api-keys')}" data-tab="api-keys">${t('header.tabApiKeys')}</button>` : ''}
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'general' ? ' active' : ''}" data-panel-id="general">
           ${this.renderGeneralContent()}
@@ -252,8 +257,22 @@ export class UnifiedSettings {
             <button class="sources-select-none">${t('common.selectNone')}</button>
           </div>
         </div>
+        ${this.config.isDesktopApp ? `
+        <div class="unified-settings-tab-panel${this.activeTab === 'api-keys' ? ' active' : ''}" data-panel-id="api-keys">
+        </div>` : ''}
       </div>
     `;
+
+    // Mount RuntimeConfigPanel content into API Keys tab (desktop only)
+    if (this.config.isDesktopApp) {
+      const apiContainer = this.overlay.querySelector<HTMLElement>('[data-panel-id="api-keys"]');
+      if (apiContainer) {
+        if (!this.apiConfigPanel) {
+          this.apiConfigPanel = new RuntimeConfigPanel({ mode: 'full', buffered: false });
+        }
+        apiContainer.appendChild(this.apiConfigPanel.getContentElement());
+      }
+    }
 
     // Populate dynamic sections after innerHTML is set
     this.renderPanelCategoryPills();

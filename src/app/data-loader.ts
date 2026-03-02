@@ -58,7 +58,7 @@ import {
   fetchCriticalMinerals,
 } from '@/services';
 import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
-import { evaluateWarThreat } from '@/services/mode-manager';
+import { evaluateWarThreat, evaluateFinanceTrigger } from '@/services/mode-manager';
 import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid } from '@/services/clustering';
 import { ingestProtests, ingestFlights, ingestVessels, ingestEarthquakes, detectGeoConvergence, geoConvergenceToSignal } from '@/services/geo-convergence';
@@ -908,6 +908,10 @@ export class DataLoaderManager implements AppModule {
       }
       (this.ctx.panels['crypto'] as CryptoPanel).renderCrypto(crypto);
       this.ctx.statusPanel?.updateApi('CoinGecko', { status: crypto.length > 0 ? 'ok' : 'error' });
+      // Auto-trigger Finance Mode if S&P 500 or BTC makes a significant move
+      if (this.ctx.latestMarkets.length > 0 || crypto.length > 0) {
+        evaluateFinanceTrigger(this.ctx.latestMarkets, crypto);
+      }
     } catch {
       this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'error' });
     }

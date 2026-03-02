@@ -702,9 +702,6 @@ export class EventHandlerManager implements AppModule {
   }
 
   getLocalizedPanelName(panelKey: string, fallback: string): string {
-    if (panelKey === 'runtime-config') {
-      return t('modals.runtimeConfig.title');
-    }
     const key = panelKey.replace(/-([a-z])/g, (_match, group: string) => group.toUpperCase());
     const lookup = `panels.${key}`;
     const localized = t(lookup);

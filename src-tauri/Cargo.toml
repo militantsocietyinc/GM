@@ -1,8 +1,8 @@
 [package]
 name = "world-monitor"
 version = "2.5.23"
-description = "World Monitor desktop application"
-authors = ["World Monitor"]
+description = "World Monitor macOS native desktop application"
+authors = ["Bradley Bond", "Elie Habib"]
 edition = "2021"
 
 [build-dependencies]

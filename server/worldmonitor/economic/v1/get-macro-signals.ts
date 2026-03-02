@@ -137,10 +137,16 @@ async function computeMacroSignals(): Promise<GetMacroSignalsResponse> {
     }
   }
 
-  // 6. Mining Cost (hashrate-based model)
+  // 6. Mining Cost — use Mayer Multiple (price/SMA200) as a market-adaptive
+  // profitability proxy instead of hardcoded dollar thresholds (L-11 fix).
   let miningStatus = 'UNKNOWN';
   if (btcCurrent && hashChange !== null) {
-    miningStatus = btcCurrent > 60000 ? 'PROFITABLE' : btcCurrent > 40000 ? 'TIGHT' : 'SQUEEZE';
+    if (btcSma200) {
+      const mayer = btcCurrent / btcSma200;
+      miningStatus = mayer > 1.0 ? 'PROFITABLE' : mayer > 0.8 ? 'TIGHT' : 'SQUEEZE';
+    } else {
+      miningStatus = btcCurrent > 60000 ? 'PROFITABLE' : btcCurrent > 40000 ? 'TIGHT' : 'SQUEEZE';
+    }
   }
 
   // 7. Fear & Greed

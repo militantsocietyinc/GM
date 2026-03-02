@@ -306,6 +306,18 @@ function _initSpatialAudio(): void {
   // Visibility mute/unmute
   document.addEventListener('visibilitychange', _onVisibilityChange);
 
+  // Low power mode: stop all spatial layers when enabled, restart when disabled
+  document.addEventListener('wm:low-power-changed', ((e: CustomEvent) => {
+    const enabled = e.detail as boolean;
+    if (enabled) {
+      _stopDrone();
+      _cancelChatter();
+    } else {
+      if (isSpatialLayerEnabled('drone')   && !isMuted()) _startDrone();
+      if (isSpatialLayerEnabled('ambient') && !isMuted()) _scheduleChatter();
+    }
+  }) as EventListener);
+
   // Idle mute wiring
   _wireIdleMute();
 

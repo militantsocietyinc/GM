@@ -103,6 +103,7 @@ import {
   triggerGlobalFlare,
   type ThreatType,
 } from '@/services/arrival-choreography';
+import { isLowPowerMode } from '@/services/low-power';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -1195,7 +1196,7 @@ export class DeckGLMap {
     }
 
     // Military vessel + flight trails (zoom-gated; rendered below dot markers)
-    if (mapLayers.military && (this.maplibreMap?.getZoom() ?? 0) >= 3.5) {
+    if (mapLayers.military && (this.maplibreMap?.getZoom() ?? 0) >= 3.5 && !isLowPowerMode()) {
       const vesselTrails = this.createMilitaryVesselTrailsLayer(filteredMilitaryVessels);
       if (vesselTrails) layers.push(vesselTrails);
       const flightTrails = this.createMilitaryFlightTrailsLayer(filteredMilitaryFlights);
@@ -2476,8 +2477,8 @@ export class DeckGLMap {
       }));
 
       // Night bloom: soft outer glow around high-severity hotspots.
-      // Omitted when the user prefers reduced motion.
-      if (zoom >= 2.5 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // Omitted when the user prefers reduced motion or low power mode is active.
+      if (zoom >= 2.5 && !isLowPowerMode() && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         const bloomBreath = 0.5 + 0.5 * Math.sin((this.pulseTime || Date.now()) / 1200);
         layers.push(new ScatterplotLayer({
           id: 'hotspots-bloom',

@@ -9,6 +9,7 @@ import { trackLanguageChange } from '@/services/analytics';
 import type { PanelConfig } from '@/types';
 import { RuntimeConfigPanel } from './RuntimeConfigPanel';
 import type { StatusPanel } from './StatusPanel';
+import { isYouTubeConnected, signInToYouTube, signOutOfYouTube, initYouTubeAccountListeners } from '@/services/youtube-account';
 
 const GEAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
@@ -134,6 +135,16 @@ export class UnifiedSettings {
         this.updateSourcesCounter();
         return;
       }
+
+      // YouTube connect / disconnect
+      if (target.id === 'us-yt-connect') {
+        signInToYouTube();
+        return;
+      }
+      if (target.id === 'us-yt-disconnect') {
+        signOutOfYouTube();
+        return;
+      }
     });
 
     // Handle input events for search
@@ -181,6 +192,10 @@ export class UnifiedSettings {
 
     this.render();
     document.body.appendChild(this.overlay);
+
+    if (this.config.isDesktopApp) {
+      initYouTubeAccountListeners(() => this.refreshGeneralTab());
+    }
   }
 
   public open(tab?: TabId): void {
@@ -199,6 +214,12 @@ export class UnifiedSettings {
 
   public refreshPanelToggles(): void {
     if (this.activeTab === 'panels') this.renderPanelsTab();
+  }
+
+  private refreshGeneralTab(): void {
+    if (this.activeTab !== 'general') return;
+    const content = this.overlay.querySelector('.unified-settings-tab-content');
+    if (content) content.innerHTML = this.renderGeneralContent();
   }
 
   public getButton(): HTMLButtonElement {
@@ -347,6 +368,24 @@ export class UnifiedSettings {
       html += `<option value="${opt.value}"${selected}>${opt.label}</option>`;
     }
     html += `</select>`;
+
+    // YouTube Account section (desktop only)
+    if (this.config.isDesktopApp) {
+      const connected = isYouTubeConnected();
+      html += `<div class="ai-flow-section-label">YouTube Account</div>`;
+      html += `<div class="ai-flow-toggle-row yt-account-row">
+        <div class="ai-flow-toggle-label-wrap">
+          <div class="ai-flow-toggle-label">Sign in to YouTube</div>
+          <div class="ai-flow-toggle-desc">Use your subscription to avoid ads in live streams. Optional — cookies are shared with embedded players.</div>
+        </div>
+        <div class="yt-account-status">
+          ${connected
+            ? `<span class="yt-status-dot connected"></span><span class="yt-status-text">Connected</span><button id="us-yt-disconnect" class="yt-account-btn disconnect">Disconnect</button>`
+            : `<button id="us-yt-connect" class="yt-account-btn connect">Connect</button>`
+          }
+        </div>
+      </div>`;
+    }
 
     // Language section
     html += `<div class="ai-flow-section-label">${t('header.languageLabel')}</div>`;

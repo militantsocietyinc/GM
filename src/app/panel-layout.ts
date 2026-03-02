@@ -68,6 +68,7 @@ import { t } from '@/services/i18n';
 import { getCurrentTheme } from '@/utils';
 import { trackCriticalBannerAction } from '@/services/analytics';
 import { initMode, setMode, alertFamily, getMode, type AppMode } from '@/services/mode-manager';
+import { isLowPowerMode, setLowPowerMode } from '@/services/low-power';
 
 export interface PanelLayoutCallbacks {
   openCountryStory: (code: string, name: string) => void;
@@ -288,11 +289,12 @@ export class PanelLayoutManager implements AppModule {
             ${getMode() === 'war' ? '<button class="mac-alert-family-btn" id="alertFamilyBtn">⚠ Alert Family</button>' : ''}
           </div>` : ''}
 
-          <!-- Footer: theme, settings, version -->
+          <!-- Footer: theme, low-power, settings, version -->
           <div class="mac-sidebar-footer">
             <button class="mac-sidebar-footer-btn theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}">
               ${this.buildThemeIcon()}
             </button>
+            <button class="mac-sidebar-footer-btn" id="lowPowerBtn" title="Low Power Mode — disable animations and spatial audio">⚡</button>
             <span id="unifiedSettingsMount"></span>
             <span class="mac-sidebar-version">v${__APP_VERSION__}${BETA_MODE ? ' β' : ''}</span>
           </div>
@@ -881,6 +883,19 @@ export class PanelLayoutManager implements AppModule {
 
       // Wire mode selector buttons
       this._initModeSelector();
+
+      // Wire Low Power Mode toggle
+      const lpBtn = document.getElementById('lowPowerBtn');
+      if (lpBtn) {
+        lpBtn.classList.toggle('low-power-active', isLowPowerMode());
+        lpBtn.addEventListener('click', () => {
+          setLowPowerMode(!isLowPowerMode());
+          lpBtn.classList.toggle('low-power-active', isLowPowerMode());
+        });
+        document.addEventListener('wm:low-power-changed', ((e: CustomEvent) => {
+          lpBtn.classList.toggle('low-power-active', e.detail as boolean);
+        }) as EventListener);
+      }
     }
 
     this.ctx.map.onTimeRangeChanged((range) => {

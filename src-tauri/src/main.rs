@@ -8,7 +8,8 @@ use std::io::Write;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use keyring::Entry;
@@ -843,10 +844,34 @@ fn open_youtube_login_window(app: &AppHandle) -> Result<(), String> {
             .map_err(|e| format!("Invalid URL: {e}"))?
     );
 
+    let notified = Arc::new(AtomicBool::new(false));
+    let notified_nav = notified.clone();
+    let app_nav = app.clone();
+
     let _yt_window = WebviewWindowBuilder::new(app, "youtube-login", url)
         .title("Sign in to YouTube")
         .inner_size(500.0, 700.0)
         .resizable(true)
+        .on_navigation(move |nav_url| {
+            let host = nav_url.host_str().unwrap_or("");
+            if (host == "www.youtube.com" || host == "youtube.com")
+                && !notified_nav.swap(true, Ordering::SeqCst)
+            {
+                let app_clone = app_nav.clone();
+                std::thread::spawn(move || {
+                    if let Some(main_win) = app_clone.get_webview_window("main") {
+                        let _ = main_win.eval(
+                            "document.dispatchEvent(new CustomEvent('wm:youtube-signed-in'))"
+                        );
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(800));
+                    if let Some(w) = app_clone.get_webview_window("youtube-login") {
+                        let _ = w.close();
+                    }
+                });
+            }
+            true
+        })
         .build()
         .map_err(|e| format!("Failed to create YouTube login window: {e}"))?;
 
@@ -859,6 +884,16 @@ fn open_youtube_login_window(app: &AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn open_youtube_login(app: AppHandle) -> Result<(), String> {
     open_youtube_login_window(&app)
+}
+
+#[tauri::command]
+async fn open_youtube_logout(app: AppHandle) -> Result<(), String> {
+    if let Some(main_win) = app.get_webview_window("main") {
+        let _ = main_win.eval(
+            "document.dispatchEvent(new CustomEvent('wm:youtube-signed-out'))"
+        );
+    }
+    Ok(())
 }
 
 fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
@@ -1505,6 +1540,7 @@ fn main() {
             close_live_channels_window,
             open_url,
             open_youtube_login,
+            open_youtube_logout,
             fetch_polymarket,
             send_notification,
             install_update

@@ -12,8 +12,7 @@ export function mountCommunityWidget(): void {
   widget.innerHTML = `
     <div class="cw-pill">
       <div class="cw-dot"></div>
-      <span class="cw-text">${t('components.community.joinDiscussion')}</span>
-      <a class="cw-cta" href="${DISCUSSION_URL}" target="_blank" rel="noopener">${t('components.community.openDiscussion')}</a>
+      <a class="cw-cta" href="${DISCUSSION_URL}" target="_blank" rel="noopener">${t('components.community.joinDiscussion')}</a>
       <button class="cw-close" aria-label="${t('common.close')}">&times;</button>
     </div>
     <button class="cw-dismiss">${t('components.community.dontShowAgain')}</button>

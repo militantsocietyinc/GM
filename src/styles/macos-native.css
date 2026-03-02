@@ -565,6 +565,15 @@ body.is-desktop-macos[data-app-mode="peace"] .mac-toolbar-title {
   color: var(--mac-label);
 }
 
+#lowPowerBtn.low-power-active {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+#lowPowerBtn.low-power-active:hover {
+  background: rgba(245, 158, 11, 0.2);
+}
+
 .mac-sidebar-version {
   margin-left: auto;
   font-size: 11px;

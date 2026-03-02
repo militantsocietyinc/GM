@@ -9,8 +9,6 @@
  * code for one domain per function, cutting cold-start cost by ~20×.
  */
 
-declare const process: { env: Record<string, string | undefined> };
-
 import { createRouter, type RouteDescriptor } from './router';
 import { getCorsHeaders, isDisallowedOrigin } from './cors';
 // @ts-expect-error — JS module, no declaration file
@@ -18,15 +16,13 @@ import { validateApiKey } from '../api/_api-key.js';
 import { mapErrorToResponse } from './error-mapper';
 import { checkRateLimit } from './_shared/rate-limit';
 import { drainResponseHeaders } from './_shared/response-headers';
-
-// Re-export for domain files so they don't need to import error-mapper directly.
-export interface ServerOptions {
-  onError?: (error: unknown, req: Request) => Response | Promise<Response>;
-}
+import type { ServerOptions } from '../src/generated/server/worldmonitor/seismology/v1/service_server';
 
 export const serverOptions: ServerOptions = { onError: mapErrorToResponse };
 
 // --- Edge cache tier definitions ---
+// NOTE: This map is shared across all domain bundles (~3KB). Kept centralised for
+// single-source-of-truth maintainability; the size is negligible vs handler code.
 
 type CacheTier = 'fast' | 'medium' | 'slow' | 'static' | 'no-store';
 
@@ -165,7 +161,7 @@ export function createDomainGateway(
             if (Array.isArray(v)) v.forEach((item) => { if (isScalar(item)) url.searchParams.append(k, String(item)); });
             else if (isScalar(v)) url.searchParams.set(k, String(v));
           }
-        } catch {}
+        } catch { /* non-JSON body — skip POST→GET conversion */ }
         const getReq = new Request(url.toString(), { method: 'GET', headers: request.headers });
         matchedHandler = router.match(getReq);
         if (matchedHandler) request = getReq;

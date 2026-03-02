@@ -2475,6 +2475,33 @@ export class DeckGLMap {
         updateTriggers: { radiusScale: this.pulseTime },
       }));
 
+      // Night bloom: soft outer glow around high-severity hotspots.
+      // Omitted when the user prefers reduced motion.
+      if (zoom >= 2.5 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const bloomBreath = 0.5 + 0.5 * Math.sin((this.pulseTime || Date.now()) / 1200);
+        layers.push(new ScatterplotLayer({
+          id: 'hotspots-bloom',
+          data: highHotspots,
+          getPosition: (d) => [d.lon, d.lat],
+          getRadius: (d) => {
+            const score = d.escalationScore || 1;
+            return (10000 + score * 5000) * 3.5;
+          },
+          getFillColor: (d) => {
+            const score = d.escalationScore || 1;
+            const baseAlpha = Math.round((18 + score * 6) * bloomBreath * baseOpacity);
+            return d.hasBreaking
+              ? [255, 50, 50, baseAlpha] as [number, number, number, number]
+              : [255, 140, 0, baseAlpha] as [number, number, number, number];
+          },
+          radiusMinPixels: 14,
+          radiusMaxPixels: 80,
+          stroked: false,
+          filled: true,
+          pickable: false,
+          updateTriggers: { getFillColor: this.pulseTime },
+        }));
+      }
     }
 
     return layers;

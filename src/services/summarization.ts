@@ -48,9 +48,9 @@ interface ApiProviderDef {
 }
 
 const API_PROVIDERS: ApiProviderDef[] = [
-  { featureId: 'aiOllama',      provider: 'ollama',     label: 'Ollama' },
-  { featureId: 'aiGroq',        provider: 'groq',       label: 'Groq AI' },
-  { featureId: 'aiOpenRouter',  provider: 'openrouter', label: 'OpenRouter' },
+  { featureId: 'aiOllama', provider: 'ollama', label: 'Ollama' },
+  { featureId: 'aiGroq', provider: 'groq', label: 'Groq AI' },
+  { featureId: 'aiOpenRouter', provider: 'openrouter', label: 'OpenRouter' },
 ];
 
 let lastAttemptedProvider = 'none';
@@ -107,7 +107,10 @@ async function tryBrowserT5(headlines: string[], modelId?: string): Promise<Summ
     lastAttemptedProvider = 'browser';
 
     const combinedText = headlines.slice(0, 5).map(h => h.slice(0, 80)).join('. ');
-    const prompt = `Summarize the most important headline in 2 concise sentences (under 60 words): ${combinedText}`;
+    const isFr = window.localStorage.getItem('i18nextLng')?.startsWith('fr');
+    const prompt = isFr
+      ? `Résumez le titre le plus important en 2 phrases concises (moins de 60 mots) en français : ${combinedText}`
+      : `Summarize the most important headline in 2 concise sentences (under 60 words): ${combinedText}`;
 
     const [summary] = await mlWorker.summarize([prompt], modelId);
 
@@ -204,7 +207,7 @@ async function generateSummaryInternal(
         const browserResult = await tryBrowserT5(headlines, 'summarization-beta');
         if (browserResult) {
           const groqProvider = API_PROVIDERS.find(p => p.provider === 'groq');
-          if (groqProvider && !options?.skipCloudProviders) tryApiProvider(groqProvider, headlines, geoContext).catch(() => {});
+          if (groqProvider && !options?.skipCloudProviders) tryApiProvider(groqProvider, headlines, geoContext).catch(() => { });
 
           return browserResult;
         }
@@ -218,7 +221,7 @@ async function generateSummaryInternal(
     } else {
       const totalSteps = API_PROVIDERS.length + 2;
       if (mlWorker.isAvailable && !options?.skipBrowserFallback) {
-        mlWorker.loadModel('summarization-beta').catch(() => {});
+        mlWorker.loadModel('summarization-beta').catch(() => { });
       }
 
       // API providers while model loads

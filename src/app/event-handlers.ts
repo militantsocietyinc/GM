@@ -577,10 +577,11 @@ export class EventHandlerManager implements AppModule {
       getAllSourceNames: () => this.getAllSourceNames(),
       getLocalizedPanelName: (key: string, fallback: string) => this.getLocalizedPanelName(key, fallback),
       resetLayout: () => {
-        localStorage.removeItem('worldmonitor-panel-spans');
+        localStorage.removeItem(this.ctx.PANEL_SPANS_KEY);
         localStorage.removeItem('worldmonitor-panel-col-spans');
         localStorage.removeItem(this.ctx.PANEL_ORDER_KEY);
         localStorage.removeItem(this.ctx.PANEL_ORDER_KEY + '-bottom');
+        localStorage.removeItem('map-height');
         window.location.reload();
       },
       isDesktopApp: this.ctx.isDesktopApp,

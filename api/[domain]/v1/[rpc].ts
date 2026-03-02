@@ -221,11 +221,7 @@ export default async function handler(originalRequest: Request): Promise<Respons
     }
   }
   if (!matchedHandler) {
-    const url = new URL(request.url);
-    const pathname = url.pathname.length > 1 && url.pathname.endsWith('/')
-      ? url.pathname.slice(0, -1)
-      : url.pathname;
-    const allowed = router.allowedMethods(pathname);
+    const allowed = router.allowedMethods(new URL(request.url).pathname);
     if (allowed.length > 0) {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,

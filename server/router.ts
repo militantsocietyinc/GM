@@ -33,7 +33,6 @@ export function createRouter(allRoutes: RouteDescriptor[]): Router {
 
   for (const route of allRoutes) {
     if (route.path.includes('{')) {
-      // Dynamic route — parse segments for pattern matching
       const parts = route.path.split('/').filter(Boolean);
       dynamicRoutes.push({
         method: route.method,
@@ -44,52 +43,55 @@ export function createRouter(allRoutes: RouteDescriptor[]): Router {
     } else {
       const key = `${route.method} ${route.path}`;
       staticTable.set(key, route.handler);
-      const methods = staticPaths.get(route.path) || new Set<string>();
-      methods.add(route.method);
-      staticPaths.set(route.path, methods);
+      if (!staticPaths.has(route.path)) staticPaths.set(route.path, new Set());
+      staticPaths.get(route.path)!.add(route.method);
     }
+  }
+
+  function normalizePath(raw: string): string {
+    return raw.length > 1 && raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  }
+
+  function matchDynamic(parts: string[], method?: string): DynamicRoute | null {
+    for (const route of dynamicRoutes) {
+      if (method && route.method !== method) continue;
+      if (route.segmentCount !== parts.length) continue;
+      let matched = true;
+      for (let i = 0; i < route.segmentCount; i++) {
+        if (route.segments[i] !== null && route.segments[i] !== parts[i]) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) return route;
+    }
+    return null;
   }
 
   return {
     match(req: Request) {
       const url = new URL(req.url);
-      // Normalize trailing slashes: /api/foo/v1/bar/ -> /api/foo/v1/bar
-      const pathname =
-        url.pathname.length > 1 && url.pathname.endsWith('/')
-          ? url.pathname.slice(0, -1)
-          : url.pathname;
+      const pathname = normalizePath(url.pathname);
 
-      // Fast path: exact match for static routes
       const key = `${req.method} ${pathname}`;
       const staticHandler = staticTable.get(key);
       if (staticHandler) return staticHandler;
 
-      // Slow path: match dynamic routes
       const parts = pathname.split('/').filter(Boolean);
-      for (const route of dynamicRoutes) {
-        if (route.method !== req.method) continue;
-        if (route.segmentCount !== parts.length) continue;
-        let matched = true;
-        for (let i = 0; i < route.segmentCount; i++) {
-          if (route.segments[i] !== null && route.segments[i] !== parts[i]) {
-            matched = false;
-            break;
-          }
-        }
-        if (matched) return route.handler;
-      }
-
-      return null;
+      const route = matchDynamic(parts, req.method);
+      return route ? route.handler : null;
     },
 
     allowedMethods(pathname: string): string[] {
-      const normalized = pathname.length > 1 && pathname.endsWith('/')
-        ? pathname.slice(0, -1)
-        : pathname;
-      const methods = staticPaths.get(normalized);
-      if (methods) return Array.from(methods);
+      const normalized = normalizePath(pathname);
 
-      // Check dynamic routes
+      const methods = staticPaths.get(normalized);
+      if (methods) {
+        const result = Array.from(methods);
+        if (result.includes('GET') && !result.includes('HEAD')) result.push('HEAD');
+        return result;
+      }
+
       const parts = normalized.split('/').filter(Boolean);
       const found = new Set<string>();
       for (const route of dynamicRoutes) {
@@ -103,6 +105,7 @@ export function createRouter(allRoutes: RouteDescriptor[]): Router {
         }
         if (matched) found.add(route.method);
       }
+      if (found.has('GET')) found.add('HEAD');
       return Array.from(found);
     },
   };

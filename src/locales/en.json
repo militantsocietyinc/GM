@@ -185,6 +185,7 @@
     "macroSignals": "Market Radar",
     "etfFlows": "BTC ETF Tracker",
     "stablecoins": "Stablecoins",
+    "deduction": "Deduct Situation",
     "ucdpEvents": "UCDP Conflict Events",
     "giving": "Global Giving",
     "displacement": "UNHCR Displacement",
@@ -220,6 +221,31 @@
     "spaceWeather": "Space Weather",
     "diseaseOutbreaks": "Disease Outbreaks",
     "airQuality": "Air Quality"
+  },
+  "commands": {
+    "prefixes": {
+      "map": "Map",
+      "panel": "Panel",
+      "brief": "Brief"
+    },
+    "categories": {
+      "navigate": "Navigate",
+      "layers": "Layers",
+      "panels": "Panels",
+      "view": "View",
+      "actions": "Actions",
+      "country": "Country"
+    },
+    "regions": {
+      "global": "Global view",
+      "mena": "Middle East & North Africa",
+      "eu": "Europe",
+      "asia": "Asia-Pacific",
+      "america": "Americas",
+      "africa": "Africa",
+      "latam": "Latin America",
+      "oceania": "Oceania"
+    }
   },
   "modals": {
     "search": {

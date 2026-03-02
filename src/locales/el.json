@@ -181,6 +181,7 @@
     "macroSignals": "Ραντάρ Αγορών",
     "etfFlows": "BTC ETF Tracker",
     "stablecoins": "Stablecoins",
+    "deduction": "Εκτίμηση κατάστασης",
     "ucdpEvents": "Συγκρούσεις UCDP",
     "displacement": "Εκτοπισμοί UNHCR",
     "climate": "Κλιματικές Ανωμαλίες",
@@ -209,6 +210,31 @@
     "securityAdvisories": "Προειδοποιήσεις Ασφαλείας",
     "orefSirens": "Israel Sirens",
     "telegramIntel": "Πληροφορίες Telegram"
+  },
+  "commands": {
+    "prefixes": {
+      "map": "Χάρτης",
+      "panel": "Πάνελ",
+      "brief": "Σύνοψη"
+    },
+    "categories": {
+      "navigate": "Πλοήγηση",
+      "layers": "Επίπεδα",
+      "panels": "Πάνελ",
+      "view": "Προβολή",
+      "actions": "Ενέργειες",
+      "country": "Χώρα"
+    },
+    "regions": {
+      "global": "Παγκόσμια προβολή",
+      "mena": "Μέση Ανατολή & Βόρεια Αφρική",
+      "eu": "Ευρώπη",
+      "asia": "Ασία-Ειρηνικός",
+      "america": "Αμερική",
+      "africa": "Αφρική",
+      "latam": "Λατινική Αμερική",
+      "oceania": "Ωκεανία"
+    }
   },
   "modals": {
     "search": {

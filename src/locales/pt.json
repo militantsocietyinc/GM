@@ -48,6 +48,7 @@
     "regulation": "Painel de regulamentação de IA",
     "serviceStatus": "Status do serviço",
     "stablecoins": "Moedas estáveis",
+    "deduction": "Deduzir situação",
     "events": "Eventos tecnológicos",
     "techHubs": "Centros de tecnologia importantes",
     "techReadiness": "Índice de prontidão tecnológica",
@@ -66,6 +67,31 @@
     "securityAdvisories": "Alertas de Segurança",
     "orefSirens": "Israel Sirens",
     "telegramIntel": "Inteligência Telegram"
+  },
+  "commands": {
+    "prefixes": {
+      "map": "Mapa",
+      "panel": "Painel",
+      "brief": "Resumo"
+    },
+    "categories": {
+      "navigate": "Navegar",
+      "layers": "Camadas",
+      "panels": "Painéis",
+      "view": "Vista",
+      "actions": "Ações",
+      "country": "País"
+    },
+    "regions": {
+      "global": "Vista global",
+      "mena": "Médio Oriente e Norte de África",
+      "eu": "Europa",
+      "asia": "Ásia-Pacífico",
+      "america": "Américas",
+      "africa": "África",
+      "latam": "América Latina",
+      "oceania": "Oceânia"
+    }
   },
   "modals": {
     "search": {

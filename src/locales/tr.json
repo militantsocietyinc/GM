@@ -181,6 +181,7 @@
     "macroSignals": "Piyasa Radari",
     "etfFlows": "BTC ETF Takibi",
     "stablecoins": "Stablecoin'ler",
+    "deduction": "Durum çıkarımı",
     "ucdpEvents": "UCDP Catisma Olaylari",
     "displacement": "UNHCR Yerinden Edilme",
     "climate": "Iklim Anomalileri",
@@ -209,6 +210,31 @@
     "securityAdvisories": "Güvenlik Uyarıları",
     "orefSirens": "Israel Sirens",
     "telegramIntel": "Telegram İstihbarat"
+  },
+  "commands": {
+    "prefixes": {
+      "map": "Harita",
+      "panel": "Panel",
+      "brief": "Özet"
+    },
+    "categories": {
+      "navigate": "Gezinme",
+      "layers": "Katmanlar",
+      "panels": "Paneller",
+      "view": "Görünüm",
+      "actions": "Eylemler",
+      "country": "Ülke"
+    },
+    "regions": {
+      "global": "Küresel görünüm",
+      "mena": "Orta Doğu ve Kuzey Afrika",
+      "eu": "Avrupa",
+      "asia": "Asya-Pasifik",
+      "america": "Amerika",
+      "africa": "Afrika",
+      "latam": "Latin Amerika",
+      "oceania": "Okyanusya"
+    }
   },
   "modals": {
     "search": {

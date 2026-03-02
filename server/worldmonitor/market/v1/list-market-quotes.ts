@@ -103,9 +103,7 @@ export async function listMarketQuotes(
     }
 
     if (quotes.length === 0) {
-      return yahooRateLimited
-        ? { quotes: [], finnhubSkipped: false, skipReason: '', rateLimited: true }
-        : null;
+      return null; // negative cache (120s) — never cache empty results at full TTL
     }
 
     // Only report skipped if Finnhub key missing AND Yahoo fallback didn't cover the gap

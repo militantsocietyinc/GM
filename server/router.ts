@@ -14,6 +14,7 @@ export interface RouteDescriptor {
 
 export interface Router {
   match(req: Request): ((req: Request) => Promise<Response>) | null;
+  allowedMethods(pathname: string): string[];
 }
 
 interface DynamicRoute {
@@ -27,6 +28,7 @@ interface DynamicRoute {
 
 export function createRouter(allRoutes: RouteDescriptor[]): Router {
   const staticTable = new Map<string, (req: Request) => Promise<Response>>();
+  const staticPaths = new Map<string, Set<string>>();
   const dynamicRoutes: DynamicRoute[] = [];
 
   for (const route of allRoutes) {
@@ -42,6 +44,9 @@ export function createRouter(allRoutes: RouteDescriptor[]): Router {
     } else {
       const key = `${route.method} ${route.path}`;
       staticTable.set(key, route.handler);
+      const methods = staticPaths.get(route.path) || new Set<string>();
+      methods.add(route.method);
+      staticPaths.set(route.path, methods);
     }
   }
 
@@ -75,6 +80,30 @@ export function createRouter(allRoutes: RouteDescriptor[]): Router {
       }
 
       return null;
+    },
+
+    allowedMethods(pathname: string): string[] {
+      const normalized = pathname.length > 1 && pathname.endsWith('/')
+        ? pathname.slice(0, -1)
+        : pathname;
+      const methods = staticPaths.get(normalized);
+      if (methods) return Array.from(methods);
+
+      // Check dynamic routes
+      const parts = normalized.split('/').filter(Boolean);
+      const found = new Set<string>();
+      for (const route of dynamicRoutes) {
+        if (route.segmentCount !== parts.length) continue;
+        let matched = true;
+        for (let i = 0; i < route.segmentCount; i++) {
+          if (route.segments[i] !== null && route.segments[i] !== parts[i]) {
+            matched = false;
+            break;
+          }
+        }
+        if (matched) found.add(route.method);
+      }
+      return Array.from(found);
     },
   };
 }

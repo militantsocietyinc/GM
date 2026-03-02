@@ -26,12 +26,13 @@ export async function getCachedJson(key: string, raw = false): Promise<unknown |
     const finalKey = raw ? key : prefixKey(key);
     const resp = await fetch(`${url}/get/${encodeURIComponent(finalKey)}`, {
       headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(3_000),
+      signal: AbortSignal.timeout(1_500),
     });
     if (!resp.ok) return null;
     const data = (await resp.json()) as { result?: string };
     return data.result ? JSON.parse(data.result) : null;
-  } catch {
+  } catch (err) {
+    console.warn('[redis] getCachedJson failed:', (err as Error).message);
     return null;
   }
 }
@@ -45,9 +46,11 @@ export async function setCachedJson(key: string, value: unknown, ttlSeconds: num
     await fetch(`${url}/set/${encodeURIComponent(prefixKey(key))}/${encodeURIComponent(JSON.stringify(value))}/EX/${ttlSeconds}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(3_000),
+      signal: AbortSignal.timeout(1_500),
     });
-  } catch { /* best-effort */ }
+  } catch (err) {
+    console.warn('[redis] setCachedJson failed:', (err as Error).message);
+  }
 }
 
 const NEG_SENTINEL = '__WM_NEG__';
@@ -70,7 +73,7 @@ export async function getCachedJsonBatch(keys: string[]): Promise<Map<string, un
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(pipeline),
-      signal: AbortSignal.timeout(3_000),
+      signal: AbortSignal.timeout(1_500),
     });
     if (!resp.ok) return result;
 
@@ -84,7 +87,9 @@ export async function getCachedJsonBatch(keys: string[]): Promise<Map<string, un
         } catch { /* skip malformed */ }
       }
     }
-  } catch { /* best-effort */ }
+  } catch (err) {
+    console.warn('[redis] getCachedJsonBatch failed:', (err as Error).message);
+  }
   return result;
 }
 
@@ -122,6 +127,10 @@ export async function cachedFetchJson<T extends object>(
         await setCachedJson(key, NEG_SENTINEL, negativeTtlSeconds);
       }
       return result;
+    })
+    .catch((err) => {
+      console.warn(`[redis] cachedFetchJson fetcher failed for "${key}":`, (err as Error).message);
+      return null;
     })
     .finally(() => {
       inflight.delete(key);
@@ -165,6 +174,10 @@ export async function cachedFetchJsonWithMeta<T extends object>(
       }
       return result;
     })
+    .catch((err) => {
+      console.warn(`[redis] cachedFetchJsonWithMeta fetcher failed for "${key}":`, (err as Error).message);
+      return null;
+    })
     .finally(() => {
       inflight.delete(key);
     });
@@ -196,7 +209,8 @@ export async function geoSearchByBox(
     if (!resp.ok) return [];
     const data = (await resp.json()) as Array<{ result?: string[] }>;
     return data[0]?.result ?? [];
-  } catch {
+  } catch (err) {
+    console.warn('[redis] geoSearchByBox failed:', (err as Error).message);
     return [];
   }
 }
@@ -226,6 +240,8 @@ export async function getHashFieldsBatch(
         if (values[i]) result.set(fields[i]!, values[i]!);
       }
     }
-  } catch { /* best-effort */ }
+  } catch (err) {
+    console.warn('[redis] getHashFieldsBatch failed:', (err as Error).message);
+  }
   return result;
 }

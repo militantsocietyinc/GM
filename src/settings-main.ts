@@ -282,8 +282,25 @@ function initOverviewListeners(area: HTMLElement): void {
     if (!file) return;
     try {
       await importSettings(file);
-    } catch (err) {
-      setActionStatus('Failed to import settings: Invalid file format', 'error');
+    } catch (err: unknown) {
+      let statusMessage = 'Failed to import settings.';
+
+      // Handle common browser storage / quota / security issues explicitly
+      if (err instanceof DOMException) {
+        if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+          statusMessage = 'Failed to import settings: Browser storage limit has been reached.';
+        } else if (err.name === 'SecurityError') {
+          statusMessage = 'Failed to import settings: Access to browser storage is blocked by your settings or extensions.';
+        } else {
+          statusMessage = `Failed to import settings: ${err.message || err.name}.`;
+        }
+      } else if (err instanceof Error && err.message) {
+        statusMessage = `Failed to import settings: ${err.message}`;
+      } else {
+        statusMessage = 'Failed to import settings due to an unknown error.';
+      }
+
+      setActionStatus(statusMessage, 'error');
     }
     // reset input
     importInput.value = '';

@@ -194,7 +194,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export type SmartPollReason = 'interval' | 'resume' | 'manual';
+export type SmartPollReason = 'interval' | 'resume' | 'manual' | 'startup';
 
 export interface SmartPollContext {
   signal?: AbortSignal;
@@ -204,27 +204,16 @@ export interface SmartPollContext {
 
 export interface SmartPollOptions {
   intervalMs: number;
-  // If omitted, hidden interval uses intervalMs * hiddenMultiplier.
   hiddenIntervalMs?: number;
-  // Hidden interval scaling when hiddenIntervalMs is not provided.
   hiddenMultiplier?: number;
-  // Pause polling while hidden; resumed by visibilitychange.
   pauseWhenHidden?: boolean;
-  // Trigger an immediate run when tab becomes visible.
   refreshOnVisible?: boolean;
-  // Run once at startup. Disabled by default to preserve existing schedulers.
   runImmediately?: boolean;
-  // Optional run gating (layer enabled, panel mounted, etc.).
   shouldRun?: () => boolean;
-  // Backoff multiplier cap when fn returns false or throws.
   maxBackoffMultiplier?: number;
-  // +/- jitter as a fraction of computed interval.
   jitterFraction?: number;
-  // Lower bound for computed interval.
   minIntervalMs?: number;
-  // Centralized error hook for callers.
   onError?: (error: unknown) => void;
-  // Debounce rapid visibilitychange events (e.g. fast alt-tab). Default 300ms.
   visibilityDebounceMs?: number;
 }
 
@@ -401,7 +390,7 @@ export function startSmartPollLoop(
   }
 
   if (runImmediately) {
-    void runOnce('manual');
+    void runOnce('startup');
   } else {
     scheduleNext();
   }

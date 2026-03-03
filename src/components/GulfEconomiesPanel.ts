@@ -56,10 +56,6 @@ export class GulfEconomiesPanel extends Panel {
       if (!this.element?.isConnected) return;
       this.showError(t('common.failedMarketData'));
     }
-
-    if (!this.pollTimer && this.element?.isConnected) {
-      this.pollTimer = setInterval(() => void this.fetchData(), 60_000);
-    }
   }
 
   private renderGulf(data: ListGulfQuotesResponse): void {

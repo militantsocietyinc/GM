@@ -1,5 +1,3 @@
-// Note: refreshOnVisible is disabled here because tab-restore refreshes are coordinated
-// via flushStaleRefreshes() to avoid double-fetching and to stagger endpoint loads.
 import type { AppContext, AppModule } from '@/app/app-context';
 import { startSmartPollLoop, type SmartPollLoopHandle } from '@/services/runtime';
 

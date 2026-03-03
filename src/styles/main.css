@@ -67,6 +67,16 @@
   --font-body: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
 }
 
+:lang(ar),
+:lang(he) {
+  --font-mono: 'Cascadia Mono', 'SF Mono', 'Monaco', 'Cascadia Code', 'Fira Code', 'DejaVu Sans Mono', 'Liberation Mono', monospace;
+}
+
+[dir="rtl"]:lang(ar),
+[dir="rtl"]:lang(he) {
+  --font-body: var(--font-mono);
+}
+
 /* ============================================================
    Semantic Colors — dark-mode defaults, light overrides below
    ============================================================ */

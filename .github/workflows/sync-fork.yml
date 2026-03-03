@@ -1,0 +1,83 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # Runs every 6 hours
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Fork
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set Git Identity
+        run: |
+          git config --global user.email "sync-bot@users.noreply.github.com"
+          git config --global user.name "Sync Bot"
+
+      - name: Add Upstream & Fetch
+        run: |
+          git remote add upstream https://github.com/koala73/worldmonitor.git
+          git fetch upstream
+
+      - name: Merge Upstream (prefer upstream on conflicts)
+        run: |
+          git checkout main
+          git merge upstream/main --no-edit -X theirs
+
+      - name: Re-apply custom domain patches
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+
+          /**
+           * Inserts `insert` on the line immediately after the line containing `anchor`.
+           * Idempotent — skips if `insert` is already present in the file.
+           */
+          function patchAfter(file, anchor, insert) {
+            let content = fs.readFileSync(file, 'utf8');
+            if (content.includes(insert)) {
+              console.log(`  [skip] ${file} already patched`);
+              return;
+            }
+            const idx = content.indexOf(anchor);
+            if (idx === -1) {
+              console.error(`  [WARN] anchor not found in ${file}: ${anchor}`);
+              return;
+            }
+            const afterAnchor = idx + anchor.length;
+            content = content.slice(0, afterAnchor) + '\n' + insert + content.slice(afterAnchor);
+            fs.writeFileSync(file, content);
+            console.log(`  [patched] ${file}`);
+          }
+
+          patchAfter(
+            'api/_cors.js',
+            "  /^https:\\/\\/worldmonitor-[a-z0-9-]+-elie-[a-z0-9]+\\.vercel\\.app$/,",
+            "  /^https:\\/\\/worldmonitor\\.shenpeiris\\.me$/,",
+          );
+          patchAfter(
+            'api/_api-key.js',
+            "  /^https:\\/\\/worldmonitor-[a-z0-9-]+\\.vercel\\.app$/,",
+            "  /^https:\\/\\/worldmonitor\\.shenpeiris\\.me$/,",
+          );
+          patchAfter(
+            'server/cors.ts',
+            "  /^https:\\/\\/worldmonitor-[a-z0-9-]+-elie-[a-z0-9]+\\.vercel\\.app$/,",
+            "  /^https:\\/\\/worldmonitor\\.shenpeiris\\.me$/,",
+          );
+          EOF
+
+      - name: Commit patches (if any)
+        run: |
+          git diff --quiet || git commit -am "chore: re-apply shenpeiris.me domain patches after upstream sync"
+
+      - name: Push to fork
+        run: |
+          git push origin main

@@ -20,6 +20,7 @@ import {
   setTheme,
 } from '@/utils';
 import {
+  IDLE_PAUSE_MS,
   STORAGE_KEYS,
   SITE_VARIANT,
   LAYER_TO_SOURCE,
@@ -69,7 +70,7 @@ export class EventHandlerManager implements AppModule {
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
-  private readonly IDLE_PAUSE_MS = 2 * 60 * 1000;
+  private readonly IDLE_PAUSE_MS = IDLE_PAUSE_MS;
   private debouncedUrlSync = debounce(() => {
     const shareUrl = this.getShareUrl();
     if (!shareUrl) return;

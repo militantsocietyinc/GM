@@ -3,7 +3,7 @@ import { fetchLiveVideoInfo } from '@/services/live-news';
 import { isDesktopRuntime, getRemoteApiBaseUrl, getApiBaseUrl, getLocalApiPort } from '@/services/runtime';
 import { t } from '../services/i18n';
 import { loadFromStorage, saveToStorage } from '@/utils';
-import { STORAGE_KEYS, SITE_VARIANT } from '@/config';
+import { IDLE_PAUSE_MS, STORAGE_KEYS, SITE_VARIANT } from '@/config';
 import { getStreamQuality } from '@/services/ai-flow-settings';
 
 // YouTube IFrame Player API types
@@ -276,7 +276,7 @@ export class LiveNewsPanel extends Panel {
   private isFullscreen = false;
   private liveBtn: HTMLButtonElement | null = null;
   private idleTimeout: ReturnType<typeof setTimeout> | null = null;
-  private readonly IDLE_PAUSE_MS = 5 * 60 * 1000; // 5 minutes
+  private readonly IDLE_PAUSE_MS = IDLE_PAUSE_MS;
   private boundVisibilityHandler!: () => void;
   private boundIdleResetHandler!: () => void;
 

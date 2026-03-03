@@ -1937,6 +1937,15 @@ body.live-news-fullscreen-active {
   overflow: hidden;
 }
 
+body.live-news-fullscreen-active .time-slider,
+body.live-news-fullscreen-active .deckgl-layer-toggles,
+body.live-news-fullscreen-active .map-legend,
+body.live-news-fullscreen-active .map-controls,
+body.live-news-fullscreen-active .map-timestamp {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .live-indicator-btn {
   background: transparent;
   border: none;

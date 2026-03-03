@@ -9,6 +9,10 @@ export { Dashboard } from './Dashboard';
 export { TargetsPanel } from './TargetsPanel';
 export { SignalAlertsPanel } from './SignalAlertsPanel';
 export { CompanyIntelligence } from './CompanyIntelligence';
+export { PipelineDashboard } from './PipelineDashboard';
+export { EngagementTracker } from './EngagementTracker';
+export { CompetitiveBattlecard } from './CompetitiveBattlecard';
+export { AnalyticsDashboard } from './AnalyticsDashboard';
 
 // Retained / Repurposed Panels
 export * from './NewsPanel';

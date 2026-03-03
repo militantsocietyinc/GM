@@ -687,6 +687,135 @@ canvas,
   }
 }
 
+/* Widget picker */
+.widget-picker-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.widget-picker-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.widget-picker-btn:hover {
+  background: var(--overlay-subtle);
+  color: var(--text);
+  border-color: var(--border-strong, var(--border));
+}
+
+.widget-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 280px;
+  background: var(--overlay, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px var(--shadow-color, rgba(0,0,0,0.3));
+  z-index: 1100;
+  display: none;
+  margin-top: 4px;
+}
+
+.widget-picker-dropdown.open {
+  display: block;
+}
+
+.widget-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+
+.widget-picker-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.widget-picker-filter {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+
+.widget-picker-filter:focus {
+  border-color: var(--accent, #4488ff);
+}
+
+.widget-picker-list {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.widget-picker-cat {
+  padding: 6px 10px 2px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.widget-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.widget-picker-item:hover {
+  background: var(--overlay-subtle);
+}
+
+.widget-picker-check {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.widget-picker-item.active .widget-picker-check {
+  background: var(--accent, #4488ff);
+  border-color: var(--accent, #4488ff);
+  color: #fff;
+}
+
+.widget-picker-name {
+  font-size: 11px;
+  color: var(--text);
+}
+
 .theme-toggle-btn {
   display: flex;
   align-items: center;

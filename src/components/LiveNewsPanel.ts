@@ -5,7 +5,6 @@ import { t } from '../services/i18n';
 import { loadFromStorage, saveToStorage } from '@/utils';
 import { IDLE_PAUSE_MS, STORAGE_KEYS, SITE_VARIANT } from '@/config';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
-import { STORAGE_KEYS, SITE_VARIANT } from '@/config';
 
 import { getStreamQuality } from '@/services/ai-flow-settings';
 

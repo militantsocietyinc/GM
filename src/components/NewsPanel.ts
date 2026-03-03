@@ -171,9 +171,8 @@ export class NewsPanel extends Panel {
         setTimeout(() => this.hideSummary(), 3000);
       }
     } catch {
-
-      this.summaryContainer.innerHTML = `<div class="panel-summary-error">${t('components.newsPanel.summaryFailed')}</div>`;
       if (!this.element?.isConnected) return;
+      this.summaryContainer.innerHTML = `<div class="panel-summary-error">${t('components.newsPanel.summaryFailed')}</div>`;
       setTimeout(() => this.hideSummary(), 3000);
     } finally {
       this.isSummarizing = false;

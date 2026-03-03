@@ -86,8 +86,8 @@ export class EventHandlerManager implements AppModule {
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
 
-  private readonly IDLE_PAUSE_MS = IDLE_PAUSE_MS;
-  private debouncedUrlSync = debounce(() => {
+  private readonly idlePauseMs = IDLE_PAUSE_MS;
+  private readonly debouncedUrlSync = debounce(() => {
     const shareUrl = this.getShareUrl();
     if (!shareUrl) return;
     try { history.replaceState(null, '', shareUrl); } catch { }
@@ -394,7 +394,7 @@ export class EventHandlerManager implements AppModule {
         document.body?.classList.add('animations-paused');
         console.log('[App] User idle - pausing animations to save resources');
       }
-    }, this.IDLE_PAUSE_MS);
+    }, this.idlePauseMs);
   }
 
   setupUrlStateSync(): void {

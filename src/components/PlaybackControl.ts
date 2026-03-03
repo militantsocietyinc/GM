@@ -18,18 +18,18 @@ export class PlaybackControl {
       <div class="playback-panel hidden">
         <div class="playback-header">
           <span>${t('components.playback.historicalPlayback')}</span>
-          <button class="playback-close" aria-label="${t('components.newsPanel.close')}">×</button>
+          <button class="playback-close" aria-label="${t('components.playback.close')}">×</button>
         </div>
         <div class="playback-slider-container">
           <input type="range" class="playback-slider" min="0" max="100" value="100">
           <div class="playback-time">${t('components.playback.live')}</div>
         </div>
         <div class="playback-controls">
-          <button class="playback-btn" data-action="start" aria-label="Skip to start">⏮</button>
-          <button class="playback-btn" data-action="prev" aria-label="Previous">◀</button>
+          <button class="playback-btn" data-action="start" aria-label="${t('components.playback.skipToStart')}">⏮</button>
+          <button class="playback-btn" data-action="prev" aria-label="${t('components.playback.previous')}">◀</button>
           <button class="playback-btn playback-live" data-action="live">${t('components.playback.live')}</button>
-          <button class="playback-btn" data-action="next" aria-label="Next">▶</button>
-          <button class="playback-btn" data-action="end" aria-label="Skip to end">⏭</button>
+          <button class="playback-btn" data-action="next" aria-label="${t('components.playback.next')}">▶</button>
+          <button class="playback-btn" data-action="end" aria-label="${t('components.playback.skipToEnd')}">⏭</button>
         </div>
       </div>
     `;

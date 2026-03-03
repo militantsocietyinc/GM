@@ -132,6 +132,8 @@ export class AviationCommandBar {
     constructor() {
         this.boundKeydown = (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
+                const tag = (document.activeElement as HTMLElement)?.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA') return;
                 e.preventDefault();
                 this.open();
             }

@@ -65,7 +65,6 @@ export async function getCarrierOps(
 
                 const carriers: CarrierOpsSummary[] = [];
                 for (const [, { carrier, airport, flights }] of groups) {
-                    if (flights.length < minFlights) continue;
                     const delayed = flights.filter(f => f.delayMinutes > 0);
                     const cancelled = flights.filter(f => f.cancelled);
                     const totalDelay = delayed.reduce((s, f) => s + f.delayMinutes, 0);
@@ -91,7 +90,7 @@ export async function getCarrierOps(
         );
 
         return {
-            carriers: result?.carriers ?? [],
+            carriers: (result?.carriers ?? []).filter(c => c.totalFlights >= minFlights),
             source: 'computed',
             updatedAt: now,
         };

@@ -6,8 +6,6 @@ import type {
 import { generateDemoPrices } from './_providers/demo_prices';
 import { searchPricesTravelpayouts } from './_providers/travelpayouts_data';
 
-const CACHE_TTL = 3600; // 1 hour — cached upstream data doesn't change fast
-
 export async function searchFlightPrices(
     _ctx: ServerContext,
     req: SearchFlightPricesRequest,

@@ -206,6 +206,28 @@ export const SOURCE_TIERS: Record<string, number> = {
   'in.gr': 3,
   'iefimerida': 3,
   'Proto Thema': 3,
+  // Kazakh (KK)
+  'Tengrinews': 2,
+  'Informburo': 2,
+  'Zakon.kz': 2,
+  'KazTAG': 2,
+  'Nur.kz': 2,
+  'Kazakhstan News': 3,
+  'Central Asia': 3,
+  // Central Asian ( Uzbek, Kyrgyz, Tajik, Turkmen)
+  'UzA': 2,
+  'Daryo': 2,
+  'Kun': 2,
+  'Gazeta': 3,
+  '24kg': 2,
+  'Kloop': 2,
+  'Kabar': 2,
+  'Tazabek': 2,
+  'Asia Plus': 2,
+  'Radio Ozodi': 3,
+  'Sputnik Tajikistan': 3,
+  'Turkmenportal': 2,
+  'Turkmenistan News': 3,
 
   // Tier 3 - Think Tanks
   'Brookings Tech': 3,
@@ -701,6 +723,32 @@ const FULL_FEEDS: Record<string, Feed[]> = {
     { name: 'Guardian Australia', url: rss('https://www.theguardian.com/australia-news/rss') },
     // Pacific Islands
     { name: 'Island Times (Palau)', url: rss('https://islandtimes.org/feed/') },
+    // Kazakhstan
+    { name: 'Tengrinews', url: rss('https://tengrinews.kz/rss/'), lang: 'kk' },
+    { name: 'Informburo', url: rss('https://informburo.kz/feed.rss'), lang: 'kk' },
+    { name: 'Zakon.kz', url: rss('https://www.zakon.kz/rss/'), lang: 'kk' },
+    { name: 'KazTAG', url: rss('https://kaztag.kz/feed/'), lang: 'kk' },
+    { name: 'Nur.kz', url: rss('https://www.n.kz/feed/'), lang: 'kk' },
+    // Kazakhstan General (English/Russian via Google News)
+    { name: 'Kazakhstan News', url: rss('https://news.google.com/rss/search?q=Kazakhstan+news+OR+Astana+OR+Almaty+when:2d&hl=en-US&gl=US&ceid=US:en') },
+    // Uzbekistan
+    { name: 'UzA', url: rss('https://uza.uz/rss'), lang: 'uz' },
+    { name: 'Daryo', url: rss('https://daryo.uz/rss/'), lang: 'uz' },
+    { name: 'Kun', url: rss('https://kun.uz/rss'), lang: 'uz' },
+    { name: 'Gazeta', url: rss('https://www.gazeta.uz/rss/'), lang: 'uz' },
+    // Kyrgyzstan
+    { name: '24kg', url: rss('https://24.kg/rss/'), lang: 'ky' },
+    { name: 'Kloop', url: rss('https://kloop.kg/feed/'), lang: 'ky' },
+    { name: 'Kabar', url: rss('https://kabar.kg/rss/'), lang: 'ky' },
+    { name: 'Tazabek', url: rss('https://tazabek.kg/feed/'), lang: 'ky' },
+    // Tajikistan
+    { name: 'Asia Plus', url: rss('https://asiaplustj.info/rss'), lang: 'tg' },
+    { name: 'Radio Ozodi', url: rss('https://rus.ozodi.org/rss/'), lang: 'tg' },
+    { name: 'Sputnik Tajikistan', url: rss('https://sputniknews.ru/export/rss2/archive/index.xml'), lang: 'ru' },
+    // Turkmenistan
+    { name: 'Turkmenportal', url: rss('https://turkmenportal.com/feed'), lang: 'tk' },
+    { name: 'Turkmenistan News', url: rss('https://news.google.com/rss/search?q=Turkmenistan+OR+Ashgabat+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Central Asia', url: rss('https://news.google.com/rss/search?q=(Kazakhstan+OR+Uzbekistan+OR+Kyrgyzstan+OR+Tajikistan+OR+Turkmenistan)+when:3d&hl=en-US&gl=US&ceid=US:en') },
   ],
   energy: [
     { name: 'Oil & Gas', url: rss('https://news.google.com/rss/search?q=(oil+price+OR+OPEC+OR+"natural+gas"+OR+pipeline+OR+LNG)+when:2d&hl=en-US&gl=US&ceid=US:en') },

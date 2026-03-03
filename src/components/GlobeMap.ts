@@ -338,6 +338,9 @@ export class GlobeMap {
   // Auto-rotate timer (like Sentinel: resume after 60 s idle)
   private autoRotateTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Render coalescing — batch multiple flushMarkers() calls into one frame
+  private flushScheduled = false;
+
   // ResizeObserver keeps the canvas in sync with the container
   private resizeObserver: ResizeObserver | null = null;
 
@@ -367,7 +370,11 @@ export class GlobeMap {
 
     const config: ConfigOptions = {
       animateIn: false,
-      rendererConfig: { logarithmicDepthBuffer: true },
+      rendererConfig: {
+        logarithmicDepthBuffer: true,
+        antialias: false,
+        powerPreference: 'high-performance',
+      },
     };
 
     const globe = new Globe(this.container, config) as GlobeInstance;
@@ -1044,6 +1051,16 @@ export class GlobeMap {
   // ─── Flush all current data to globe ──────────────────────────────────────
 
   private flushMarkers(): void {
+    if (!this.globe || !this.initialized) return;
+    if (this.flushScheduled) return;
+    this.flushScheduled = true;
+    requestAnimationFrame(() => {
+      this.flushScheduled = false;
+      this.flushMarkersNow();
+    });
+  }
+
+  private flushMarkersNow(): void {
     if (!this.globe || !this.initialized) return;
 
     const markers: GlobeMarker[] = [];

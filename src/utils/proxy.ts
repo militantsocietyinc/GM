@@ -28,7 +28,7 @@ export function proxyUrl(localPath: string): string {
 }
 
 function shouldPersistResponse(url: string): boolean {
-  return url.includes('/api/');
+  return url.startsWith('/api/');
 }
 
 function buildResponseCacheKey(url: string): string {

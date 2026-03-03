@@ -26,13 +26,13 @@ function hasSuffix(word: string, keyword: string): boolean {
   if (word.length <= keyword.length) return false;
   if (word.startsWith(keyword)) {
     const suffix = word.slice(keyword.length);
-    if (INFLECTION_SUFFIXES.includes(suffix)) return true;
+    if (INFLECTION_SUFFIXES.has(suffix)) return true;
   }
   if (keyword.endsWith('e')) {
     const stem = keyword.slice(0, -1);
     if (word.length > stem.length && word.startsWith(stem)) {
       const suffix = word.slice(stem.length);
-      if (INFLECTION_SUFFIXES.includes(suffix)) return true;
+      if (INFLECTION_SUFFIXES.has(suffix)) return true;
     }
   }
   return false;

@@ -610,9 +610,6 @@
         "notes": {
           "timeAffects": "Påverkar: Jordbävningar, väder, protester, avbrott"
         }
-      },
-      "help": {
-        "geoBoundaries": "Demilitariserade zoner, eldupphörslinjer och omtvistade gränser"
       }
     },
     "climate": {

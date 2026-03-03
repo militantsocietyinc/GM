@@ -862,9 +862,6 @@
         "notes": {
           "timeAffects": "Effetti: terremoti, condizioni meteorologiche, proteste, interruzioni"
         }
-      },
-      "help": {
-        "geoBoundaries": "Zone demilitarizzate, linee di cessate il fuoco e confini contestati"
       }
     },
     "climate": {

@@ -1005,9 +1005,6 @@
         "notes": {
           "timeAffects": "영향 대상: 지진, 기상, 시위, 장애"
         }
-      },
-      "help": {
-        "geoBoundaries": "비무장지대, 휴전선 및 분쟁 경계선"
       }
     },
     "cii": {

@@ -1001,9 +1001,6 @@
         "notes": {
           "timeAffects": "Ovlivňuje: Zemětřesení, Počasí, Protesty, Výpadky"
         }
-      },
-      "help": {
-        "geoBoundaries": "Demilitarizované zóny, linie příměří a sporné hranice"
       }
     },
     "cii": {

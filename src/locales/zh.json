@@ -985,9 +985,6 @@
         "notes": {
           "timeAffects": "影响范围：地震、天气、抗议、中断"
         }
-      },
-      "help": {
-        "geoBoundaries": "非军事区、停火线和争议边界"
       }
     },
     "cii": {

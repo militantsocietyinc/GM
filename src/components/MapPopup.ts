@@ -469,7 +469,7 @@ export class MapPopup {
     return `
       <div class="popup-header geopolitical-boundary">
         <span class="popup-title">${escapeHtml(boundary.name.toUpperCase())}</span>
-        <span class="popup-badge demilitarized">${typeLabel}</span>
+        <span class="popup-badge ${escapeHtml(boundary.boundaryType)}">${typeLabel}</span>
         <button class="popup-close">\u00d7</button>
       </div>
       <div class="popup-body">

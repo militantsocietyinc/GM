@@ -985,9 +985,6 @@
         "notes": {
           "timeAffects": "Affecte : tremblements de terre, conditions météorologiques, manifestations, pannes"
         }
-      },
-      "help": {
-        "geoBoundaries": "Zones démilitarisées, lignes de cessez-le-feu et frontières contestées"
       }
     },
     "cii": {

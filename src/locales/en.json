@@ -1064,9 +1064,6 @@
         "notes": {
           "timeAffects": "Affects: Earthquakes, Weather, Protests, Outages"
         }
-      },
-      "help": {
-        "geoBoundaries": "Demilitarized zones, ceasefire lines, and disputed boundaries"
       }
     },
     "cii": {

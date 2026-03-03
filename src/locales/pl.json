@@ -846,9 +846,6 @@
         "notes": {
           "timeAffects": "Wpływ na: Trzęsienia ziemi, Pogoda, Protesty, Przestoje"
         }
-      },
-      "help": {
-        "geoBoundaries": "Strefy zdemilitaryzowane, linie zawieszenia broni i sporne granice"
       }
     },
     "climate": {

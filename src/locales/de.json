@@ -862,9 +862,6 @@
         "notes": {
           "timeAffects": "Betrifft: Erdbeben, Wetter, Proteste, Ausfälle"
         }
-      },
-      "help": {
-        "geoBoundaries": "Entmilitarisierte Zonen, Waffenstillstandslinien und umstrittene Grenzen"
       }
     },
     "climate": {

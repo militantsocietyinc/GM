@@ -985,9 +985,6 @@
         "notes": {
           "timeAffects": "影響: 地震、気象、抗議活動、障害"
         }
-      },
-      "help": {
-        "geoBoundaries": "非武装地帯、停戦ライン、係争境界線"
       }
     },
     "cii": {

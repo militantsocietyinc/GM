@@ -610,9 +610,6 @@
         "notes": {
           "timeAffects": "Afeta: terremotos, clima, protestos, interrupções"
         }
-      },
-      "help": {
-        "geoBoundaries": "Zonas desmilitarizadas, linhas de cessar-fogo e fronteiras disputadas"
       }
     },
     "climate": {

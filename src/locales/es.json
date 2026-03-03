@@ -862,9 +862,6 @@
         "notes": {
           "timeAffects": "Afecta: terremotos, clima, protestas, apagones"
         }
-      },
-      "help": {
-        "geoBoundaries": "Zonas desmilitarizadas, líneas de alto el fuego y fronteras en disputa"
       }
     },
     "climate": {

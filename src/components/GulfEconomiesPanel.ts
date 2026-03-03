@@ -49,10 +49,16 @@ export class GulfEconomiesPanel extends Panel {
   public async fetchData(): Promise<void> {
     try {
       const data = await client.listGulfQuotes({});
+      if (!this.element?.isConnected) return;
       this.renderGulf(data);
     } catch (err) {
       if (this.isAbortError(err)) return;
+      if (!this.element?.isConnected) return;
       this.showError(t('common.failedMarketData'));
+    }
+
+    if (!this.pollTimer && this.element?.isConnected) {
+      this.pollTimer = setInterval(() => void this.fetchData(), 60_000);
     }
   }
 

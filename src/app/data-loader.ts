@@ -130,6 +130,7 @@ import { classifyNewsItem } from '@/services/positive-classifier';
 import { fetchGivingSummary } from '@/services/giving';
 import { fetchVolcanoAlerts } from '@/services/volcano-alerts';
 import { fetchNWSAlerts } from '@/services/nws-alerts';
+import { updateRegionCount, getHighRiskRegions } from '@/services/ema-forecast';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
 import { NWSAlertsPanel } from '@/components/NWSAlertsPanel';
@@ -358,6 +359,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'gdacsAlerts', task: runGuarded('gdacsAlerts', () => this.loadGDACSAlerts()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'volcanoAlerts', task: runGuarded('volcanoAlerts', () => this.loadVolcanoAlerts()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'nwsAlerts', task: runGuarded('nwsAlerts', () => this.loadNWSAlerts()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'emaForecast', task: runGuarded('emaForecast', () => this.runEMAForecast()) });
 
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
@@ -1501,6 +1503,52 @@ export class DataLoaderManager implements AppModule {
     } catch (error) {
       console.warn('[nws-alerts] fetch failed', error);
       (this.ctx.panels['nws-alerts'] as NWSAlertsPanel)?.update([]);
+    }
+  }
+
+  async runEMAForecast(): Promise<void> {
+    // Accumulate event counts per country from cached intelligence data
+    const regionCounts = new Map<string, number>();
+
+    const protests = this.ctx.intelligenceCache?.protests?.events ?? [];
+    for (const e of protests) {
+      const key = e.country || e.region || 'Unknown';
+      regionCounts.set(key, (regionCounts.get(key) ?? 0) + 1);
+    }
+
+    const earthquakes = this.ctx.intelligenceCache?.earthquakes ?? [];
+    for (const eq of earthquakes) {
+      if (eq.magnitude >= 5.0 && eq.place) {
+        const key = eq.place.split(',').pop()?.trim() ?? 'Unknown';
+        regionCounts.set(key, (regionCounts.get(key) ?? 0) + 1);
+      }
+    }
+
+    // Update EMA for each tracked region
+    for (const [region, count] of regionCounts.entries()) {
+      updateRegionCount(region, count);
+    }
+
+    // Check for high-risk regions and emit velocity_spike signals into war threat evaluation
+    const highRisk = getHighRiskRegions();
+    if (highRisk.length > 0) {
+      const signals = highRisk.slice(0, 3).map(forecast => ({
+        id: `ema-forecast-${forecast.region}-${Date.now()}`,
+        type: 'velocity_spike' as const,
+        title: `EMA Forecast: ${forecast.region}`,
+        description: `Risk ${forecast.risk24h}% (${forecast.trending}, ${forecast.deviation.toFixed(1)}σ above baseline)`,
+        confidence: Math.min(0.95, forecast.risk24h / 100),
+        timestamp: new Date(),
+        data: {
+          newsVelocity: forecast.currentCount,
+          baseline: forecast.ema,
+          multiplier: forecast.deviation,
+          relatedTopics: [forecast.region],
+          explanation: `EMA deviation ${forecast.deviation.toFixed(1)}σ — 24h escalation risk ${forecast.risk24h}%`,
+        },
+      }));
+      addToSignalHistory(signals);
+      evaluateWarThreat(signals);
     }
   }
 

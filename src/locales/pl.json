@@ -126,6 +126,7 @@
     "sourceRegionFinRegulation": "Financial Regulation",
     "sourceRegionGulfMena": "Zatoka & MENA",
     "filterPanels": "Filtruj panele...",
+    "resetLayout": "Resetuj układ",
     "panelCatCore": "Główne",
     "panelCatIntelligence": "Wywiad",
     "panelCatRegionalNews": "Wiadomości Regionalne",
@@ -916,7 +917,12 @@
     "playback": {
       "toggleMode": "Przełącz tryb odtwarzania",
       "historicalPlayback": "Odtwarzanie historyczne",
-      "live": "NA ŻYWO"
+      "live": "NA ŻYWO",
+      "close": "Zamknąć",
+      "skipToStart": "Skip to start",
+      "previous": "Previous",
+      "next": "Next",
+      "skipToEnd": "Skip to end"
     },
     "stablecoins": {
       "pegHealth": "Stabilność powiązania",

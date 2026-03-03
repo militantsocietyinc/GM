@@ -126,6 +126,7 @@
     "sourceRegionFinRegulation": "金融监管",
     "sourceRegionGulfMena": "海湾与中东",
     "filterPanels": "筛选面板...",
+    "resetLayout": "重置布局",
     "panelCatCore": "核心",
     "panelCatIntelligence": "情报",
     "panelCatRegionalNews": "地区新闻",
@@ -682,7 +683,12 @@
     "playback": {
       "toggleMode": "切换回放模式",
       "live": "实时",
-      "historicalPlayback": "历史回放"
+      "historicalPlayback": "历史回放",
+      "close": "关闭",
+      "skipToStart": "Skip to start",
+      "previous": "Previous",
+      "next": "Next",
+      "skipToEnd": "Skip to end"
     },
     "pizzint": {
       "title": "五角大楼披萨指数",

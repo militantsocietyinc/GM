@@ -126,6 +126,7 @@
     "sourceRegionFinRegulation": "Regolamentazione Finanziaria",
     "sourceRegionGulfMena": "Golfo e MENA",
     "filterPanels": "Filtra pannelli...",
+    "resetLayout": "Ripristina layout",
     "panelCatCore": "Principale",
     "panelCatIntelligence": "Intelligence",
     "panelCatRegionalNews": "Notizie Regionali",
@@ -932,7 +933,12 @@
     "playback": {
       "toggleMode": "Attiva/disattiva la modalità di riproduzione",
       "historicalPlayback": "Riproduzione storica",
-      "live": "IN DIRETTA"
+      "live": "IN DIRETTA",
+      "close": "Vicino",
+      "skipToStart": "Skip to start",
+      "previous": "Previous",
+      "next": "Next",
+      "skipToEnd": "Skip to end"
     },
     "stablecoins": {
       "pegHealth": "Salute dell'ancoraggio",

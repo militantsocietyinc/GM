@@ -126,6 +126,7 @@
     "sourceRegionFinRegulation": "Financial Regulation",
     "sourceRegionGulfMena": "Vùng Vịnh & MENA",
     "filterPanels": "Lọc bảng điều khiển...",
+    "resetLayout": "Đặt lại bố cục",
     "panelCatCore": "Cốt lõi",
     "panelCatIntelligence": "Tình báo",
     "panelCatRegionalNews": "Tin khu vực",
@@ -682,7 +683,12 @@
     "playback": {
       "toggleMode": "Chuyển Chế độ Phát lại",
       "live": "TRỰC TIẾP",
-      "historicalPlayback": "Phát lại Lịch sử"
+      "historicalPlayback": "Phát lại Lịch sử",
+      "close": "Đóng",
+      "skipToStart": "Skip to start",
+      "previous": "Previous",
+      "next": "Next",
+      "skipToEnd": "Skip to end"
     },
     "pizzint": {
       "title": "Chỉ số Pizza Lầu Năm Góc",

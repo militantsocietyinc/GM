@@ -22,6 +22,7 @@ export interface UnifiedSettingsConfig {
   setSourcesEnabled: (names: string[], enabled: boolean) => void;
   getAllSourceNames: () => string[];
   getLocalizedPanelName: (key: string, fallback: string) => string;
+  resetLayout: () => void;
   isDesktopApp: boolean;
   statusPanel?: StatusPanel | null;
 }
@@ -83,6 +84,12 @@ export class UnifiedSettings {
         if (searchInput) searchInput.value = '';
         this.renderPanelCategoryPills();
         this.renderPanelsTab();
+        return;
+      }
+
+      // Reset layout
+      if (target.closest('.panels-reset-layout')) {
+        this.config.resetLayout();
         return;
       }
 
@@ -248,18 +255,18 @@ export class UnifiedSettings {
       <div class="modal unified-settings-modal">
         <div class="modal-header">
           <span class="modal-title">${t('header.settings')}</span>
-          <button class="modal-close unified-settings-close">×</button>
+          <button class="modal-close unified-settings-close" aria-label="Close">×</button>
         </div>
-        <div class="unified-settings-tabs">
-          <button class="${tabClass('general')}" data-tab="general">${t('header.tabGeneral')}</button>
-          <button class="${tabClass('panels')}" data-tab="panels">${t('header.tabPanels')}</button>
-          <button class="${tabClass('sources')}" data-tab="sources">${t('header.tabSources')}</button>
-          <button class="${tabClass('status')}" data-tab="status">${t('panels.status')}</button>
+        <div class="unified-settings-tabs" role="tablist" aria-label="Settings">
+          <button class="${tabClass('general')}" data-tab="general" role="tab" aria-selected="${this.activeTab === 'general'}" id="us-tab-general" aria-controls="us-tab-panel-general">${t('header.tabGeneral')}</button>
+          <button class="${tabClass('panels')}" data-tab="panels" role="tab" aria-selected="${this.activeTab === 'panels'}" id="us-tab-panels" aria-controls="us-tab-panel-panels">${t('header.tabPanels')}</button>
+          <button class="${tabClass('sources')}" data-tab="sources" role="tab" aria-selected="${this.activeTab === 'sources'}" id="us-tab-sources" aria-controls="us-tab-panel-sources">${t('header.tabSources')}</button>
+          <button class="${tabClass('status')}" data-tab="status" role="tab" aria-selected="${this.activeTab === 'status'}" id="us-tab-status" aria-controls="us-tab-panel-status">${t('panels.status')}</button>
         </div>
-        <div class="unified-settings-tab-panel${this.activeTab === 'general' ? ' active' : ''}" data-panel-id="general">
+        <div class="unified-settings-tab-panel${this.activeTab === 'general' ? ' active' : ''}" data-panel-id="general" id="us-tab-panel-general" role="tabpanel" aria-labelledby="us-tab-general">
           ${this.renderGeneralContent()}
         </div>
-        <div class="unified-settings-tab-panel${this.activeTab === 'panels' ? ' active' : ''}" data-panel-id="panels">
+        <div class="unified-settings-tab-panel${this.activeTab === 'panels' ? ' active' : ''}" data-panel-id="panels" id="us-tab-panel-panels" role="tabpanel" aria-labelledby="us-tab-panels">
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usPanelCatBar"></div>
           </div>
@@ -267,8 +274,11 @@ export class UnifiedSettings {
             <input type="text" placeholder="${t('header.filterPanels')}" value="${escapeHtml(this.panelFilter)}" />
           </div>
           <div class="panel-toggle-grid" id="usPanelToggles"></div>
+          <div class="panels-footer">
+            <button class="panels-reset-layout">${t('header.resetLayout')}</button>
+          </div>
         </div>
-        <div class="unified-settings-tab-panel${this.activeTab === 'sources' ? ' active' : ''}" data-panel-id="sources">
+        <div class="unified-settings-tab-panel${this.activeTab === 'sources' ? ' active' : ''}" data-panel-id="sources" id="us-tab-panel-sources" role="tabpanel" aria-labelledby="us-tab-sources">
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usRegionBar"></div>
           </div>
@@ -282,7 +292,7 @@ export class UnifiedSettings {
             <button class="sources-select-none">${t('common.selectNone')}</button>
           </div>
         </div>
-        <div class="unified-settings-tab-panel${this.activeTab === 'status' ? ' active' : ''}" data-panel-id="status">
+        <div class="unified-settings-tab-panel${this.activeTab === 'status' ? ' active' : ''}" data-panel-id="status" id="us-tab-panel-status" role="tabpanel" aria-labelledby="us-tab-status">
           <div class="us-status-content" id="usStatusContent"></div>
         </div>
       </div>
@@ -303,7 +313,9 @@ export class UnifiedSettings {
 
     // Update tab buttons
     this.overlay.querySelectorAll('.unified-settings-tab').forEach(el => {
-      el.classList.toggle('active', (el as HTMLElement).dataset.tab === tab);
+      const isActive = (el as HTMLElement).dataset.tab === tab;
+      el.classList.toggle('active', isActive);
+      el.setAttribute('aria-selected', String(isActive));
     });
 
     // Update tab panels
@@ -484,6 +496,7 @@ export class UnifiedSettings {
     try {
       if ('storage' in navigator && 'estimate' in navigator.storage) {
         const estimate = await navigator.storage.estimate();
+        if (!container.isConnected) return;
         const used = estimate.usage ? (estimate.usage / 1024 / 1024).toFixed(2) : '0';
         const quota = estimate.quota ? (estimate.quota / 1024 / 1024).toFixed(0) : 'N/A';
         container.innerHTML = `<div class="status-row">
@@ -494,6 +507,7 @@ export class UnifiedSettings {
         container.innerHTML = `<div class="status-row">${t('components.status.storageUnavailable')}</div>`;
       }
     } catch {
+      if (!container.isConnected) return;
       container.innerHTML = `<div class="status-row">${t('components.status.storageUnavailable')}</div>`;
     }
   }

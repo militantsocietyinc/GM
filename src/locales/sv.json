@@ -419,7 +419,12 @@
     "playback": {
       "live": "LIVE",
       "toggleMode": "Växla uppspelningsläge",
-      "historicalPlayback": "Historisk uppspelning"
+      "historicalPlayback": "Historisk uppspelning",
+      "close": "Nära",
+      "skipToStart": "Skip to start",
+      "previous": "Previous",
+      "next": "Next",
+      "skipToEnd": "Skip to end"
     },
     "deckgl": {
       "views": {
@@ -2056,6 +2061,7 @@
     "sourceRegionFinRegulation": "Financial Regulation",
     "sourceRegionGulfMena": "Gulfen & MENA",
     "filterPanels": "Filtrera paneler...",
+    "resetLayout": "Återställ layout",
     "panelCatCore": "Kärna",
     "panelCatIntelligence": "Underrättelser",
     "panelCatRegionalNews": "Regionala Nyheter",

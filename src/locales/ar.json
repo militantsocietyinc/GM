@@ -126,6 +126,7 @@
     "sourceRegionFinRegulation": "التنظيم المالي",
     "sourceRegionGulfMena": "الخليج والشرق الأوسط",
     "filterPanels": "تصفية اللوحات...",
+    "resetLayout": "إعادة تعيين التخطيط",
     "panelCatCore": "أساسي",
     "panelCatIntelligence": "استخبارات",
     "panelCatRegionalNews": "أخبار إقليمية",
@@ -682,7 +683,12 @@
     "playback": {
       "toggleMode": "تبديل وضع التشغيل",
       "live": "مباشر",
-      "historicalPlayback": "تشغيل تاريخي"
+      "historicalPlayback": "تشغيل تاريخي",
+      "close": "إغلاق",
+      "skipToStart": "Skip to start",
+      "previous": "Previous",
+      "next": "Next",
+      "skipToEnd": "Skip to end"
     },
     "pizzint": {
       "title": "مؤشر بيتزا البنتاغون",

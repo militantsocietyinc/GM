@@ -16,6 +16,18 @@ export const DEFAULT_PANELS: Record<string, PanelConfig> = {
 export const DEFAULT_MAP_LAYERS = {} as Record<string, boolean>;
 export const MOBILE_DEFAULT_MAP_LAYERS = {} as Record<string, boolean>;
 
+// Panel categories for settings UI
+export const PANEL_CATEGORY_MAP: Record<string, string> = {
+  dashboard: 'Core',
+  targets: 'Core',
+  'signal-alerts': 'Intelligence',
+  prospects: 'Outreach',
+  campaigns: 'Outreach',
+  insights: 'Intelligence',
+  intel: 'Intelligence',
+  settings: 'System',
+};
+
 // Source-to-panel mapping for data freshness
 export const LAYER_TO_SOURCE: Record<string, string> = {
   rss: 'rss',

@@ -9,7 +9,7 @@ import { Dashboard } from '@/components/Dashboard';
 import { TargetsPanel } from '@/components/TargetsPanel';
 import { SignalAlertsPanel } from '@/components/SignalAlertsPanel';
 import { CompanyIntelligence } from '@/components/CompanyIntelligence';
-import { loadFromStorage, saveToStorage } from '@/utils';
+import { loadFromStorage } from '@/utils';
 import { mlWorker } from '@/services/ml-worker';
 import { getAiFlowSettings, isHeadlineMemoryEnabled } from '@/services/ai-flow-settings';
 import { dataFreshness } from '@/services/data-freshness';
@@ -263,17 +263,17 @@ export class App {
         { label: 'EMEA Expansion', type: 'detected', description: '12 new job postings in London and Berlin offices', actionText: 'EMEA CLOUD PLAY' },
       ],
       socialPosts: [
-        { author: 'Sarah Chen', authorTitle: 'CTO', preview: 'Excited to share our journey migrating 200+ microservices to Kubernetes...', likes: 342, comments: 47, shares: 89, timestamp: new Date() },
+        { author: 'Sarah Chen', authorTitle: 'CTO', preview: 'Excited to share our journey migrating 200+ microservices to Kubernetes...', likes: 342, comments: 47, shares: 89, timestamp: new Date().toISOString() },
       ],
       icebreakers: [
         'Congrats on the K8s migration milestone — we helped Stripe navigate a similar transition. Happy to share what we learned.',
         'Noticed your EMEA expansion — we have deep experience scaling cloud infra across EU regions. Worth a quick chat?',
       ],
       timeline: [
-        { date: new Date(Date.now() - 2 * 86400000), title: 'CTO LinkedIn Post', description: 'Kubernetes migration progress update' },
-        { date: new Date(Date.now() - 5 * 86400000), title: 'Series C Announced', description: '$85M round led by Sequoia Capital' },
-        { date: new Date(Date.now() - 14 * 86400000), title: 'VP Engineering Hired', description: 'Michael Torres joins from Datadog' },
-        { date: new Date(Date.now() - 30 * 86400000), title: 'EMEA Office Opening', description: 'London office announced, 50 roles posted' },
+        { date: new Date(Date.now() - 2 * 86400000).toISOString(), title: 'CTO LinkedIn Post', description: 'Kubernetes migration progress update' },
+        { date: new Date(Date.now() - 5 * 86400000).toISOString(), title: 'Series C Announced', description: '$85M round led by Sequoia Capital' },
+        { date: new Date(Date.now() - 14 * 86400000).toISOString(), title: 'VP Engineering Hired', description: 'Michael Torres joins from Datadog' },
+        { date: new Date(Date.now() - 30 * 86400000).toISOString(), title: 'EMEA Office Opening', description: 'London office announced, 50 roles posted' },
       ],
       accountHealthScore: 82,
     });
@@ -308,7 +308,7 @@ export class App {
     try {
       // Initialize ML worker for NER and embeddings
       const aiSettings = getAiFlowSettings();
-      if (aiSettings.browserMl) {
+      if (aiSettings.browserModel) {
         mlWorker.init().catch(err => {
           console.warn('[SalesIntel] ML worker init failed:', err);
         });

@@ -50,7 +50,7 @@ function avatarColor(name: string): string {
   const palette = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6'];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return palette[Math.abs(hash) % palette.length];
+  return palette[Math.abs(hash) % palette.length] ?? '#3b82f6';
 }
 
 function relativeTime(date: Date): string {

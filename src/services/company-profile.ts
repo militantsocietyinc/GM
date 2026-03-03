@@ -119,18 +119,19 @@ export function addSignalsToProfile(
     name: companyName,
     domain: existing?.firmographics.domain,
     industry: existing?.firmographics.industry ?? 'Unknown',
-    employeeCount: existing?.firmographics.employeeCount,
-    region: existing?.firmographics.headquarters,
-    techStack: existing?.techStack.map(t => t.name),
+    employeeCount: existing?.firmographics.employeeCount ?? 0,
+    region: existing?.firmographics.headquarters ?? 'Unknown',
+    techStack: existing?.techStack.map(t => t.name) ?? [],
     revenue: existing?.firmographics.revenue,
     fundingStage: existing?.firmographics.fundingStage,
   };
 
-  const accountHealth = computeAccountHealth(companyInfo, deduplicated.map(s => ({
+  const accountHealth = computeAccountHealth(companyInfo, deduplicated.map((s, i) => ({
+    id: `${companyName}-signal-${i}`,
     type: s.type,
     strength: s.strength,
     timestamp: s.timestamp,
-    isCLevel: s.people?.some(p =>
+    isCLevelActivity: s.people?.some(p =>
       /^(CEO|CTO|CFO|CIO|COO|CMO|CRO|VP|SVP|EVP)/i.test(p),
     ) ?? false,
   })), DEFAULT_ICP);

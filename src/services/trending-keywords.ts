@@ -1,5 +1,17 @@
-import type { CorrelationSignal } from './correlation';
 import { mlWorker } from './ml-worker';
+
+// Lightweight type stub (correlation module removed during SalesIntel transformation)
+interface CorrelationSignal {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  strength: number;
+  timestamp: Date;
+  relatedEntities: string[];
+  category: string;
+  [key: string]: unknown;
+}
 import { generateSummary } from './summarization';
 import { SUPPRESSED_TRENDING_TERMS, escapeRegex, generateSignalId, tokenize } from '@/utils/analysis-constants';
 import { t } from '@/services/i18n';
@@ -545,8 +557,10 @@ async function handleSpike(spike: TrendingSpike, config: TrendingConfig): Promis
       type: 'keyword_spike',
       title: t('alerts.trending', { term: spike.term, count: spike.count, hours: windowHours }),
       description,
-      confidence,
+      strength: confidence,
       timestamp: new Date(),
+      relatedEntities: [spike.term],
+      category: 'trending',
       data: {
         term: spike.term,
         newsVelocity: spike.count,

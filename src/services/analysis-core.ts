@@ -34,7 +34,7 @@ import {
   findNewsForMarketSymbol,
 } from './entity-extraction';
 import { getEntityIndex } from './entity-index';
-import { aggregateThreats } from './threat-classifier';
+import { aggregateIntents } from './threat-classifier';
 
 const TOPIC_BASELINE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const TOPIC_BASELINE_SPIKE_MULTIPLIER = 3;
@@ -66,7 +66,7 @@ export interface NewsItemCore {
   isAlert: boolean;
   monitorColor?: string;
   tier?: number;
-  threat?: import('./threat-classifier').ThreatClassification;
+  threat?: import('./threat-classifier').IntentClassification;
   lat?: number;
   lon?: number;
   locationName?: string;
@@ -88,7 +88,7 @@ export interface ClusteredEventCore {
   isAlert: boolean;
   monitorColor?: string;
   velocity?: { sourcesPerHour?: number };
-  threat?: import('./threat-classifier').ThreatClassification;
+  threat?: import('./threat-classifier').IntentClassification;
   lat?: number;
   lon?: number;
   lang?: string;
@@ -261,7 +261,7 @@ export function clusterNewsCore(
         url: item.link,
       }));
 
-    const threat = aggregateThreats(cluster);
+    const threat = aggregateIntents(cluster.map(i => ({ intent: i.threat, tier: i.tier })));
 
     // Pick most common geo location across items
     const locItems = cluster.filter((i): i is NewsItemWithTier & { lat: number; lon: number } => i.lat != null && i.lon != null);

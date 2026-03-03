@@ -52,6 +52,7 @@ export class MonitorPanel extends Panel {
 
     const monitor: Monitor = {
       id: generateId(),
+      name: keywords,
       keywords: keywords.split(',').map((k) => k.trim().toLowerCase()),
       color: MONITOR_COLORS[this.monitors.length % MONITOR_COLORS.length] ?? getCSSColor('--status-live'),
     };

@@ -8,9 +8,9 @@
  * = CRITICAL opportunity convergence alert
  */
 
-import type { ClusteredEvent, FocalPoint, FocalPointSummary, EntityMention } from '@/types';
+import type { ClusteredEvent, FocalPoint, FocalPointSummary } from '@/types';
 import type { CompanySignalCluster, SignalType } from './signal-aggregator';
-import { extractEntitiesFromClusters, type NewsEntityContext } from './entity-extraction';
+import { extractEntitiesFromClusters } from './entity-extraction';
 import { getEntityIndex, type EntityIndex } from './entity-index';
 
 const SIGNAL_TYPE_LABELS: Record<SignalType, string> = {
@@ -48,12 +48,22 @@ class OpportunityConvergenceDetector {
     const entityContexts = extractEntitiesFromClusters(clusters);
     const focalPoints: FocalPoint[] = [];
 
-    for (const ctx of entityContexts) {
-      const entity = entityIndex.byId.get(ctx.entityId);
+    // Group headlines by entity across all clusters
+    const headlinesByEntity = new Map<string, Array<{ title: string; source: string; url: string }>>();
+    for (const [_clusterId, ctx] of entityContexts) {
+      for (const extractedEntity of ctx.entities) {
+        const existing = headlinesByEntity.get(extractedEntity.entityId) ?? [];
+        existing.push({ title: ctx.title, source: '', url: '' });
+        headlinesByEntity.set(extractedEntity.entityId, existing);
+      }
+    }
+
+    for (const [entityId, headlines] of headlinesByEntity) {
+      const entity = entityIndex.byId.get(entityId);
       if (!entity) continue;
 
-      const relevantHeadlines = ctx.headlines
-        .filter(h => this.entityAppearsInTitle(ctx.entityId, h.title, entityIndex))
+      const relevantHeadlines = headlines
+        .filter(h => this.entityAppearsInTitle(entityId, h.title, entityIndex))
         .slice(0, 5);
       if (relevantHeadlines.length === 0) continue;
 
@@ -71,7 +81,7 @@ class OpportunityConvergenceDetector {
       const narrative = `${entity.name} appears across ${relevantHeadlines.length} articles with ${signalTypesFromNews.size} signal types (${typeLabels}). This convergence suggests heightened commercial activity.`;
 
       focalPoints.push({
-        entityId: ctx.entityId,
+        entityId,
         name: entity.name,
         type: entity.type,
         newsCount: relevantHeadlines.length,
@@ -115,7 +125,7 @@ class OpportunityConvergenceDetector {
     focalPoints.sort((a, b) => b.totalReach - a.totalReach);
 
     const topNarrative = focalPoints.length > 0
-      ? `${focalPoints.length} companies showing signal convergence. ${focalPoints[0].name} has the strongest opportunity signal.`
+      ? `${focalPoints.length} companies showing signal convergence. ${focalPoints[0]!.name} has the strongest opportunity signal.`
       : 'No significant opportunity convergence detected.';
 
     this.lastSummary = { focalPoints: focalPoints.slice(0, 10), topNarrative, generatedAt: new Date() };

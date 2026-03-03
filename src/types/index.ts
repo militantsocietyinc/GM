@@ -223,10 +223,25 @@ export interface AisDisruptionEvent {
   type: string;
 }
 
+export type CyberThreatType = 'c2_server' | 'malware_host' | 'phishing' | 'malicious_url';
+export type CyberThreatSource = 'feodo' | 'urlhaus' | 'c2intel' | 'otx' | 'abuseipdb';
+export type CyberThreatSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type CyberThreatIndicatorType = 'ip' | 'domain' | 'url';
+
 export interface CyberThreat {
   id: string;
-  type: string;
+  type: CyberThreatType | string;
+  source: CyberThreatSource | string;
   indicator: string;
+  indicatorType: CyberThreatIndicatorType | string;
+  lat: number;
+  lon: number;
+  country?: string;
+  severity: CyberThreatSeverity | string;
+  malwareFamily?: string;
+  tags: string[];
+  firstSeen?: string;
+  lastSeen?: string;
 }
 
 export interface DeductContextDetail {

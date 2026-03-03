@@ -1,6 +1,5 @@
 import { FEEDS, INTEL_SOURCES, SOURCE_REGION_MAP } from '@/config/feeds';
 import { PANEL_CATEGORY_MAP } from '@/config/panels';
-import { SITE_VARIANT } from '@/config/variant';
 import { LANGUAGES, changeLanguage, getCurrentLanguage, t } from '@/services/i18n';
 import { getAiFlowSettings, setAiFlowSetting, getStreamQuality, setStreamQuality, STREAM_QUALITY_OPTIONS } from '@/services/ai-flow-settings';
 import type { StreamQuality } from '@/services/ai-flow-settings';
@@ -481,16 +480,16 @@ export class UnifiedSettings {
 
   private getAvailablePanelCategories(): Array<{ key: string; label: string }> {
     const panelKeys = new Set(Object.keys(this.config.getPanelSettings()));
-    const variant = SITE_VARIANT || 'full';
     const categories: Array<{ key: string; label: string }> = [
       { key: 'all', label: t('header.sourceRegionAll') }
     ];
 
-    for (const [catKey, catDef] of Object.entries(PANEL_CATEGORY_MAP)) {
-      if (catDef.variants && !catDef.variants.includes(variant)) continue;
-      const hasPanel = catDef.panelKeys.some(pk => panelKeys.has(pk));
-      if (hasPanel) {
-        categories.push({ key: catKey, label: t(catDef.labelKey) });
+    // PANEL_CATEGORY_MAP is a flat Record<string, string> mapping panelKey -> categoryName
+    const catSet = new Set<string>();
+    for (const [panelKey, categoryName] of Object.entries(PANEL_CATEGORY_MAP)) {
+      if (panelKeys.has(panelKey) && !catSet.has(categoryName)) {
+        catSet.add(categoryName);
+        categories.push({ key: categoryName, label: categoryName });
       }
     }
 
@@ -499,16 +498,17 @@ export class UnifiedSettings {
 
   private getVisiblePanelEntries(): Array<[string, PanelConfig]> {
     const panelSettings = this.config.getPanelSettings();
-    const variant = SITE_VARIANT || 'full';
     let entries = Object.entries(panelSettings)
       .filter(([key]) => key !== 'runtime-config' || this.config.isDesktopApp);
 
     if (this.activePanelCategory !== 'all') {
-      const catDef = PANEL_CATEGORY_MAP[this.activePanelCategory];
-      if (catDef && (!catDef.variants || catDef.variants.includes(variant))) {
-        const allowed = new Set(catDef.panelKeys);
-        entries = entries.filter(([key]) => allowed.has(key));
-      }
+      // PANEL_CATEGORY_MAP is a flat Record<string, string> mapping panelKey -> categoryName
+      const allowed = new Set(
+        Object.entries(PANEL_CATEGORY_MAP)
+          .filter(([, catName]) => catName === this.activePanelCategory)
+          .map(([panelKey]) => panelKey)
+      );
+      entries = entries.filter(([key]) => allowed.has(key));
     }
 
     if (this.panelFilter) {

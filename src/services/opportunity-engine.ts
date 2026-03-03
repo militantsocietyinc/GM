@@ -104,7 +104,7 @@ function generateTalkingPoints(signals: CompanySignal[]): TalkingPoint[] {
 
   if (byType.has('funding_event')) {
     const funding = byType.get('funding_event')!;
-    const latest = funding[0];
+    const latest = funding[0]!;
     points.push({
       point: 'Recent funding creates budget for new initiatives',
       evidence: latest.title,
@@ -116,7 +116,7 @@ function generateTalkingPoints(signals: CompanySignal[]): TalkingPoint[] {
   if (byType.has('hiring_surge')) {
     points.push({
       point: 'Hiring surge indicates growth and new team needs',
-      evidence: byType.get('hiring_surge')![0].title,
+      evidence: byType.get('hiring_surge')![0]!.title,
       signal: 'hiring_surge',
       strength: 'strong',
     });
@@ -125,7 +125,7 @@ function generateTalkingPoints(signals: CompanySignal[]): TalkingPoint[] {
   if (byType.has('technology_adoption')) {
     points.push({
       point: 'Technology changes create evaluation windows',
-      evidence: byType.get('technology_adoption')![0].title,
+      evidence: byType.get('technology_adoption')![0]!.title,
       signal: 'technology_adoption',
       strength: 'moderate',
     });
@@ -134,7 +134,7 @@ function generateTalkingPoints(signals: CompanySignal[]): TalkingPoint[] {
   if (byType.has('executive_movement')) {
     points.push({
       point: 'New leadership brings fresh priorities and vendor reviews',
-      evidence: byType.get('executive_movement')![0].title,
+      evidence: byType.get('executive_movement')![0]!.title,
       signal: 'executive_movement',
       strength: 'strong',
     });
@@ -143,7 +143,7 @@ function generateTalkingPoints(signals: CompanySignal[]): TalkingPoint[] {
   if (byType.has('expansion_signal')) {
     points.push({
       point: 'Expansion requires scaling tools and processes',
-      evidence: byType.get('expansion_signal')![0].title,
+      evidence: byType.get('expansion_signal')![0]!.title,
       signal: 'expansion_signal',
       strength: 'moderate',
     });
@@ -256,7 +256,7 @@ export function assessOpportunity(
   // Build summary
   const topSignals = sorted.slice(0, 5);
   const signalSummary = topSignals.length > 0
-    ? `${company} shows ${convergenceCount} signal types across ${sorted.length} total signals. ${topSignals[0].title}`
+    ? `${company} shows ${convergenceCount} signal types across ${sorted.length} total signals. ${topSignals[0]!.title}`
     : `No signals detected for ${company}.`;
 
   return {

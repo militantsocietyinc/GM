@@ -5,10 +5,23 @@ import { mkdir, readFile, writeFile } from 'fs/promises';
 import { brotliCompress } from 'zlib';
 import { promisify } from 'util';
 import pkg from './package.json';
-import { VARIANT_META } from './src/config/variant-meta';
 
 const isE2E = process.env.VITE_E2E === '1';
 const isDesktopBuild = process.env.VITE_DESKTOP_RUNTIME === '1';
+
+// SalesIntel metadata (replaces variant system)
+const SALESINTEL_META = {
+  title: 'SalesIntel — AI-Powered Sales Intelligence',
+  description: 'Real-time commercial intent signals, company intelligence, and AI-powered outreach for sales teams.',
+  keywords: 'sales intelligence, intent signals, company data, AI sales, lead generation',
+  url: 'https://salesintel.app',
+  siteName: 'SalesIntel',
+  shortName: 'SalesIntel',
+  subject: 'Sales Intelligence Platform',
+  classification: 'Business/Sales',
+  categories: ['business', 'sales', 'intelligence'],
+  features: ['Real-time intent signals', 'Company intelligence profiles', 'AI-powered outreach', 'Signal convergence alerts'],
+};
 
 const brotliCompressAsync = promisify(brotliCompress);
 const BROTLI_EXTENSIONS = new Set(['.js', '.mjs', '.css', '.html', '.svg', '.json', '.txt', '.xml', '.wasm']);
@@ -38,8 +51,8 @@ function brotliPrecompressPlugin(): Plugin {
   };
 }
 
-const activeVariant = process.env.VITE_VARIANT || 'full';
-const activeMeta = VARIANT_META[activeVariant] || VARIANT_META.full;
+const activeVariant = 'salesintel';
+const activeMeta = SALESINTEL_META;
 
 function htmlVariantPlugin(): Plugin {
   return {
@@ -67,95 +80,7 @@ function htmlVariantPlugin(): Plugin {
         .replace(/"description": "Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data."/, `"description": "${activeMeta.description}"`)
         .replace(/"featureList": \[[\s\S]*?\]/, `"featureList": ${JSON.stringify(activeMeta.features, null, 8).replace(/\n/g, '\n      ')}`);
 
-      // Theme-color meta — warm cream for happy variant
-      if (activeVariant === 'happy') {
-        result = result.replace(
-          /<meta name="theme-color" content=".*?" \/>/,
-          '<meta name="theme-color" content="#FAFAF5" />'
-        );
-      }
-
-      // Desktop builds: inject build-time variant into the inline script so data-variant is set
-      // before CSS loads. Web builds always use 'full' — runtime hostname detection handles variants.
-      if (activeVariant !== 'full') {
-        result = result.replace(
-          /if\(v\)document\.documentElement\.dataset\.variant=v;/,
-          `v='${activeVariant}';document.documentElement.dataset.variant=v;`
-        );
-      }
-
-      // Desktop CSP: inject localhost wildcard for dynamic sidecar port.
-      // Web builds intentionally exclude localhost to avoid exposing attack surface.
-      if (isDesktopBuild) {
-        result = result
-          .replace(
-            /connect-src 'self' https: http:\/\/localhost:5173/,
-            "connect-src 'self' https: http://localhost:5173 http://127.0.0.1:*"
-          )
-          .replace(
-            /frame-src 'self'/,
-            "frame-src 'self' http://127.0.0.1:*"
-          );
-      }
-
-      // Desktop builds: replace favicon paths with variant-specific subdirectory.
-      // Web builds use 'full' favicons in HTML; runtime JS swaps them per hostname.
-      if (activeVariant !== 'full') {
-        result = result
-          .replace(/\/favico\/favicon/g, `/favico/${activeVariant}/favicon`)
-          .replace(/\/favico\/apple-touch-icon/g, `/favico/${activeVariant}/apple-touch-icon`)
-          .replace(/\/favico\/android-chrome/g, `/favico/${activeVariant}/android-chrome`)
-          .replace(/\/favico\/og-image/g, `/favico/${activeVariant}/og-image`);
-      }
-
       return result;
-    },
-  };
-}
-
-function polymarketPlugin(): Plugin {
-  const GAMMA_BASE = 'https://gamma-api.polymarket.com';
-  const ALLOWED_ORDER = ['volume', 'liquidity', 'startDate', 'endDate', 'spread'];
-
-  return {
-    name: 'polymarket-dev',
-    configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/api/polymarket')) return next();
-
-        const url = new URL(req.url, 'http://localhost');
-        const endpoint = url.searchParams.get('endpoint') || 'markets';
-        const closed = ['true', 'false'].includes(url.searchParams.get('closed') ?? '') ? url.searchParams.get('closed') : 'false';
-        const order = ALLOWED_ORDER.includes(url.searchParams.get('order') ?? '') ? url.searchParams.get('order') : 'volume';
-        const ascending = ['true', 'false'].includes(url.searchParams.get('ascending') ?? '') ? url.searchParams.get('ascending') : 'false';
-        const rawLimit = parseInt(url.searchParams.get('limit') ?? '', 10);
-        const limit = isNaN(rawLimit) ? 50 : Math.max(1, Math.min(100, rawLimit));
-
-        const params = new URLSearchParams({ closed: closed!, order: order!, ascending: ascending!, limit: String(limit) });
-        if (endpoint === 'events') {
-          const tag = (url.searchParams.get('tag') ?? '').replace(/[^a-z0-9-]/gi, '').slice(0, 100);
-          if (tag) params.set('tag_slug', tag);
-        }
-
-        const gammaUrl = `${GAMMA_BASE}/${endpoint === 'events' ? 'events' : 'markets'}?${params}`;
-
-        res.setHeader('Content-Type', 'application/json');
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 8000);
-          const resp = await fetch(gammaUrl, { headers: { Accept: 'application/json' }, signal: controller.signal });
-          clearTimeout(timer);
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const data = await resp.text();
-          res.setHeader('Cache-Control', 'public, max-age=120');
-          res.setHeader('X-Polymarket-Source', 'gamma');
-          res.end(data);
-        } catch {
-          // Expected: Cloudflare JA3 blocks server-side TLS — return empty array
-          res.setHeader('Cache-Control', 'public, max-age=300');
-          res.end('[]');
-        }
-      });
     },
   };
 }
@@ -175,94 +100,38 @@ function sebufApiPlugin(): Plugin {
   async function buildRouter() {
     const [
       routerMod, corsMod, errorMod,
-      seismologyServerMod, seismologyHandlerMod,
-      wildfireServerMod, wildfireHandlerMod,
-      climateServerMod, climateHandlerMod,
-      predictionServerMod, predictionHandlerMod,
-      displacementServerMod, displacementHandlerMod,
-      aviationServerMod, aviationHandlerMod,
       researchServerMod, researchHandlerMod,
-      unrestServerMod, unrestHandlerMod,
-      conflictServerMod, conflictHandlerMod,
-      maritimeServerMod, maritimeHandlerMod,
       cyberServerMod, cyberHandlerMod,
       economicServerMod, economicHandlerMod,
-      infrastructureServerMod, infrastructureHandlerMod,
       marketServerMod, marketHandlerMod,
       newsServerMod, newsHandlerMod,
       intelligenceServerMod, intelligenceHandlerMod,
-      militaryServerMod, militaryHandlerMod,
-      positiveEventsServerMod, positiveEventsHandlerMod,
-      givingServerMod, givingHandlerMod,
-      tradeServerMod, tradeHandlerMod,
     ] = await Promise.all([
         import('./server/router'),
         import('./server/cors'),
         import('./server/error-mapper'),
-        import('./src/generated/server/worldmonitor/seismology/v1/service_server'),
-        import('./server/worldmonitor/seismology/v1/handler'),
-        import('./src/generated/server/worldmonitor/wildfire/v1/service_server'),
-        import('./server/worldmonitor/wildfire/v1/handler'),
-        import('./src/generated/server/worldmonitor/climate/v1/service_server'),
-        import('./server/worldmonitor/climate/v1/handler'),
-        import('./src/generated/server/worldmonitor/prediction/v1/service_server'),
-        import('./server/worldmonitor/prediction/v1/handler'),
-        import('./src/generated/server/worldmonitor/displacement/v1/service_server'),
-        import('./server/worldmonitor/displacement/v1/handler'),
-        import('./src/generated/server/worldmonitor/aviation/v1/service_server'),
-        import('./server/worldmonitor/aviation/v1/handler'),
         import('./src/generated/server/worldmonitor/research/v1/service_server'),
         import('./server/worldmonitor/research/v1/handler'),
-        import('./src/generated/server/worldmonitor/unrest/v1/service_server'),
-        import('./server/worldmonitor/unrest/v1/handler'),
-        import('./src/generated/server/worldmonitor/conflict/v1/service_server'),
-        import('./server/worldmonitor/conflict/v1/handler'),
-        import('./src/generated/server/worldmonitor/maritime/v1/service_server'),
-        import('./server/worldmonitor/maritime/v1/handler'),
         import('./src/generated/server/worldmonitor/cyber/v1/service_server'),
         import('./server/worldmonitor/cyber/v1/handler'),
         import('./src/generated/server/worldmonitor/economic/v1/service_server'),
         import('./server/worldmonitor/economic/v1/handler'),
-        import('./src/generated/server/worldmonitor/infrastructure/v1/service_server'),
-        import('./server/worldmonitor/infrastructure/v1/handler'),
         import('./src/generated/server/worldmonitor/market/v1/service_server'),
         import('./server/worldmonitor/market/v1/handler'),
         import('./src/generated/server/worldmonitor/news/v1/service_server'),
         import('./server/worldmonitor/news/v1/handler'),
         import('./src/generated/server/worldmonitor/intelligence/v1/service_server'),
         import('./server/worldmonitor/intelligence/v1/handler'),
-        import('./src/generated/server/worldmonitor/military/v1/service_server'),
-        import('./server/worldmonitor/military/v1/handler'),
-        import('./src/generated/server/worldmonitor/positive_events/v1/service_server'),
-        import('./server/worldmonitor/positive-events/v1/handler'),
-        import('./src/generated/server/worldmonitor/giving/v1/service_server'),
-        import('./server/worldmonitor/giving/v1/handler'),
-        import('./src/generated/server/worldmonitor/trade/v1/service_server'),
-        import('./server/worldmonitor/trade/v1/handler'),
       ]);
 
     const serverOptions = { onError: errorMod.mapErrorToResponse };
     const allRoutes = [
-      ...seismologyServerMod.createSeismologyServiceRoutes(seismologyHandlerMod.seismologyHandler, serverOptions),
-      ...wildfireServerMod.createWildfireServiceRoutes(wildfireHandlerMod.wildfireHandler, serverOptions),
-      ...climateServerMod.createClimateServiceRoutes(climateHandlerMod.climateHandler, serverOptions),
-      ...predictionServerMod.createPredictionServiceRoutes(predictionHandlerMod.predictionHandler, serverOptions),
-      ...displacementServerMod.createDisplacementServiceRoutes(displacementHandlerMod.displacementHandler, serverOptions),
-      ...aviationServerMod.createAviationServiceRoutes(aviationHandlerMod.aviationHandler, serverOptions),
       ...researchServerMod.createResearchServiceRoutes(researchHandlerMod.researchHandler, serverOptions),
-      ...unrestServerMod.createUnrestServiceRoutes(unrestHandlerMod.unrestHandler, serverOptions),
-      ...conflictServerMod.createConflictServiceRoutes(conflictHandlerMod.conflictHandler, serverOptions),
-      ...maritimeServerMod.createMaritimeServiceRoutes(maritimeHandlerMod.maritimeHandler, serverOptions),
       ...cyberServerMod.createCyberServiceRoutes(cyberHandlerMod.cyberHandler, serverOptions),
       ...economicServerMod.createEconomicServiceRoutes(economicHandlerMod.economicHandler, serverOptions),
-      ...infrastructureServerMod.createInfrastructureServiceRoutes(infrastructureHandlerMod.infrastructureHandler, serverOptions),
       ...marketServerMod.createMarketServiceRoutes(marketHandlerMod.marketHandler, serverOptions),
       ...newsServerMod.createNewsServiceRoutes(newsHandlerMod.newsHandler, serverOptions),
       ...intelligenceServerMod.createIntelligenceServiceRoutes(intelligenceHandlerMod.intelligenceHandler, serverOptions),
-      ...militaryServerMod.createMilitaryServiceRoutes(militaryHandlerMod.militaryHandler, serverOptions),
-      ...positiveEventsServerMod.createPositiveEventsServiceRoutes(positiveEventsHandlerMod.positiveEventsHandler, serverOptions),
-      ...givingServerMod.createGivingServiceRoutes(givingHandlerMod.givingHandler, serverOptions),
-      ...tradeServerMod.createTradeServiceRoutes(tradeHandlerMod.tradeHandler, serverOptions),
     ];
     cachedCorsMod = corsMod;
     return routerMod.createRouter(allRoutes);
@@ -501,81 +370,13 @@ function rssProxyPlugin(): Plugin {
   };
 }
 
-function youtubeLivePlugin(): Plugin {
-  return {
-    name: 'youtube-live',
-    configureServer(server) {
-      server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/api/youtube/live')) {
-          return next();
-        }
-
-        const url = new URL(req.url, 'http://localhost');
-        const channel = url.searchParams.get('channel');
-
-        if (!channel) {
-          res.statusCode = 400;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'Missing channel parameter' }));
-          return;
-        }
-
-        try {
-          const channelHandle = channel.startsWith('@') ? channel : `@${channel}`;
-          const liveUrl = `https://www.youtube.com/${channelHandle}/live`;
-
-          const ytRes = await fetch(liveUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            },
-            redirect: 'follow',
-          });
-
-          if (!ytRes.ok) {
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader('Cache-Control', 'public, max-age=300');
-            res.end(JSON.stringify({ videoId: null, channel }));
-            return;
-          }
-
-          const html = await ytRes.text();
-
-          // Scope both fields to the same videoDetails block so we don't
-          // combine a videoId from one object with isLive from another.
-          let videoId: string | null = null;
-          const detailsIdx = html.indexOf('"videoDetails"');
-          if (detailsIdx !== -1) {
-            const block = html.substring(detailsIdx, detailsIdx + 5000);
-            const vidMatch = block.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-            const liveMatch = block.match(/"isLive"\s*:\s*true/);
-            if (vidMatch && liveMatch) {
-              videoId = vidMatch[1];
-            }
-          }
-
-          res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Cache-Control', 'public, max-age=300');
-          res.end(JSON.stringify({ videoId, isLive: videoId !== null, channel }));
-        } catch (error) {
-          console.error(`[YouTube Live] Error:`, error);
-          res.statusCode = 500;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'Failed to fetch', videoId: null }));
-        }
-      });
-    },
-  };
-}
-
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   plugins: [
     htmlVariantPlugin(),
-    polymarketPlugin(),
     rssProxyPlugin(),
-    youtubeLivePlugin(),
     sebufApiPlugin(),
     brotliPrecompressPlugin(),
     VitePWA({
@@ -642,24 +443,6 @@ export default defineConfig({
             method: 'GET',
           },
           {
-            urlPattern: /^https:\/\/api\.maptiler\.com\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'map-tiles',
-              expiration: { maxEntries: 500, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/[abc]\.basemaps\.cartocdn\.com\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'carto-tiles',
-              expiration: { maxEntries: 500, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
             handler: 'StaleWhileRevalidate',
             options: {
@@ -704,12 +487,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
-      child_process: resolve(__dirname, 'src/shims/child-process.ts'),
-      'node:child_process': resolve(__dirname, 'src/shims/child-process.ts'),
-      '@loaders.gl/worker-utils/dist/lib/process-utils/child-process-proxy.js': resolve(
-        __dirname,
-        'src/shims/child-process-proxy.ts'
-      ),
     },
   },
   build: {
@@ -733,7 +510,6 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         settings: resolve(__dirname, 'settings.html'),
-        liveChannels: resolve(__dirname, 'live-channels.html'),
       },
       output: {
         manualChunks(id) {
@@ -744,24 +520,8 @@ export default defineConfig({
             if (id.includes('/onnxruntime-web/')) {
               return 'onnxruntime';
             }
-            if (id.includes('/maplibre-gl/')) {
-              return 'maplibre';
-            }
-            if (
-              id.includes('/@deck.gl/')
-              || id.includes('/@luma.gl/')
-              || id.includes('/@loaders.gl/')
-              || id.includes('/@math.gl/')
-              || id.includes('/h3-js/')
-            ) {
-              return 'deck-stack';
-            }
-            if (id.includes('/d3/')) {
-              return 'd3';
-            }
-            if (id.includes('/topojson-client/')) {
-              return 'topojson';
-            }
+            // maplibre-gl removed (no map in SalesIntel)
+            // deck.gl/d3/topojson removed (no map in SalesIntel)
             if (id.includes('/i18next')) {
               return 'i18n';
             }
@@ -801,30 +561,6 @@ export default defineConfig({
         target: 'https://query1.finance.yahoo.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/yahoo/, ''),
-      },
-      // Polymarket handled by polymarketPlugin() — no prod proxy needed
-      // USGS Earthquake API
-      '/api/earthquake': {
-        target: 'https://earthquake.usgs.gov',
-        changeOrigin: true,
-        timeout: 30000,
-        rewrite: (path) => path.replace(/^\/api\/earthquake/, ''),
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
-            console.log('Earthquake proxy error:', err.message);
-          });
-        },
-      },
-      // PizzINT - Pentagon Pizza Index
-      '/api/pizzint': {
-        target: 'https://www.pizzint.watch',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/pizzint/, '/api'),
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
-            console.log('PizzINT proxy error:', err.message);
-          });
-        },
       },
       // FRED Economic Data - handled by Vercel serverless function in prod
       // In dev, we proxy to the API directly with the key from .env

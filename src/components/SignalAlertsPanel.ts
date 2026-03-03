@@ -850,7 +850,7 @@ export class SignalAlertsPanel {
     title.textContent = 'Signal Settings';
     section.appendChild(title);
 
-    const toggles: Array<{ label: string; key: keyof typeof this.settings }> = [
+    const toggles: Array<{ label: string; key: string }> = [
       { label: 'New Hire Email Alerts', key: 'newHireEmail' },
       { label: 'Funding Push Notifications', key: 'fundingPush' },
       { label: 'Weekly Summary PDF', key: 'weeklySummary' },
@@ -870,9 +870,9 @@ export class SignalAlertsPanel {
 
       const input = document.createElement('input');
       input.type = 'checkbox';
-      input.checked = this.settings[toggle.key];
+      input.checked = (this.settings as Record<string, boolean>)[toggle.key] ?? false;
       input.addEventListener('change', () => {
-        this.settings[toggle.key] = input.checked;
+        (this.settings as Record<string, boolean>)[toggle.key] = input.checked;
       });
 
       const track = document.createElement('span');

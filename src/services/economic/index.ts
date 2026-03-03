@@ -258,12 +258,12 @@ export async function fetchOilAnalytics(): Promise<OilAnalytics> {
     const metricCount = [result.wtiPrice, result.brentPrice, result.usProduction, result.usInventory]
       .filter(Boolean).length;
     if (metricCount > 0) {
-      dataFreshness.recordUpdate('oil', metricCount);
+      dataFreshness.reportUpdate('economic', metricCount);
     }
 
     return result;
   } catch {
-    dataFreshness.recordError('oil', 'Fetch failed');
+    dataFreshness.reportError('economic', 'Fetch failed');
     return empty;
   }
 }

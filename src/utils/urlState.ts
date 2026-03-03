@@ -1,5 +1,8 @@
 import type { MapLayers } from '@/types';
-import type { MapView, TimeRange } from '@/components/Map';
+
+// Types formerly from @/components/Map (deleted)
+type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
+type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 
 const LAYER_KEYS: (keyof MapLayers)[] = [
   'conflicts',

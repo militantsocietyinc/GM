@@ -13,10 +13,7 @@ export { CompanyIntelligence } from './CompanyIntelligence';
 // Retained / Repurposed Panels
 export * from './NewsPanel';
 export * from './MonitorPanel';
-export * from './SignalModal';
 export * from './StatusPanel';
 export * from './SearchModal';
-export * from './InsightsPanel';
-export * from './IntelligenceGapBadge';
 export * from './UnifiedSettings';
 export * from './WorldClockPanel';

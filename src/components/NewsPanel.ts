@@ -1,10 +1,10 @@
 import { Panel } from './Panel';
 import { WindowedList } from './VirtualList';
-import type { NewsItem, ClusteredEvent, DeviationLevel, RelatedAsset, RelatedAssetContext } from '@/types';
-import { THREAT_PRIORITY } from '@/services/threat-classifier';
+import type { NewsItem, ClusteredEvent, DeviationLevel } from '@/types';
+import { INTENT_PRIORITY } from '@/services/threat-classifier';
 import { formatTime, getCSSColor } from '@/utils';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
-import { analysisWorker, enrichWithVelocityML, getClusterAssetContext, MAX_DISTANCE_KM, activityTracker, generateSummary, translateText } from '@/services';
+import { analysisWorker, enrichWithVelocityML, activityTracker, generateSummary, translateText } from '@/services';
 import { getSourcePropagandaRisk, getSourceTier, getSourceType } from '@/config/feeds';
 import { SITE_VARIANT } from '@/config';
 import { t, getCurrentLanguage } from '@/services/i18n';
@@ -26,10 +26,11 @@ interface PreparedCluster {
 export class NewsPanel extends Panel {
   private clusteredMode = true;
   private deviationEl: HTMLElement | null = null;
-  private relatedAssetContext = new Map<string, RelatedAssetContext>();
-  private onRelatedAssetClick?: (asset: RelatedAsset) => void;
-  private onRelatedAssetsFocus?: (assets: RelatedAsset[], originLabel: string) => void;
-  private onRelatedAssetsClear?: () => void;
+  // Asset-related features removed (no geospatial map in SalesIntel)
+  // private relatedAssetContext = new Map<string, RelatedAssetContext>();
+  // private onRelatedAssetClick?: (asset: RelatedAsset) => void;
+  // private onRelatedAssetsFocus?: (assets: RelatedAsset[], originLabel: string) => void;
+  // private onRelatedAssetsClear?: () => void;
   private isFirstRender = true;
   private windowedList: WindowedList<PreparedCluster> | null = null;
   private useVirtualScroll = true;
@@ -92,15 +93,8 @@ export class NewsPanel extends Panel {
     this.element.addEventListener('click', this.boundClickHandler);
   }
 
-  public setRelatedAssetHandlers(options: {
-    onRelatedAssetClick?: (asset: RelatedAsset) => void;
-    onRelatedAssetsFocus?: (assets: RelatedAsset[], originLabel: string) => void;
-    onRelatedAssetsClear?: () => void;
-  }): void {
-    this.onRelatedAssetClick = options.onRelatedAssetClick;
-    this.onRelatedAssetsFocus = options.onRelatedAssetsFocus;
-    this.onRelatedAssetsClear = options.onRelatedAssetsClear;
-  }
+  // Asset handler methods removed (no geospatial map in SalesIntel)
+  // public setRelatedAssetHandlers(...) removed
 
   private createDeviationIndicator(): void {
     const header = this.getElement().querySelector('.panel-header-left');
@@ -315,7 +309,6 @@ export class NewsPanel extends Panel {
     this.renderRequestId += 1; // Cancel in-flight clustering from previous renders.
     this.setDataBadge('live');
     this.setCount(0);
-    this.relatedAssetContext.clear();
     this.currentHeadlines = [];
     this.updateHeadlineSignature();
     this.setContent(`<div class="panel-empty">${escapeHtml(message)}</div>`);
@@ -370,15 +363,14 @@ export class NewsPanel extends Panel {
   private renderClusters(clusters: ClusteredEvent[]): void {
     // Sort by threat priority, then by time within same level
     const sorted = [...clusters].sort((a, b) => {
-      const pa = THREAT_PRIORITY[a.threat?.level ?? 'info'];
-      const pb = THREAT_PRIORITY[b.threat?.level ?? 'info'];
+      const pa = INTENT_PRIORITY[a.threat?.level ?? 'info'];
+      const pb = INTENT_PRIORITY[b.threat?.level ?? 'info'];
       if (pb !== pa) return pb - pa;
       return b.lastUpdated.getTime() - a.lastUpdated.getTime();
     });
 
     const totalItems = sorted.reduce((sum, c) => sum + c.sourceCount, 0);
     this.setCount(totalItems);
-    this.relatedAssetContext.clear();
 
     // Store headlines for summarization (cap at 5 to reduce entity conflation in small models)
     this.currentHeadlines = sorted.slice(0, 5).map(c => c.primaryTitle);
@@ -503,30 +495,8 @@ export class NewsPanel extends Panel {
         .join('')
       : '';
 
-    const assetContext = getClusterAssetContext(cluster);
-    if (assetContext && assetContext.assets.length > 0) {
-      this.relatedAssetContext.set(cluster.id, assetContext);
-    }
-
-    const relatedAssetsHtml = assetContext && assetContext.assets.length > 0
-      ? `
-        <div class="related-assets" data-cluster-id="${escapeHtml(cluster.id)}">
-          <div class="related-assets-header">
-            ${t('components.newsPanel.relatedAssetsNear', { location: escapeHtml(assetContext.origin.label) })}
-            <span class="related-assets-range">(${MAX_DISTANCE_KM}km)</span>
-          </div>
-          <div class="related-assets-list">
-            ${assetContext.assets.map(asset => `
-              <button class="related-asset" data-cluster-id="${escapeHtml(cluster.id)}" data-asset-id="${escapeHtml(asset.id)}" data-asset-type="${escapeHtml(asset.type)}">
-                <span class="related-asset-type">${escapeHtml(this.getLocalizedAssetLabel(asset.type))}</span>
-                <span class="related-asset-name">${escapeHtml(asset.name)}</span>
-                <span class="related-asset-distance">${Math.round(asset.distanceKm)}km</span>
-              </button>
-            `).join('')}
-          </div>
-        </div>
-      `
-      : '';
+    // Asset context features removed (no geospatial map in SalesIntel)
+    const relatedAssetsHtml = '';
 
     // Category tag from threat classification
     const cat = cluster.threat?.category;
@@ -572,37 +542,7 @@ export class NewsPanel extends Panel {
   }
 
   private bindRelatedAssetEvents(): void {
-    const containers = this.content.querySelectorAll<HTMLDivElement>('.related-assets');
-    containers.forEach((container) => {
-      const clusterId = container.dataset.clusterId;
-      if (!clusterId) return;
-      const context = this.relatedAssetContext.get(clusterId);
-      if (!context) return;
-
-      container.addEventListener('mouseenter', () => {
-        this.onRelatedAssetsFocus?.(context.assets, context.origin.label);
-      });
-
-      container.addEventListener('mouseleave', () => {
-        this.onRelatedAssetsClear?.();
-      });
-    });
-
-    const assetButtons = this.content.querySelectorAll<HTMLButtonElement>('.related-asset');
-    assetButtons.forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const clusterId = button.dataset.clusterId;
-        const assetId = button.dataset.assetId;
-        const assetType = button.dataset.assetType as RelatedAsset['type'] | undefined;
-        if (!clusterId || !assetId || !assetType) return;
-        const context = this.relatedAssetContext.get(clusterId);
-        const asset = context?.assets.find(item => item.id === assetId && item.type === assetType);
-        if (asset) {
-          this.onRelatedAssetClick?.(asset);
-        }
-      });
-    });
+    // Asset-related event bindings removed (no geospatial map in SalesIntel)
 
     // Translation buttons
     const translateBtns = this.content.querySelectorAll<HTMLElement>('.item-translate-btn');
@@ -615,16 +555,7 @@ export class NewsPanel extends Panel {
     });
   }
 
-  private getLocalizedAssetLabel(type: RelatedAsset['type']): string {
-    const keyMap: Record<RelatedAsset['type'], string> = {
-      pipeline: 'modals.countryBrief.infra.pipeline',
-      cable: 'modals.countryBrief.infra.cable',
-      datacenter: 'modals.countryBrief.infra.datacenter',
-      base: 'modals.countryBrief.infra.base',
-      nuclear: 'modals.countryBrief.infra.nuclear',
-    };
-    return t(keyMap[type]);
-  }
+  // getLocalizedAssetLabel removed (no geospatial map in SalesIntel)
 
   /**
    * Clean up resources

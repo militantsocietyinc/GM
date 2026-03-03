@@ -1,5 +1,4 @@
 import type { NewsItem, ClusteredEvent, MarketData } from '@/types';
-import type { PredictionMarket } from '@/services/prediction';
 import { t } from '@/services/i18n';
 
 type ExportFormat = 'json' | 'csv';
@@ -7,7 +6,7 @@ type ExportFormat = 'json' | 'csv';
 interface ExportData {
   news?: NewsItem[] | ClusteredEvent[];
   markets?: MarketData[];
-  predictions?: PredictionMarket[];
+  predictions?: unknown[];
   signals?: unknown[];
   timestamp: number;
 }
@@ -60,7 +59,8 @@ export function exportToCSV(data: ExportData, filename = 'worldmonitor-export'):
     lines.push('=== PREDICTIONS ===');
     lines.push('Title,Yes Price,Volume');
     data.predictions.forEach(p => {
-      lines.push(csvRow([p.title, String(p.yesPrice), String(p.volume ?? '')]));
+      const pred = p as Record<string, unknown>;
+      lines.push(csvRow([String(pred.title ?? ''), String(pred.yesPrice ?? ''), String(pred.volume ?? '')]));
     });
     lines.push('');
   }

@@ -120,7 +120,7 @@ function buildSimulatedFlights(airport: string, direction: string, limit: number
             scheduledArrival: isArr ? schedTime : 0,
             estimatedArrival: isArr ? schedTime + delayMin * 60_000 : 0,
             actualArrival: 0,
-            status: delayed ? 'FLIGHT_INSTANCE_STATUS_DELAYED' : 'FLIGHT_INSTANCE_STATUS_SCHEDULED',
+            status: 'FLIGHT_INSTANCE_STATUS_SCHEDULED',
             delayMinutes: delayMin,
             cancelled: false,
             diverted: false,

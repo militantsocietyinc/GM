@@ -14,7 +14,7 @@ import { getNaturalEventIcon } from '@/services/eonet';
 import { getHotspotEscalation, getEscalationChange24h } from '@/services/hotspot-escalation';
 import { getCableHealthRecord } from '@/services/cable-health';
 
-export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'cyberThreat' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'datacenterCluster' | 'ais' | 'protest' | 'protestCluster' | 'flight' | 'aircraft' | 'militaryFlight' | 'militaryVessel' | 'militaryFlightCluster' | 'militaryVesselCluster' | 'natEvent' | 'port' | 'spaceport' | 'mineral' | 'startupHub' | 'cloudRegion' | 'techHQ' | 'accelerator' | 'techEvent' | 'techHQCluster' | 'techEventCluster' | 'techActivity' | 'geoActivity' | 'stockExchange' | 'financialCenter' | 'centralBank' | 'commodityHub' | 'iranEvent' | 'gpsJamming';
+export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'cyberThreat' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'datacenterCluster' | 'ais' | 'protest' | 'protestCluster' | 'flight' | 'aircraft' | 'militaryFlight' | 'militaryVessel' | 'militaryFlightCluster' | 'militaryVesselCluster' | 'natEvent' | 'port' | 'spaceport' | 'mineral' | 'startupHub' | 'cloudRegion' | 'techHQ' | 'accelerator' | 'techEvent' | 'techHQCluster' | 'techEventCluster' | 'techActivity' | 'geoActivity' | 'stockExchange' | 'financialCenter' | 'centralBank' | 'commodityHub' | 'iranEvent' | 'gpsJamming' | 'geopoliticalBoundary';
 
 interface TechEventPopupData {
   id: string;
@@ -1340,8 +1340,8 @@ export class MapPopup {
       ? marketStatus === 'open'
         ? t('popups.open')
         : marketStatus === 'closed'
-        ? t('popups.economic.closed')
-        : t('popups.unknown')
+          ? t('popups.economic.closed')
+          : t('popups.unknown')
       : '';
 
     return `
@@ -1950,8 +1950,8 @@ export class MapPopup {
     const daysLabel = event.daysUntil === 0
       ? t('popups.techEvent.days.today')
       : event.daysUntil === 1
-      ? t('popups.techEvent.days.tomorrow')
-      : t('popups.techEvent.days.inDays', { count: String(event.daysUntil) });
+        ? t('popups.techEvent.days.tomorrow')
+        : t('popups.techEvent.days.inDays', { count: String(event.daysUntil) });
 
     return `
       <div class="popup-header tech-event ${urgencyClass}">
@@ -2703,11 +2703,11 @@ export class MapPopup {
           <span class="section-label">${t('popups.iranEvent.relatedEvents')}</span>
           <ul class="cluster-list">
             ${event.relatedEvents.map(r => {
-              const rSev = this.normalizeSeverity(r.severity);
-              const rTime = r.timestamp ? this.getTimeAgo(new Date(r.timestamp)) : '';
-              const rTitle = r.title.length > 60 ? r.title.slice(0, 60) + '…' : r.title;
-              return `<li class="cluster-item"><span class="popup-badge ${rSev}" style="font-size:9px;padding:1px 4px;">${escapeHtml(rSev.toUpperCase())}</span> ${escapeHtml(rTitle)}${rTime ? ` <span style="color:var(--text-muted);font-size:10px;">${escapeHtml(rTime)}</span>` : ''}</li>`;
-            }).join('')}
+      const rSev = this.normalizeSeverity(r.severity);
+      const rTime = r.timestamp ? this.getTimeAgo(new Date(r.timestamp)) : '';
+      const rTitle = r.title.length > 60 ? r.title.slice(0, 60) + '…' : r.title;
+      return `<li class="cluster-item"><span class="popup-badge ${rSev}" style="font-size:9px;padding:1px 4px;">${escapeHtml(rSev.toUpperCase())}</span> ${escapeHtml(rTitle)}${rTime ? ` <span style="color:var(--text-muted);font-size:10px;">${escapeHtml(rTime)}</span>` : ''}</li>`;
+    }).join('')}
           </ul>
         </div>` : '';
 

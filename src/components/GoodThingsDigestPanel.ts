@@ -18,7 +18,7 @@ export class GoodThingsDigestPanel extends Panel {
 
   constructor() {
     super({ id: 'digest', title: '5 Good Things', trackActivity: false });
-    this.content.innerHTML = `<p class="digest-placeholder">${t('components.goodThingsDigest.loading')}</p>`;
+    this.content.innerHTML = '<p class="digest-placeholder">Loading today\u2019s digest\u2026</p>';
   }
 
   /**

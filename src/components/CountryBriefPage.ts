@@ -13,6 +13,9 @@ import type { Port } from '@/config/ports';
 import { exportCountryBriefJSON, exportCountryBriefCSV } from '@/utils/export';
 import type { CountryBriefExport } from '@/utils/export';
 import { ME_STRIKE_BOUNDS } from '@/services/country-geometry';
+import { getRegionByCountryCode } from '@/services/signal-aggregator';
+import type { DeckMapView } from '@/components/DeckGLMap';
+import { getFlagHtml } from '@/services/flags';
 
 type BriefAssetType = AssetType | 'port';
 
@@ -60,6 +63,8 @@ export class CountryBriefPage implements CountryBriefPanel {
   private onCloseCallback?: () => void;
   private onShareStory?: (code: string, name: string) => void;
   private onExportImage?: (code: string, name: string) => void;
+  private onNavigateHome?: () => void;
+  private onNavigateRegion?: (view: DeckMapView) => void;
   private boundExportMenuClose: (() => void) | null = null;
   private boundCitationClick: ((e: Event) => void) | null = null;
   private abortController: AbortController = new AbortController();
@@ -75,18 +80,6 @@ export class CountryBriefPage implements CountryBriefPanel {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.overlay.classList.contains('active')) this.hide();
     });
-  }
-
-  private countryFlag(code: string): string {
-    try {
-      return code
-        .toUpperCase()
-        .split('')
-        .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
-        .join('');
-    } catch {
-      return '🌍';
-    }
   }
 
   private levelColor(level: string): string {
@@ -105,6 +98,48 @@ export class CountryBriefPage implements CountryBriefPanel {
     const levelKey = level as 'critical' | 'high' | 'elevated' | 'moderate' | 'normal' | 'low';
     const label = t(`countryBrief.levels.${levelKey}`);
     return `<span class="cb-badge" style="background:${color}20;color:${color};border:1px solid ${color}40">${label.toUpperCase()}</span>`;
+  }
+
+  private generateBreadcrumb(country: string, code: string): string {
+    const region = getRegionByCountryCode(code);
+    const dashboardLabel = t('breadcrumb.dashboard') || 'Dashboard';
+    
+    let breadcrumbHtml = '<nav class="cb-breadcrumb" aria-label="Breadcrumb">';
+    breadcrumbHtml += '<ol class="cb-breadcrumb-list">';
+    
+    // Dashboard link
+    breadcrumbHtml += `<li class="cb-breadcrumb-item"><button class="cb-breadcrumb-link" data-action="home">${escapeHtml(dashboardLabel)}</button></li>`;
+    
+    // Region link (if region found)
+    if (region) {
+      breadcrumbHtml += `<li class="cb-breadcrumb-separator" aria-hidden="true">&gt;</li>`;
+      breadcrumbHtml += `<li class="cb-breadcrumb-item"><button class="cb-breadcrumb-link" data-action="region" data-view="${region.mapView}">${escapeHtml(region.name)}</button></li>`;
+    }
+    
+    // Current country (not clickable)
+    breadcrumbHtml += `<li class="cb-breadcrumb-separator" aria-hidden="true">&gt;</li>`;
+    breadcrumbHtml += `<li class="cb-breadcrumb-item cb-breadcrumb-current" aria-current="page"><span class="cb-flag-small">${getFlagHtml(code, 16)}</span>${escapeHtml(country)}</li>`;
+    
+    breadcrumbHtml += '</ol></nav>';
+    return breadcrumbHtml;
+  }
+
+  private attachBreadcrumbListeners(): void {
+    const homeBtn = this.overlay.querySelector('[data-action="home"]');
+    const regionBtn = this.overlay.querySelector('[data-action="region"]');
+    
+    homeBtn?.addEventListener('click', () => {
+      this.hide();
+      this.onNavigateHome?.();
+    });
+    
+    regionBtn?.addEventListener('click', (e) => {
+      const view = (e.currentTarget as HTMLElement).dataset.view as DeckMapView;
+      if (view) {
+        this.hide();
+        this.onNavigateRegion?.(view);
+      }
+    });
   }
 
   private trendIndicator(trend: string): string {
@@ -200,10 +235,19 @@ export class CountryBriefPage implements CountryBriefPanel {
     this.onExportImage = handler;
   }
 
+  public setNavigateHomeHandler(handler: () => void): void {
+    this.onNavigateHome = handler;
+  }
+
+  public setNavigateRegionHandler(handler: (view: 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania') => void): void {
+    this.onNavigateRegion = handler;
+  }
+
   public showLoading(): void {
     this.currentCode = '__loading__';
     this.overlay.innerHTML = `
       <div class="country-brief-page">
+        ${this.generateBreadcrumb(t('modals.countryBrief.identifying'), '__loading__')}
         <div class="cb-header">
           <div class="cb-header-left">
             <span class="cb-flag">🌍</span>
@@ -222,6 +266,7 @@ export class CountryBriefPage implements CountryBriefPanel {
         </div>
       </div>`;
     this.overlay.querySelector('.cb-close')?.addEventListener('click', () => this.hide());
+    this.attachBreadcrumbListeners();
     this.overlay.classList.add('active');
   }
 
@@ -239,7 +284,6 @@ export class CountryBriefPage implements CountryBriefPanel {
     this.currentBrief = null;
     this.currentHeadlines = [];
     this.currentHeadlineCount = 0;
-    const flag = this.countryFlag(code);
 
     const tierBadge = !signals.isTier1
       ? `<span class="cb-tier-badge">${t('modals.countryBrief.limitedCoverage')}</span>`
@@ -247,9 +291,10 @@ export class CountryBriefPage implements CountryBriefPanel {
 
     this.overlay.innerHTML = `
       <div class="country-brief-page">
+        ${this.generateBreadcrumb(country, code)}
         <div class="cb-header">
           <div class="cb-header-left">
-            <span class="cb-flag">${flag}</span>
+            <span class="cb-flag">${getFlagHtml(code, 32)}</span>
             <span class="cb-country-name">${escapeHtml(country)}</span>
             ${score ? this.levelBadge(score.level) : ''}
             ${score ? this.trendIndicator(score.trend) : ''}
@@ -412,6 +457,7 @@ export class CountryBriefPage implements CountryBriefPanel {
     };
     this.overlay.addEventListener('click', this.boundCitationClick);
 
+    this.attachBreadcrumbListeners();
     this.overlay.classList.add('active');
   }
 

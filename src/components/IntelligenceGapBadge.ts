@@ -5,6 +5,7 @@ import { t } from '@/services/i18n';
 import { getSignalContext } from '@/utils/analysis-constants';
 import { escapeHtml } from '@/utils/sanitize';
 import { trackFindingClicked } from '@/services/analytics';
+import { getNotificationCenter } from '@/components/NotificationCenter';
 
 const LOW_COUNT_THRESHOLD = 3;
 const MAX_VISIBLE_FINDINGS = 10;
@@ -233,6 +234,7 @@ export class IntelligenceFindingsBadge {
   }
 
   public update(): void {
+    const previousFindings = this.findings;
     this.findings = this.mergeFindings();
     const count = this.findings.length;
 
@@ -246,6 +248,20 @@ export class IntelligenceFindingsBadge {
       this.badge.classList.add('pulse');
       setTimeout(() => this.badge.classList.remove('pulse'), 1000);
       if (this.popupEnabled) this.playSound();
+      
+      // Add new findings to Notification Center
+      const previousIds = new Set(previousFindings.map(f => f.id));
+      const newFindings = this.findings.filter(f => !previousIds.has(f.id));
+      const notificationCenter = getNotificationCenter();
+      if (notificationCenter) {
+        for (const finding of newFindings) {
+          if (finding.source === 'signal') {
+            notificationCenter.addSignal(finding.original as CorrelationSignal);
+          } else if (finding.source === 'alert') {
+            notificationCenter.addAlert(finding.original as UnifiedAlert);
+          }
+        }
+      }
     }
     this.lastFindingCount = count;
 

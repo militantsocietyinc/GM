@@ -4,6 +4,7 @@ import { t } from '../services/i18n';
 import { h, replaceChildren, safeHtml } from '../utils/dom-utils';
 import { trackPanelResized } from '@/services/analytics';
 import { getAiFlowSettings } from '@/services/ai-flow-settings';
+import { EmptyState, EmptyStateOptions, EmptyStatePresets } from './EmptyState';
 
 export interface PanelOptions {
   id: string;
@@ -168,6 +169,8 @@ export class Panel {
   protected newBadgeEl: HTMLElement | null = null;
   protected panelId: string;
   private abortController: AbortController = new AbortController();
+  private emptyState: EmptyState | null = null;
+  private emptyStateVisible = false;
   private tooltipCloseHandler: (() => void) | null = null;
   private resizeHandle: HTMLElement | null = null;
   private isResizing = false;
@@ -660,6 +663,56 @@ export class Panel {
     replaceChildren(this.content, msgEl);
   }
 
+  /**
+   * Show an empty state illustration in the panel.
+   * @param options - Empty state configuration options or preset key
+   */
+  protected showEmptyState(options: EmptyStateOptions | keyof typeof EmptyStatePresets): void {
+    // Resolve preset if string key is provided
+    let resolvedOptions: EmptyStateOptions;
+    if (typeof options === 'string') {
+      const presetFn = EmptyStatePresets[options];
+      if (!presetFn) {
+        console.warn(`[Panel] Unknown empty state preset: ${options}`);
+        resolvedOptions = EmptyStatePresets.generic();
+      } else {
+        resolvedOptions = presetFn();
+      }
+    } else {
+      resolvedOptions = options;
+    }
+
+    // Initialize empty state component if needed
+    if (!this.emptyState) {
+      this.emptyState = new EmptyState();
+    }
+
+    // Render the empty state
+    this.emptyState.render(this.content, resolvedOptions);
+    this.emptyStateVisible = true;
+
+    // Clear any data badge when showing empty state
+    this.clearDataBadge();
+  }
+
+  /**
+   * Hide the empty state and clear the content.
+   */
+  protected hideEmptyState(): void {
+    if (this.emptyStateVisible && this.emptyState) {
+      replaceChildren(this.content);
+      this.emptyStateVisible = false;
+    }
+  }
+
+  /**
+   * Check if the empty state is currently visible.
+   * @returns True if empty state is showing
+   */
+  protected isEmptyStateVisible(): boolean {
+    return this.emptyStateVisible;
+  }
+
   public setCount(count: number): void {
     if (this.countEl) {
       const prev = parseInt(this.countEl.textContent ?? '0', 10);
@@ -797,6 +850,13 @@ export class Panel {
       this.contentDebounceTimer = null;
     }
     this.pendingContentHtml = null;
+
+    // Clean up empty state
+    if (this.emptyState) {
+      this.emptyState.destroy();
+      this.emptyState = null;
+    }
+    this.emptyStateVisible = false;
 
     if (this.tooltipCloseHandler) {
       document.removeEventListener('click', this.tooltipCloseHandler);

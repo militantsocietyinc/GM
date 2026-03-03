@@ -112,6 +112,17 @@ export class EventHandlerManager implements AppModule {
         }
       }
     });
+
+    // Keyboard shortcut: ? for shortcuts modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const active = document.activeElement;
+        if (active?.tagName !== 'INPUT' && active?.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          this.ctx.keyboardShortcutsModal?.open();
+        }
+      }
+    });
   }
 
   private toggleTvMode(): void {

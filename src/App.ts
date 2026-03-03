@@ -14,7 +14,7 @@ import { getAiFlowSettings, subscribeAiFlowChange, isHeadlineMemoryEnabled } fro
 import { startLearning } from '@/services/country-instability';
 import { loadFromStorage, parseMapUrlState, saveToStorage, isMobileDevice } from '@/utils';
 import type { ParsedMapUrlState } from '@/utils';
-import { SignalModal, IntelligenceGapBadge, BreakingNewsBanner } from '@/components';
+import { SignalModal, IntelligenceGapBadge, BreakingNewsBanner, KeyboardShortcutsModal, NotificationCenter, setNotificationCenter } from '@/components';
 import { initBreakingNewsAlerts, destroyBreakingNewsAlerts } from '@/services/breaking-news-alerts';
 import type { ServiceStatusPanel } from '@/components/ServiceStatusPanel';
 import type { StablecoinPanel } from '@/components/StablecoinPanel';
@@ -257,11 +257,13 @@ export class App {
       searchModal: null,
       findingsBadge: null,
       breakingBanner: null,
+      notificationCenter: null,
       playbackControl: null,
       exportPanel: null,
       unifiedSettings: null,
       mobileWarningModal: null,
       pizzintIndicator: null,
+      keyboardShortcutsModal: null,
       countryBriefPage: null,
       countryTimeline: null,
       positivePanel: null,
@@ -396,6 +398,7 @@ export class App {
     this.state.signalModal.setLocationClickHandler((lat, lon) => {
       this.state.map?.setCenter(lat, lon, 4);
     });
+    this.state.keyboardShortcutsModal = new KeyboardShortcutsModal(this.state.container);
     if (!this.state.isMobile) {
       this.state.findingsBadge = new IntelligenceGapBadge();
       this.state.findingsBadge.setOnSignalClick((signal) => {
@@ -413,6 +416,30 @@ export class App {
     if (!this.state.isMobile) {
       initBreakingNewsAlerts();
       this.state.breakingBanner = new BreakingNewsBanner();
+    }
+
+    // Initialize Notification Center
+    this.state.notificationCenter = new NotificationCenter();
+    setNotificationCenter(this.state.notificationCenter);
+    this.state.notificationCenter.setOnNotificationClick((notification) => {
+      if (this.state.countryBriefPage?.isVisible()) return;
+      if (localStorage.getItem('wm-settings-open') === '1') return;
+      if (notification.data) {
+        if (notification.type === 'signal') {
+          this.state.signalModal?.showSignal(notification.data);
+        } else if (notification.type === 'alert') {
+          this.state.signalModal?.showAlert(notification.data);
+        }
+      }
+    });
+
+    // Mount notification bell to header
+    const notificationMount = document.getElementById('notificationCenterMount');
+    if (notificationMount && this.state.notificationCenter) {
+      // Mount bell button to header
+      notificationMount.appendChild(this.state.notificationCenter.getBellButton());
+      // Mount panel to document body (it's fixed position)
+      document.body.appendChild(this.state.notificationCenter.getElement());
     }
 
     // Phase 3: UI setup methods
@@ -492,6 +519,8 @@ export class App {
     // Clean up subscriptions, map, AIS, and breaking news
     this.unsubAiFlow?.();
     this.state.breakingBanner?.destroy();
+    this.state.notificationCenter?.destroy();
+    setNotificationCenter(null);
     destroyBreakingNewsAlerts();
     this.state.map?.destroy();
     disconnectAisStream();

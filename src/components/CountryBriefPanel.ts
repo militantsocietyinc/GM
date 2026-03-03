@@ -90,4 +90,6 @@ export interface CountryBriefPanel {
   minimize?(): void;
   getIsMaximized?(): boolean;
   onStateChange?(cb: (state: { visible: boolean; maximized: boolean }) => void): void;
+  setNavigateHomeHandler(handler: () => void): void;
+  setNavigateRegionHandler(handler: (view: 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania') => void): void;
 }

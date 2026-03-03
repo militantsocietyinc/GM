@@ -957,4 +957,13 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       .map((char) => String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65))
       .join('');
   }
+
+  // Breadcrumb navigation handlers (stub implementations)
+  public setNavigateHomeHandler(_handler: () => void): void {
+    // Not implemented for deep dive panel
+  }
+
+  public setNavigateRegionHandler(_handler: (view: 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania') => void): void {
+    // Not implemented for deep dive panel
+  }
 }

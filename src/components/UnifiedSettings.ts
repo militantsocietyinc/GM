@@ -3,6 +3,7 @@ import { PANEL_CATEGORY_MAP } from '@/config/panels';
 import { SITE_VARIANT } from '@/config/variant';
 import { LANGUAGES, changeLanguage, getCurrentLanguage, t } from '@/services/i18n';
 import { getAiFlowSettings, setAiFlowSetting, getStreamQuality, setStreamQuality, STREAM_QUALITY_OPTIONS } from '@/services/ai-flow-settings';
+import { getGlobeRenderScale, setGlobeRenderScale, GLOBE_RENDER_SCALE_OPTIONS, type GlobeRenderScale } from '@/services/globe-render-settings';
 import type { StreamQuality } from '@/services/ai-flow-settings';
 import { escapeHtml } from '@/utils/sanitize';
 import { trackLanguageChange } from '@/services/analytics';
@@ -168,6 +169,11 @@ export class UnifiedSettings {
         return;
       }
 
+      if (target.id === 'us-globe-render-scale') {
+        setGlobeRenderScale(target.value as GlobeRenderScale);
+        return;
+      }
+
       // Language select
       if (target.closest('.unified-settings-lang-select')) {
         trackLanguageChange(target.value);
@@ -330,6 +336,21 @@ export class UnifiedSettings {
           <span class="ai-flow-slider"></span>
         </label>
       </div>`;
+
+    // Globe render quality (pixel ratio)
+    const globeScale = getGlobeRenderScale();
+    html += `<div class="ai-flow-toggle-row">
+      <div class="ai-flow-toggle-label-wrap">
+        <div class="ai-flow-toggle-label">Globe render quality</div>
+        <div class="ai-flow-toggle-desc">Controls the globe canvas resolution. Higher values look sharper on 4K displays but can melt GPUs.</div>
+      </div>
+    </div>`;
+    html += `<select class="unified-settings-lang-select" id="us-globe-render-scale">`;
+    for (const opt of GLOBE_RENDER_SCALE_OPTIONS) {
+      const selected = opt.value === globeScale ? ' selected' : '';
+      html += `<option value="${opt.value}"${selected}>${opt.label}</option>`;
+    }
+    html += `</select>`;
 
     html += this.toggleRowHtml('us-map-flash', t('components.insights.mapFlashLabel'), t('components.insights.mapFlashDesc'), settings.mapNewsFlash);
 

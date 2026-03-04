@@ -20,6 +20,7 @@ import { INTEL_HOTSPOTS, CONFLICT_ZONES, GEOPOLITICAL_BOUNDARIES, MILITARY_BASES
 import { PIPELINES } from '@/config/pipelines';
 import { t } from '@/services/i18n';
 import { SITE_VARIANT } from '@/config/variant';
+import { getGlobeRenderScale, resolveGlobePixelRatio, subscribeGlobeRenderScaleChange } from '@/services/globe-render-settings';
 import { getLayersForVariant, resolveLayerLabel, type MapVariant } from '@/config/map-layer-definitions';
 import { resolveTradeRouteSegments, type TradeRouteSegment } from '@/config/trade-routes';
 import { GAMMA_IRRADIATORS } from '@/config/irradiators';
@@ -290,6 +291,8 @@ type GlobeMarker =
 export class GlobeMap {
   private container: HTMLElement;
   private globe: GlobeInstance | null = null;
+  private unsubscribeGlobeQuality: (() => void) | null = null;
+
   private initialized = false;
   private destroyed = false;
   private flushTimer: ReturnType<typeof requestAnimationFrame> | null = null;
@@ -371,7 +374,7 @@ export class GlobeMap {
 
     const config: ConfigOptions = {
       animateIn: false,
-      rendererConfig: { logarithmicDepthBuffer: true },
+      rendererConfig: { logarithmicDepthBuffer: true, antialias: true },
     };
 
     const globe = new Globe(this.container, config) as GlobeInstance;
@@ -380,6 +383,23 @@ export class GlobeMap {
       globe._destructor();
       return;
     }
+
+    const applyRenderQuality = () => {
+      try {
+        const pr = resolveGlobePixelRatio(getGlobeRenderScale());
+        const renderer = globe.renderer();
+        renderer.setPixelRatio(pr);
+        const w = this.container.clientWidth || window.innerWidth;
+        const h = this.container.clientHeight || window.innerHeight;
+        renderer.setSize(w, h, false);
+      } catch {
+        // best-effort
+      }
+    };
+
+    applyRenderQuality();
+    this.unsubscribeGlobeQuality?.();
+    this.unsubscribeGlobeQuality = subscribeGlobeRenderScaleChange(() => applyRenderQuality());
 
     // Initial sizing: use container dimensions, fall back to window if not yet laid out
     const initW = this.container.clientWidth || window.innerWidth;
@@ -421,6 +441,10 @@ export class GlobeMap {
       const w = this.container.clientWidth;
       const h = this.container.clientHeight;
       if (w > 0 && h > 0) this.globe.width(w).height(h);
+      try {
+        const r = this.globe.renderer();
+        r.setSize(w, h, false);
+      } catch { /* ignore */ }
     });
     this.resizeObserver.observe(this.container);
 
@@ -1713,6 +1737,8 @@ export class GlobeMap {
   // ─── Destroy ──────────────────────────────────────────────────────────────
 
   public destroy(): void {
+    this.unsubscribeGlobeQuality?.();
+    this.unsubscribeGlobeQuality = null;
     this.destroyed = true;
     if (this.flushTimer) { cancelAnimationFrame(this.flushTimer); this.flushTimer = null; }
     if (this.autoRotateTimer) clearTimeout(this.autoRotateTimer);

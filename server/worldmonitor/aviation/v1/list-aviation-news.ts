@@ -15,6 +15,11 @@ const AVIATION_RSS_FEEDS = [
     { url: 'https://simpleflying.com/feed/', name: 'Simple Flying' },
     { url: 'https://aerotime.aero/feed', name: 'AeroTime' },
     { url: 'https://thepointsguy.com/feed/', name: 'The Points Guy' },
+    { url: 'https://airlinegeeks.com/feed/', name: 'Airline Geeks' },
+    { url: 'https://onemileatatime.com/feed/', name: 'One Mile at a Time' },
+    { url: 'https://viewfromthewing.com/feed/', name: 'View from the Wing' },
+    { url: 'https://www.aviationpros.com/rss', name: 'Aviation Pros' },
+    { url: 'https://www.aviationweek.com/rss', name: 'Aviation Week' },
 ];
 
 interface RssItem {
@@ -31,8 +36,8 @@ function parseRssItems(xml: string, sourceName: string): RssItem[] {
         const channel = parsed?.rss?.channel ?? parsed?.feed ?? {};
         const rawItems: unknown[] = Array.isArray(channel.item) ? channel.item
             : channel.item ? [channel.item]
-            : Array.isArray(channel.entry) ? channel.entry
-            : channel.entry ? [channel.entry] : [];
+                : Array.isArray(channel.entry) ? channel.entry
+                    : channel.entry ? [channel.entry] : [];
 
         return rawItems.slice(0, 30).map((item: any) => ({
             title: String(item?.title ?? '').trim(),

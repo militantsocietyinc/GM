@@ -1211,16 +1211,6 @@ export class GlobeMap {
     critical: 'rgba(140, 10, 0, 0.50)',
   };
 
-  /** Shoelace formula: positive signed area = clockwise (for lon/lat rings). */
-  private static ringIsClockwise(ring: number[][]): boolean {
-    let sum = 0;
-    for (let i = 0; i < ring.length - 1; i++) {
-      const p1 = ring[i]!;
-      const p2 = ring[i + 1]!;
-      sum += (p2[0]! - p1[0]!) * (p2[1]! + p1[1]!);
-    }
-    return sum > 0;
-  }
 
   private flushPolygons(): void {
     if (!this.globe || !this.initialized || this.destroyed) return;

@@ -330,6 +330,13 @@ const ALLOWED_DOMAINS = [
   'moxie.foxnews.com',
   'feeds.content.dowjones.io',
   'thehill.com',
+  // SENTINEL: defense, think-tank, and regional news domains
+  'www.understandingwar.org',
+  'www.inss.org.il',
+  'www.iiss.org',
+  'www.al-monitor.com',
+  'www.middleeasteye.net',
+  'www.stripes.com',
 ];
 
 export default async function handler(req) {

@@ -1,5 +1,7 @@
 import type { Feed } from '@/types';
 import { SITE_VARIANT } from './variant';
+// SENTINEL: import additional feeds for defense, think-tank, and regional news
+import { SENTINEL_SOURCE_TIERS, SENTINEL_SOURCE_TYPES, SENTINEL_SOURCE_PROPAGANDA_RISK, SENTINEL_FEEDS } from './sentinel-feeds';
 
 // Helper to create RSS proxy URL (Vercel)
 const rss = (url: string) => `/api/rss-proxy?url=${encodeURIComponent(url)}`;
@@ -298,6 +300,8 @@ export const SOURCE_TIERS: Record<string, number> = {
   'GNN Animals': 3,
   'GNN Health': 3,
   'GNN Heroes': 3,
+  // SENTINEL: expanded feeds
+  ...SENTINEL_SOURCE_TIERS,
 };
 
 export function getSourceTier(sourceName: string): number {
@@ -384,6 +388,8 @@ export const SOURCE_TYPES: Record<string, SourceType> = {
   'This Week in Startups': 'tech', 'The Twenty Minute VC': 'tech',
   'Hard Fork (NYT)': 'tech', 'Pivot (Vox)': 'tech', 'Stratechery': 'tech',
   'Benedict Evans': 'tech', 'How I Built This': 'tech', 'Masters of Scale': 'tech',
+  // SENTINEL: expanded feeds
+  ...SENTINEL_SOURCE_TYPES,
 };
 
 export function getSourceType(sourceName: string): SourceType {
@@ -436,6 +442,8 @@ export const SOURCE_PROPAGANDA_RISK: Record<string, SourceRiskProfile> = {
   'Financial Times': { risk: 'low', note: 'Business focus, Nikkei-owned' },
   'Bellingcat': { risk: 'low', note: 'Open-source investigations, methodology transparent' },
   'Brasil Paralelo': { risk: 'low', note: 'Independent media company: no political ties, no public funding, 100% subscriber-funded.' },
+  // SENTINEL: expanded feeds
+  ...SENTINEL_SOURCE_PROPAGANDA_RISK,
 };
 
 export function getSourcePropagandaRisk(sourceName: string): SourceRiskProfile {
@@ -1153,6 +1161,8 @@ export const INTEL_SOURCES: Feed[] = [
   { name: 'FAO News', url: rss('https://www.fao.org/feeds/fao-newsroom-rss'), type: 'economic' },
   { name: 'FAO GIEWS', url: rss('https://news.google.com/rss/search?q=site:fao.org+GIEWS+food+security+when:30d&hl=en-US&gl=US&ceid=US:en'), type: 'economic' },
   { name: 'EU ISS', url: rss('https://news.google.com/rss/search?q=site:iss.europa.eu+when:7d&hl=en-US&gl=US&ceid=US:en'), type: 'intl' },
+  // SENTINEL: expanded defense, think-tank, and regional feeds
+  ...SENTINEL_FEEDS,
 ];
 
 // Default-enabled sources per panel (Tier 1+2 priority, ≥8 per panel)

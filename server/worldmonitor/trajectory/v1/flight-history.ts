@@ -54,14 +54,14 @@ export function ramerDouglasPeucker(
   if (points.length <= 2) return points;
 
   // Find the point with the maximum distance from the line (first -> last)
-  const first = points[0];
-  const last = points[points.length - 1];
+  const first = points[0]!;
+  const last = points[points.length - 1]!;
   let maxDist = 0;
   let maxIdx = 0;
 
   for (let i = 1; i < points.length - 1; i++) {
     const d = perpendicularDistance(
-      points[i].latitude, points[i].longitude,
+      points[i]!.latitude, points[i]!.longitude,
       first.latitude, first.longitude,
       last.latitude, last.longitude,
     );
@@ -80,7 +80,7 @@ export function ramerDouglasPeucker(
   }
 
   // All intermediate points are within epsilon; keep only endpoints
-  return [first, last];
+  return [first!, last!];
 }
 
 /**
@@ -212,11 +212,11 @@ export async function queryFlightHistory(
     const step = Math.ceil(points.length / MAX_POINTS);
     const sampled: TrajectoryPoint[] = [];
     for (let i = 0; i < points.length; i += step) {
-      sampled.push(points[i]);
+      sampled.push(points[i]!);
     }
     // Always include the last point
-    if (sampled[sampled.length - 1] !== points[points.length - 1]) {
-      sampled.push(points[points.length - 1]);
+    if (sampled[sampled.length - 1] !== points[points.length - 1]!) {
+      sampled.push(points[points.length - 1]!);
     }
     points = sampled;
   }

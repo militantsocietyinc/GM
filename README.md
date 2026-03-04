@@ -1,38 +1,34 @@
-# World Monitor
+# Omni Sentinel
 
-**Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface.
+**Enhanced global situational awareness platform** — extending [World Monitor](https://github.com/koala73/worldmonitor) with additional OSINT data sources, deeper AI-powered analysis (Claude + Gemini), and expanded social media intelligence.
 
-[![GitHub stars](https://img.shields.io/github/stars/koala73/worldmonitor?style=social)](https://github.com/koala73/worldmonitor/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/koala73/worldmonitor?style=social)](https://github.com/koala73/worldmonitor/network/members)
+[![Upstream](https://img.shields.io/badge/Upstream-World_Monitor-orange?style=flat&logo=github)](https://github.com/koala73/worldmonitor)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Last commit](https://img.shields.io/github/last-commit/koala73/worldmonitor)](https://github.com/koala73/worldmonitor/commits/main)
-[![Latest release](https://img.shields.io/github/v/release/koala73/worldmonitor?style=flat)](https://github.com/koala73/worldmonitor/releases/latest)
+
+> **Attribution**: This project is a fork of [World Monitor](https://github.com/koala73/worldmonitor) by [Elie Habib](https://github.com/koala73), licensed under AGPL-3.0. All original work is credited to the World Monitor team. We build upon their excellent foundation.
 
 <p align="center">
-  <a href="https://worldmonitor.app"><img src="https://img.shields.io/badge/Web_App-worldmonitor.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>&nbsp;
-  <a href="https://tech.worldmonitor.app"><img src="https://img.shields.io/badge/Tech_Variant-tech.worldmonitor.app-0891b2?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Tech Variant"></a>&nbsp;
-  <a href="https://finance.worldmonitor.app"><img src="https://img.shields.io/badge/Finance_Variant-finance.worldmonitor.app-059669?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Finance Variant"></a>&nbsp;
-  <a href="https://happy.worldmonitor.app"><img src="https://img.shields.io/badge/Happy_Variant-happy.worldmonitor.app-f59e0b?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Happy Variant"></a>
+  <a href="./docs/DOCUMENTATION.md"><strong>Documentation</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/koala73/worldmonitor"><strong>Upstream: World Monitor</strong></a>
 </p>
-
-<p align="center">
-  <a href="https://worldmonitor.app/api/download?platform=windows-exe"><img src="https://img.shields.io/badge/Download-Windows_(.exe)-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows"></a>&nbsp;
-  <a href="https://worldmonitor.app/api/download?platform=macos-arm64"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS ARM"></a>&nbsp;
-  <a href="https://worldmonitor.app/api/download?platform=macos-x64"><img src="https://img.shields.io/badge/Download-macOS_Intel-555555?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Intel"></a>&nbsp;
-  <a href="https://worldmonitor.app/api/download?platform=linux-appimage"><img src="https://img.shields.io/badge/Download-Linux_(.AppImage)-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download Linux"></a>
-</p>
-
-<p align="center">
-  <a href="./docs/DOCUMENTATION.md"><strong>Full Documentation</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/koala73/worldmonitor/releases/latest"><strong>All Releases</strong></a>
-</p>
-
-![World Monitor Dashboard](new-world-monitor.png)
 
 ---
 
-## Why World Monitor?
+## What Omni Sentinel Adds
+
+| World Monitor (Upstream) | Omni Sentinel (This Fork) |
+| --- | --- |
+| Groq / OpenRouter / Ollama LLM | + Claude API + Gemini API for deeper geopolitical analysis |
+| 26 Telegram OSINT channels | + Reddit, X/Twitter, Bluesky, TikTok, VK social media feeds |
+| 170+ RSS news feeds | + NOTAM/TFR aviation restrictions, NAVTEX maritime warnings |
+| ACLED + GDELT conflict data | + Polymarket prediction markets, defense stock tracking |
+| ADS-B + AIS tracking | + Historical trajectory database with self-hosted collection |
+| 19 UI languages | Inherited — full multilingual support out of the box |
+
+---
+
+## Why Omni Sentinel?
 
 | Problem                            | Solution                                                                                                   |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |

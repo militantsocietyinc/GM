@@ -1,0 +1,14 @@
+# Auto-generated proto code -- always accept ours on conflict (regenerate after merge)
+src/generated/** merge=ours
+
+# Lock files -- use built-in merge strategy
+pnpm-lock.yaml merge=binary
+package-lock.json merge=binary
+
+# Large JSON locale files -- keep ours (sentinel-en.json is separate)
+src/locales/en.json merge=ours
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.ico binary

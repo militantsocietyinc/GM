@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package worldmonitor.govdata.v1;
+
+import "sebuf/http/annotations.proto";
+import "worldmonitor/govdata/v1/notam.proto";
+
+// GovdataService provides APIs for government aviation data (NOTAMs, TFRs).
+service GovdataService {
+  option (sebuf.http.service_config) = {base_path: "/api/govdata/v1"};
+
+  // ListNotams retrieves active NOTAMs and TFRs from the FAA API.
+  rpc ListNotams(ListNotamsRequest) returns (ListNotamsResponse) {
+    option (sebuf.http.config) = {path: "/list-notams", method: HTTP_METHOD_GET};
+  }
+}

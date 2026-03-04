@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package worldmonitor.govdata.v1;
+
+// Notam represents an FAA NOTAM (Notice to Air Missions) or TFR (Temporary Flight Restriction).
+message Notam {
+  // Unique NOTAM identifier (e.g., "1/2345").
+  string id = 1;
+  // NOTAM classification: "TFR" | "NOTAM" | "NAVAID".
+  string type = 2;
+  // Human-readable description text.
+  string description = 3;
+  // Center latitude of affected area.
+  double latitude = 4;
+  // Center longitude of affected area.
+  double longitude = 5;
+  // Radius of affected area in nautical miles.
+  double radius_nm = 6;
+  // Effective start time as Unix epoch milliseconds.
+  int64 effective_from = 7;
+  // Effective end time as Unix epoch milliseconds.
+  int64 effective_to = 8;
+  // Data source: "FAA" | "ICAO".
+  string source = 9;
+  // Location identifier (airport ICAO code or FIR).
+  string location = 10;
+}
+
+// ListNotamsRequest specifies filters for retrieving NOTAMs.
+message ListNotamsRequest {
+  // Optional region filter (e.g., "US", "EU").
+  string region = 1;
+  // Maximum number of NOTAMs to return (1-200).
+  int32 limit = 2;
+}
+
+// ListNotamsResponse contains NOTAMs matching the request.
+message ListNotamsResponse {
+  // The list of NOTAMs.
+  repeated Notam notams = 1;
+  // Total count of matching NOTAMs.
+  int32 count = 2;
+  // Status indicator: "ok" | "partial" | "error".
+  string status = 3;
+  // Error message if status is not "ok".
+  string error_message = 4;
+}

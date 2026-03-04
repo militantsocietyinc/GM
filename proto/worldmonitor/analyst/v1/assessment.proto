@@ -1,0 +1,28 @@
+syntax = "proto3";
+package worldmonitor.analyst.v1;
+
+message DimensionScore {
+  string name = 1;
+  double score = 2;      // 0.0-1.0
+  double weight = 3;     // sum to 1.0
+  string reasoning = 4;
+}
+
+message AssessmentRequest {
+  string query = 1;
+  string region = 2;         // e.g. "middle-east", "east-asia"
+  string timeframe = 3;      // "7d" | "30d" | "90d"
+  repeated string evidence = 4;  // optional user-supplied evidence
+}
+
+message AssessmentResponse {
+  repeated DimensionScore dimensions = 1;
+  double overall_probability = 2;  // 0.0-1.0
+  string confidence_level = 3;     // "low" | "medium" | "high"
+  string analysis_text = 4;
+  string disclaimer = 5;
+  int64 cached_at = 6;
+  string model_used = 7;
+  string status = 8;
+  string error_message = 9;
+}

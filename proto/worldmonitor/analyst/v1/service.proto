@@ -1,0 +1,13 @@
+syntax = "proto3";
+package worldmonitor.analyst.v1;
+
+import "sebuf/http/annotations.proto";
+import "worldmonitor/analyst/v1/assessment.proto";
+
+service AnalystService {
+  option (sebuf.http.service_config) = {base_path: "/api/analyst/v1"};
+
+  rpc RunAssessment(AssessmentRequest) returns (AssessmentResponse) {
+    option (sebuf.http.config) = {path: "/run-assessment", method: HTTP_METHOD_POST};
+  }
+}

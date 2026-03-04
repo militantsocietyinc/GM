@@ -117,3 +117,20 @@ export {
 
 // Gulf FDI investment database
 export { GULF_INVESTMENTS } from './gulf-fdi';
+
+// Commodity variant - these are included in commodity builds
+export {
+  COMMODITY_PRICES,
+  COMMODITY_MARKET_SYMBOLS,
+} from './commodity-markets';
+
+export {
+  MINING_SITES,
+  PROCESSING_PLANTS,
+  COMMODITY_PORTS,
+} from './commodity-geo';
+
+export {
+  COMMODITY_MINERS,
+  type CommodityMiner,
+} from './commodity-miners';

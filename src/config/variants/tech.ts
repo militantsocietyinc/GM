@@ -262,6 +262,10 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   ciiChoropleth: false,
   dayNight: false,
+  // Commodity variant layers (disabled in tech variant)
+  miningSites: false,
+  processingPlants: false,
+  commodityPorts: false,
 };
 
 // Mobile defaults for tech variant
@@ -315,6 +319,10 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   iranAttacks: false,
   ciiChoropleth: false,
   dayNight: false,
+  // Commodity variant layers (disabled in tech variant)
+  miningSites: false,
+  processingPlants: false,
+  commodityPorts: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

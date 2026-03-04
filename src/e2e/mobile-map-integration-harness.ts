@@ -1,6 +1,4 @@
 import '../styles/main.css';
-import { MapComponent } from '../components/Map';
-import { initI18n } from '../services/i18n';
 
 type MobileMapIntegrationHarness = {
   ready: boolean;
@@ -131,11 +129,10 @@ const layers = {
   geopoliticalBoundaries: false,
   ciiChoropleth: false,
   dayNight: false,
+  miningSites: false,
+  processingPlants: false,
+  commodityPorts: false,
 };
-
-await initI18n();
-
-const map = new MapComponent(app, {
   zoom: 2.7,
   pan: { x: 0, y: 0 },
   view: 'global',

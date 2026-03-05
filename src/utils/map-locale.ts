@@ -1,4 +1,3 @@
-
 import { getCurrentLanguage } from '@/services/i18n';
 
 const LANG_TO_TILE_FIELD: Record<string, string> = {
@@ -25,7 +24,22 @@ const LANG_TO_TILE_FIELD: Record<string, string> = {
   // vi — not available in CARTO Streets v1 tiles
 };
 
-type Expression = any;
+type Expression = [string, ...unknown[]];
+
+interface MapStyleLayer {
+  id: string;
+  type?: string;
+}
+
+interface MapStyle {
+  layers?: MapStyleLayer[];
+}
+
+interface LocalizableMap {
+  getStyle?: () => MapStyle | null | undefined;
+  getLayoutProperty?: (layerId: string, property: 'text-field') => unknown;
+  setLayoutProperty?: (layerId: string, property: 'text-field', value: Expression) => void;
+}
 
 export function getLocalizedNameField(lang?: string): string {
   const code = lang ?? getCurrentLanguage();
@@ -63,7 +77,9 @@ export function isLocalizableTextField(textField: unknown): boolean {
   return false;
 }
 
-export function localizeMapLabels(map: any): void {
+export function localizeMapLabels(map: LocalizableMap | null | undefined): void {
+  if (!map) return;
+
   const style = map?.getStyle?.();
   if (!style?.layers) return;
 
@@ -74,7 +90,7 @@ export function localizeMapLabels(map: any): void {
 
     let textField: unknown;
     try {
-      textField = map.getLayoutProperty(layer.id, 'text-field');
+      textField = map.getLayoutProperty?.(layer.id, 'text-field');
     } catch {
       continue;
     }
@@ -82,7 +98,7 @@ export function localizeMapLabels(map: any): void {
     if (!isLocalizableTextField(textField)) continue;
 
     try {
-      map.setLayoutProperty(layer.id, 'text-field', expr);
+      map.setLayoutProperty?.(layer.id, 'text-field', expr);
     } catch {}
   }
 }

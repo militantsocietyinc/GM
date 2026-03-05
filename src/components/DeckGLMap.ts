@@ -486,7 +486,7 @@ export class DeckGLMap {
     // Load the RTL text plugin for correct Arabic/Hebrew glyph joining.
     // Self-hosted in public/ to avoid CSP issues with external CDN scripts.
     // Lazy-loaded — only fetched when a RTL text-field is actually rendered.
-    if (!maplibregl.getRTLTextPluginStatus || maplibregl.getRTLTextPluginStatus() === 'unavailable') {
+    if (maplibregl.getRTLTextPluginStatus() === 'unavailable') {
       maplibregl.setRTLTextPlugin(
         '/mapbox-gl-rtl-text.min.js',
         true,

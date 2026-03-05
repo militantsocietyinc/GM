@@ -625,6 +625,31 @@ export class PanelLayoutManager implements AppModule {
 
       const telegramIntelPanel = new TelegramIntelPanel();
       this.ctx.panels['telegram-intel'] = telegramIntelPanel;
+
+      // SENTINEL: Intelligence Chat, Analyst, Social Feed panels
+      import('@/components/IntelChatPanel').then(({ IntelChatPanel }) => {
+        const intelChatPanel = new IntelChatPanel();
+        this.ctx.panels['intel-chat'] = intelChatPanel;
+        const el = intelChatPanel.getElement();
+        this.makeDraggable(el, 'intel-chat');
+        document.getElementById('panelsGrid')?.appendChild(el);
+      });
+
+      import('@/components/AnalystPanel').then(({ AnalystPanel }) => {
+        const analystPanel = new AnalystPanel();
+        this.ctx.panels['analyst'] = analystPanel;
+        const el = analystPanel.getElement();
+        this.makeDraggable(el, 'analyst');
+        document.getElementById('panelsGrid')?.appendChild(el);
+      });
+
+      import('@/components/SocialFeedPanel').then(({ SocialFeedPanel }) => {
+        const socialFeedPanel = new SocialFeedPanel();
+        this.ctx.panels['social-feed'] = socialFeedPanel;
+        const el = socialFeedPanel.getElement();
+        this.makeDraggable(el, 'social-feed');
+        document.getElementById('panelsGrid')?.appendChild(el);
+      });
     }
 
     if (SITE_VARIANT === 'finance') {

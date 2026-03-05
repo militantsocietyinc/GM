@@ -81,6 +81,7 @@ const ALLOWED_DOMAINS = [
   'www.microsoft.com',
   'blog.google',
   'www.mandiant.com',
+  'cloudblog.withgoogle.com',
   'www.crowdstrike.com',
   'unit42.paloaltonetworks.com',
   'www.sentinelone.com',

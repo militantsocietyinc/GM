@@ -13567,9 +13567,9 @@ a.prediction-link:hover {
 .map-container::before {
   content: '© Elie Habib · Someone™';
   position: absolute;
-  bottom: 8px;
-  left: 8px;
-  z-index: 20;
+  bottom: 38px;
+  left: 280px;
+  z-index: 101;
   padding: 3px 10px;
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-size: 10px;

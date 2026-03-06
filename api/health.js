@@ -74,8 +74,8 @@ const SEED_META = {
   bisCredit:        { key: 'seed-meta:economic:bis:credit',       maxStaleMin: 2880 },
   shippingRates:    { key: 'seed-meta:supply_chain:shipping',     maxStaleMin: 240 },
   chokepoints:      { key: 'seed-meta:supply_chain:chokepoints',  maxStaleMin: 60 },
-  minerals:         { key: 'seed-meta:supply_chain:minerals',     maxStaleMin: 2880 },
-  giving:           { key: 'seed-meta:giving:summary',            maxStaleMin: 2880 },
+  minerals:         { key: 'seed-meta:supply_chain:minerals',     maxStaleMin: 10080 },
+  giving:           { key: 'seed-meta:giving:summary',            maxStaleMin: 10080 },
   gpsjam:           { key: 'seed-meta:intelligence:gpsjam',       maxStaleMin: 720 },
   cableHealth:      { key: 'seed-meta:cable-health',              maxStaleMin: 60 },
 };

@@ -7,7 +7,7 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { Layer, LayersList, PickingInfo } from '@deck.gl/core';
 import { GeoJsonLayer, ScatterplotLayer, PathLayer, IconLayer, TextLayer, PolygonLayer } from '@deck.gl/layers';
 import maplibregl from 'maplibre-gl';
-import { registerPMTilesProtocol, buildPMTilesStyle, FALLBACK_DARK_STYLE, FALLBACK_LIGHT_STYLE } from '@/config/basemap';
+import { registerPMTilesProtocol, buildPMTilesStyle, FALLBACK_DARK_STYLE, FALLBACK_LIGHT_STYLE, getMapProvider, getStyleForProvider } from '@/config/basemap';
 import Supercluster from 'supercluster';
 import type {
   MapLayers,
@@ -4831,22 +4831,29 @@ export class DeckGLMap {
 
   private switchBasemap(theme: 'dark' | 'light'): void {
     if (!this.maplibreMap) return;
-    const pmtiles = !isHappyVariant ? buildPMTilesStyle(theme) : null;
-    const primary = isHappyVariant
+    const provider = getMapProvider();
+    const style = isHappyVariant
       ? (theme === 'light' ? HAPPY_LIGHT_STYLE : HAPPY_DARK_STYLE)
-      : pmtiles;
-    const fallback = theme === 'light' ? FALLBACK_LIGHT_STYLE : FALLBACK_DARK_STYLE;
-    this.maplibreMap.setStyle(this.usedFallbackStyle || !primary ? fallback : primary);
-    // setStyle() replaces all sources/layers — reset guard so country layers are re-added
+      : (this.usedFallbackStyle && provider === 'auto')
+        ? (theme === 'light' ? FALLBACK_LIGHT_STYLE : FALLBACK_DARK_STYLE)
+        : getStyleForProvider(provider, theme);
+    this.maplibreMap.setStyle(style);
     this.countryGeoJsonLoaded = false;
     this.maplibreMap.once('style.load', () => {
       localizeMapLabels(this.maplibreMap);
       this.loadCountryBoundaries();
       this.updateCountryLayerPaint(theme);
-      // Re-render deck.gl overlay after style swap — interleaved layers need
-      // the new MapLibre style to be loaded before they can re-insert.
       this.render();
     });
+  }
+
+  public reloadBasemap(): void {
+    if (!this.maplibreMap) return;
+    const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    const provider = getMapProvider();
+    if (provider === 'pmtiles' || provider === 'auto') registerPMTilesProtocol();
+    this.usedFallbackStyle = false;
+    this.switchBasemap(theme as 'dark' | 'light');
   }
 
   private updateCountryLayerPaint(theme: 'dark' | 'light'): void {

@@ -501,6 +501,11 @@ export class DeckGLMap {
     const primaryStyle = isHappyVariant
       ? (initialTheme === 'light' ? HAPPY_LIGHT_STYLE : HAPPY_DARK_STYLE)
       : getStyleForProvider(initialProvider, initialTheme);
+    if (!isHappyVariant && typeof primaryStyle === 'string' && !primaryStyle.includes('pmtiles')) {
+      this.usedFallbackStyle = true;
+      const attr = this.container.querySelector('.map-attribution');
+      if (attr) attr.innerHTML = '© <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+    }
 
     this.maplibreMap = new maplibregl.Map({
       container: 'deckgl-basemap',
@@ -4845,6 +4850,7 @@ export class DeckGLMap {
     if (!this.maplibreMap) return;
     const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
     const provider = getMapProvider();
+    console.log('[DeckGLMap] reloadBasemap — theme:', theme, 'provider:', provider);
     if (provider === 'pmtiles' || provider === 'auto') registerPMTilesProtocol();
     this.usedFallbackStyle = false;
     this.switchBasemap(theme as 'dark' | 'light');

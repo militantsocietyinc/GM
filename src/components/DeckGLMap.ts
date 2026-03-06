@@ -1061,9 +1061,6 @@ export class DeckGLMap {
     }
 
     // Gulf air traffic layer (all flights — military + commercial)
-    if (this.gulfFlights.length > 0 || mapLayers.flights) {
-      console.log(`[buildLayers] Gulf flights: ${this.gulfFlights.length}, layer=${mapLayers.flights}`);
-    }
     if (mapLayers.flights && this.gulfFlights.length > 0) {
       const airborne = this.gulfFlights.filter(f => !f.onGround);
       if (airborne.length > 0) {
@@ -3389,7 +3386,6 @@ export class DeckGLMap {
 
   public setGulfFlights(flights: GulfFlight[]): void {
     this.gulfFlights = flights;
-    console.log(`[DeckGLMap.setGulfFlights] ${flights.length} flights received, layers.flights=${this.state.layers.flights}`);
     this.render();
   }
 

@@ -634,69 +634,30 @@ function parseAirplanesLiveData(data: AirplanesLiveResponse): GulfFlight[] {
 }
 
 /**
- * Fetch ALL flights for the Gulf + MENA region from /api/flights proxy.
- * The proxy queries airplanes.live across multiple coverage points and deduplicates.
+ * Fetch ALL flights for the Gulf + MENA region via /api/flights proxy.
+ * The proxy (Vercel edge function) queries airplanes.live across 6 coverage
+ * points in parallel, deduplicates, and caches for 45 s — so the browser
+ * makes a single fetch and gets a merged response.
  */
-/**
- * Gulf/MENA coverage points for airplanes.live (lat, lon, radius_nm).
- * airplanes.live has CORS '*' — we call it directly from the client.
- */
-const GULF_COVERAGE_POINTS = [
-  { lat: 26, lon: 50, r: 250 },   // Persian Gulf core (UAE, Qatar, Bahrain, Kuwait)
-  { lat: 25, lon: 44, r: 250 },   // Saudi Arabia + western Gulf
-  { lat: 33, lon: 44, r: 250 },   // Iraq + Levant (Syria, Jordan, Lebanon)
-  { lat: 38, lon: 42, r: 250 },   // Turkey + northern Iraq
-  { lat: 32, lon: 53, r: 250 },   // Iran
-  { lat: 15, lon: 45, r: 200 },   // Yemen + Red Sea south
-];
-
-const AIRPLANES_LIVE_API = 'https://api.airplanes.live/v2';
-
 export async function fetchAllGulfFlights(): Promise<GulfFlight[]> {
   return gulfBreaker.execute(async () => {
-    // Check cache
+    // Check client-side cache
     if (gulfFlightCache && Date.now() - gulfFlightCache.timestamp < GULF_CACHE_TTL) {
       return gulfFlightCache.data;
     }
 
-    // Fetch all coverage points in parallel directly from airplanes.live (CORS: *)
-    const results = await Promise.allSettled(
-      GULF_COVERAGE_POINTS.map(async (pt) => {
-        const resp = await fetch(`${AIRPLANES_LIVE_API}/point/${pt.lat}/${pt.lon}/${pt.r}`, {
-          headers: { 'Accept': 'application/json' },
-        });
-        if (!resp.ok) throw new Error(`airplanes.live ${resp.status}`);
-        const data: AirplanesLiveResponse = await resp.json();
-        return data.ac || [];
-      })
-    );
+    const resp = await fetch('/api/flights', {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!resp.ok) throw new Error(`/api/flights ${resp.status}`);
+    const data: AirplanesLiveResponse = await resp.json();
 
-    // Merge + deduplicate by hex
-    const seen = new Set<string>();
-    const allAc: AirplanesLiveAc[] = [];
-    let fulfilled = 0;
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        fulfilled++;
-        for (const ac of result.value) {
-          if (ac.hex && !seen.has(ac.hex)) {
-            seen.add(ac.hex);
-            allAc.push(ac);
-          }
-        }
-      }
-    }
-
-    if (fulfilled === 0) {
-      throw new Error('All airplanes.live queries failed');
-    }
-
-    const flights = parseAirplanesLiveData({ ac: allAc, now: Date.now(), total: allAc.length });
+    const flights = parseAirplanesLiveData(data);
 
     // Update cache
     gulfFlightCache = { data: flights, timestamp: Date.now() };
 
-    console.log(`[Gulf Flights] ${flights.length} aircraft (${flights.filter(f => f.isMilitary).length} military, ${flights.filter(f => !f.isMilitary).length} commercial) from ${fulfilled}/${GULF_COVERAGE_POINTS.length} points`);
+    console.log(`[Gulf Flights] ${flights.length} aircraft (${flights.filter(f => f.isMilitary).length} military, ${flights.filter(f => !f.isMilitary).length} commercial)`);
     return flights;
   }, []);
 }

@@ -198,6 +198,15 @@ export class MapPopup {
       const target = e.target as HTMLElement;
       if (target.closest('.popup-close') || target.closest('.map-popup-sheet-handle')) {
         this.hide();
+        return;
+      }
+      const toggle = target.closest('.cluster-toggle') as HTMLButtonElement | null;
+      if (toggle) {
+        const hidden = toggle.previousElementSibling as HTMLElement | null;
+        if (!hidden) return;
+        const expanded = hidden.style.display !== 'none';
+        hidden.style.display = expanded ? 'none' : '';
+        toggle.textContent = expanded ? (toggle.dataset.more ?? '') : (toggle.dataset.less ?? '');
       }
     });
 
@@ -2310,10 +2319,12 @@ export class MapPopup {
           .map(v => `<div class="cluster-vessel-item">${escapeHtml(v.name)} - ${escapeHtml(v.vesselType)}</div>`)
           .join('')
       : '';
+    const hiddenCount = cluster.vessels.length - 5;
+    const moreLabel = escapeHtml(t('popups.militaryCluster.moreVessels', { count: String(hiddenCount) }));
+    const lessLabel = escapeHtml(t('popups.militaryCluster.showLess'));
     const vesselSummary = hiddenVessels
       ? `${visibleVessels}<div class="cluster-vessels-hidden" style="display:none">${hiddenVessels}</div>`
-        + `<button type="button" class="cluster-toggle" onclick="const h=this.previousElementSibling;const shown=h.style.display!=='none';h.style.display=shown?'none':'';this.textContent=shown?'${t('popups.militaryCluster.moreVessels', { count: String(cluster.vessels.length - 5) })}':'${t('popups.militaryCluster.showLess')}'"`
-        + `>${t('popups.militaryCluster.moreVessels', { count: String(cluster.vessels.length - 5) })}</button>`
+        + `<button type="button" class="cluster-toggle" data-more="${moreLabel}" data-less="${lessLabel}">${moreLabel}</button>`
       : visibleVessels;
 
     return `

@@ -143,6 +143,15 @@ export class PanelLayoutManager implements AppModule {
               <span class="variant-icon">📈</span>
               <span class="variant-label">${t('header.finance')}</span>
             </a>
+            <span class="variant-divider"></span>
+            <a href="${vHref('commodity', 'https://commodity.worldmonitor.app')}"
+               class="variant-option ${SITE_VARIANT === 'commodity' ? 'active' : ''}"
+               data-variant="commodity"
+               ${vTarget('commodity')}
+               title="${t('header.commodity')}${SITE_VARIANT === 'commodity' ? ` ${t('common.currentVariant')}` : ''}">
+              <span class="variant-icon">⛏️</span>
+              <span class="variant-label">${t('header.commodity')}</span>
+            </a>
             ${SITE_VARIANT === 'happy' ? `<span class="variant-divider"></span>
             <a href="${vHref('happy', 'https://happy.worldmonitor.app')}"
                class="variant-option active"

@@ -647,7 +647,7 @@ const COMMODITY_PANELS: Record<string, PanelConfig> = {
 
 const COMMODITY_MAP_LAYERS: MapLayers = {
   gpsJamming: false,
-  geopoliticalBoundaries: false,
+
   conflicts: false,
   bases: false,
   cables: true,
@@ -704,7 +704,7 @@ const COMMODITY_MAP_LAYERS: MapLayers = {
 
 const COMMODITY_MOBILE_MAP_LAYERS: MapLayers = {
   gpsJamming: false,
-  geopoliticalBoundaries: false,
+
   conflicts: false,
   bases: false,
   cables: false,

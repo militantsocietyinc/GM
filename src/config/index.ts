@@ -130,7 +130,6 @@ export {
   COMMODITY_PORTS,
 } from './commodity-geo';
 
-export {
-  COMMODITY_MINERS,
-  type CommodityMiner,
-} from './commodity-miners';
+// COMMODITY_MINERS: 30+ mining company HQs — not yet rendered on map.
+// Uncomment when a miners layer is added to DeckGLMap.ts.
+// export { COMMODITY_MINERS, type CommodityMiner } from './commodity-miners';

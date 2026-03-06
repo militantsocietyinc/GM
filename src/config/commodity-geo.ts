@@ -36,6 +36,7 @@ export interface MineSite {
   significance: string;
   productionRank?: string;     // e.g. "World's largest", "#2 globally"
   productionCapacity?: string; // e.g. "1.2Mt Cu/yr"
+  annualOutput?: string;       // human-readable output for tooltip
   openPitOrUnderground?: 'open-pit' | 'underground' | 'in-situ' | 'both';
 }
 
@@ -48,9 +49,11 @@ export interface ProcessingPlant {
   mineral: MineralType;
   country: string;
   operator: string;
+  materials?: string[];        // alternative minerals processed
   status: 'operating' | 'planned' | 'idle';
   significance: string;
   outputCapacity?: string;
+  capacityTpa?: number;        // annual capacity in tonnes
 }
 
 export interface CommodityPort {
@@ -62,6 +65,7 @@ export interface CommodityPort {
   city: string;
   commodities: MineralType[];
   annualThroughput?: string;
+  annualVolumeMt?: number;     // annual volume in megatonnes
   significance: string;
 }
 

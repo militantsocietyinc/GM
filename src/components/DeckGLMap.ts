@@ -2237,6 +2237,24 @@ export class DeckGLMap {
     });
   }
 
+  private mineralColor(mineral: string): [number, number, number, number] {
+    switch (mineral) {
+      case 'Gold':        return [255, 215, 0, 210];
+      case 'Silver':      return [192, 192, 192, 200];
+      case 'Copper':      return [184, 115, 51, 210];
+      case 'Lithium':     return [0, 200, 255, 200];
+      case 'Cobalt':      return [100, 100, 255, 200];
+      case 'Rare Earths': return [255, 100, 200, 200];
+      case 'Nickel':      return [100, 220, 100, 200];
+      case 'Platinum':    return [210, 210, 255, 200];
+      case 'Palladium':   return [180, 220, 180, 200];
+      case 'Iron Ore':    return [139, 69, 19, 210];
+      case 'Uranium':     return [50, 255, 80, 200];
+      case 'Coal':        return [80, 80, 80, 200];
+      default:            return [200, 200, 200, 200];
+    }
+  }
+
   // Commodity variant layers
   private createMiningSitesLayer(): ScatterplotLayer {
     return new ScatterplotLayer({
@@ -2244,23 +2262,7 @@ export class DeckGLMap {
       data: MINING_SITES,
       getPosition: (d) => [d.lon, d.lat],
       getRadius: (d) => d.status === 'producing' ? 10000 : d.status === 'development' ? 8000 : 6000,
-      getFillColor: (d) => {
-        switch (d.mineral) {
-          case 'Gold':        return [255, 215, 0, 210] as [number, number, number, number];
-          case 'Silver':      return [192, 192, 192, 200] as [number, number, number, number];
-          case 'Copper':      return [184, 115, 51, 210] as [number, number, number, number];
-          case 'Lithium':     return [0, 200, 255, 200] as [number, number, number, number];
-          case 'Cobalt':      return [100, 100, 255, 200] as [number, number, number, number];
-          case 'Rare Earths': return [255, 100, 200, 200] as [number, number, number, number];
-          case 'Nickel':      return [100, 220, 100, 200] as [number, number, number, number];
-          case 'Platinum':    return [210, 210, 255, 200] as [number, number, number, number];
-          case 'Palladium':   return [180, 220, 180, 200] as [number, number, number, number];
-          case 'Iron Ore':    return [139, 69, 19, 210] as [number, number, number, number];
-          case 'Uranium':     return [50, 255, 80, 200] as [number, number, number, number];
-          case 'Coal':        return [80, 80, 80, 200] as [number, number, number, number];
-          default:            return [200, 200, 200, 200] as [number, number, number, number];
-        }
-      },
+      getFillColor: (d) => this.mineralColor(d.mineral),
       radiusMinPixels: 5,
       radiusMaxPixels: 14,
       pickable: true,
@@ -2300,18 +2302,7 @@ export class DeckGLMap {
       data: COMMODITY_GEO_PORTS,
       getPosition: (d) => [d.lon, d.lat],
       getRadius: 12000,
-      getFillColor: (d) => {
-        const primary = d.commodities[0];
-        switch (primary) {
-          case 'Iron Ore': return [139, 69, 19, 210] as [number, number, number, number];
-          case 'Copper':   return [184, 115, 51, 210] as [number, number, number, number];
-          case 'Coal':     return [80, 80, 80, 200] as [number, number, number, number];
-          case 'Gold':     return [255, 215, 0, 200] as [number, number, number, number];
-          case 'Uranium':  return [50, 255, 80, 200] as [number, number, number, number];
-          case 'Cobalt':   return [100, 100, 255, 200] as [number, number, number, number];
-          default:         return [80, 180, 255, 200] as [number, number, number, number];
-        }
-      },
+      getFillColor: (d) => this.mineralColor(d.commodities[0]),
       radiusMinPixels: 6,
       radiusMaxPixels: 14,
       pickable: true,
@@ -3114,12 +3105,13 @@ export class DeckGLMap {
       }
       case 'processing-plants-layer': {
         const typeLabel = obj.type === 'smelter' ? '🏭 Smelter' : obj.type === 'refinery' ? '⚗️ Refinery' : obj.type === 'separation' ? '🧪 Separation' : '🏗️ Processing';
-        const capacityStr = obj.capacityTpa ? `<br/><span style="opacity:.75">${(obj.capacityTpa / 1000).toFixed(0)}k t/yr</span>` : '';
-        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.mineral ?? obj.materials?.join(', '))} · ${text(obj.country)}<br/>${typeLabel}${capacityStr}</div>` };
+        const capacityStr = obj.capacityTpa ? `<br/><span style="opacity:.75">${text(String((obj.capacityTpa / 1000).toFixed(0)))}k t/yr</span>` : '';
+        const mineralLabel = obj.mineral ?? (Array.isArray(obj.materials) ? obj.materials.join(', ') : '');
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(mineralLabel)} · ${text(obj.country)}<br/>${typeLabel}${capacityStr}</div>` };
       }
       case 'commodity-ports-layer': {
         const commoditiesStr = Array.isArray(obj.commodities) ? obj.commodities.join(', ') : '';
-        const volumeStr = obj.annualVolumeMt ? `<br/><span style="opacity:.75">${obj.annualVolumeMt}Mt/yr</span>` : '';
+        const volumeStr = obj.annualVolumeMt ? `<br/><span style="opacity:.75">${text(String(obj.annualVolumeMt))}Mt/yr</span>` : '';
         return { html: `<div class="deckgl-tooltip"><strong>⚓ ${text(obj.name)}</strong><br/>${text(obj.country)}<br/>${text(commoditiesStr)}${volumeStr}</div>` };
       }
       case 'ais-disruptions-layer':

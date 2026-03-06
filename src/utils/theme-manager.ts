@@ -35,10 +35,27 @@ function resolveAutoTheme(): Theme {
   return 'dark';
 }
 
+let autoMediaQuery: MediaQueryList | null = null;
+let autoMediaHandler: (() => void) | null = null;
+
+function teardownAutoListener(): void {
+  if (autoMediaQuery && autoMediaHandler) {
+    autoMediaQuery.removeEventListener('change', autoMediaHandler);
+    autoMediaQuery = null;
+    autoMediaHandler = null;
+  }
+}
+
 export function setThemePreference(pref: ThemePreference): void {
   try { localStorage.setItem(STORAGE_KEY, pref); } catch { /* noop */ }
+  teardownAutoListener();
   const effective: Theme = pref === 'auto' ? resolveAutoTheme() : pref;
   setTheme(effective);
+  if (pref === 'auto' && typeof window !== 'undefined' && window.matchMedia) {
+    autoMediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+    autoMediaHandler = () => setTheme(resolveAutoTheme());
+    autoMediaQuery.addEventListener('change', autoMediaHandler);
+  }
 }
 
 /**

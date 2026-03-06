@@ -4850,7 +4850,6 @@ export class DeckGLMap {
     if (!this.maplibreMap) return;
     const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
     const provider = getMapProvider();
-    console.log('[DeckGLMap] reloadBasemap — theme:', theme, 'provider:', provider);
     if (provider === 'pmtiles' || provider === 'auto') registerPMTilesProtocol();
     this.usedFallbackStyle = false;
     this.switchBasemap(theme as 'dark' | 'light');

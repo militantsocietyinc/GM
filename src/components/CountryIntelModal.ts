@@ -44,6 +44,7 @@ export class CountryIntelModal {
   private onShareStory?: (code: string, name: string) => void;
   private currentCode: string | null = null;
   private currentName: string | null = null;
+  private keydownHandler: (e: KeyboardEvent) => void;
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -66,9 +67,10 @@ export class CountryIntelModal {
     this.overlay.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).classList.contains('country-intel-overlay')) this.hide();
     });
-    document.addEventListener('keydown', (e) => {
+    this.keydownHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && this.overlay.classList.contains('active')) this.hide();
-    });
+    };
+    document.addEventListener('keydown', this.keydownHandler);
   }
 
   private countryFlag(code: string): string {

@@ -2300,13 +2300,21 @@ export class MapPopup {
     const clusterName = escapeHtml(cluster.name);
     const activityTypeLabel = escapeHtml(activityType.toUpperCase());
     const region = cluster.region ? escapeHtml(cluster.region) : '';
-    const vesselSummary = cluster.vessels
+    const visibleVessels = cluster.vessels
       .slice(0, 5)
       .map(v => `<div class="cluster-vessel-item">${escapeHtml(v.name)} - ${escapeHtml(v.vesselType)}</div>`)
       .join('');
-    const moreVessels = cluster.vesselCount > 5
-      ? `<div class="cluster-more">${t('popups.militaryCluster.moreVessels', { count: String(cluster.vesselCount - 5) })}</div>`
+    const hiddenVessels = cluster.vessels.length > 5
+      ? cluster.vessels
+          .slice(5)
+          .map(v => `<div class="cluster-vessel-item">${escapeHtml(v.name)} - ${escapeHtml(v.vesselType)}</div>`)
+          .join('')
       : '';
+    const vesselSummary = hiddenVessels
+      ? `${visibleVessels}<div class="cluster-vessels-hidden" style="display:none">${hiddenVessels}</div>`
+        + `<button type="button" class="cluster-toggle" onclick="const h=this.previousElementSibling;const shown=h.style.display!=='none';h.style.display=shown?'none':'';this.textContent=shown?'${t('popups.militaryCluster.moreVessels', { count: String(cluster.vessels.length - 5) })}':'${t('popups.militaryCluster.showLess')}'"`
+        + `>${t('popups.militaryCluster.moreVessels', { count: String(cluster.vessels.length - 5) })}</button>`
+      : visibleVessels;
 
     return `
       <div class="popup-header military-cluster">
@@ -2336,7 +2344,6 @@ export class MapPopup {
           <span class="section-label">${t('popups.militaryCluster.trackedVessels')}</span>
           <div class="cluster-vessels">
             ${vesselSummary}
-            ${moreVessels}
           </div>
         </div>
       </div>

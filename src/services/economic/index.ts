@@ -10,6 +10,7 @@
 import {
   EconomicServiceClient,
   type GetFredSeriesResponse,
+  type GetFredSeriesBatchResponse,
   type ListWorldBankIndicatorsResponse,
   type WorldBankCountryData as ProtoWorldBankCountryData,
   type GetEnergyPricesResponse,
@@ -63,6 +64,8 @@ const bisEerBreaker = createCircuitBreaker<GetBisExchangeRatesResponse>({ name: 
 const bisCreditBreaker = createCircuitBreaker<GetBisCreditResponse>({ name: 'BIS Credit', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
 
 const emptyFredFallback: GetFredSeriesResponse = { series: undefined };
+const emptyFredBatchFallback: GetFredSeriesBatchResponse = { results: {}, fetched: 0, requested: 0 };
+const fredBatchBreaker = createCircuitBreaker<GetFredSeriesBatchResponse>({ name: 'FRED Batch', cacheTtlMs: 15 * 60 * 1000, persistCache: true });
 const emptyWbFallback: ListWorldBankIndicatorsResponse = { data: [], pagination: undefined };
 const emptyEiaFallback: GetEnergyPricesResponse = { prices: [] };
 const emptyCapacityFallback: GetEnergyCapacityResponse = { series: [] };
@@ -150,8 +153,58 @@ async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | n
 export async function fetchFredData(): Promise<FredSeries[]> {
   if (!isFeatureAvailable('economicFred')) return [];
 
-  const results = await Promise.all(FRED_SERIES.map(fetchSingleFredSeries));
-  return results.filter((r): r is FredSeries => r !== null);
+  try {
+    const resp = await fredBatchBreaker.execute(async () => {
+      return client.getFredSeriesBatch(
+        { seriesIds: FRED_SERIES.map((c) => c.id), limit: 120 },
+        { signal: AbortSignal.timeout(30_000) },
+      );
+    }, emptyFredBatchFallback);
+
+    const out: FredSeries[] = [];
+    for (const config of FRED_SERIES) {
+      const series = resp.results[config.id];
+      if (!series) continue;
+      const obs = series.observations;
+      if (!obs || obs.length === 0) continue;
+
+      if (obs.length >= 2) {
+        const latest = obs[obs.length - 1]!;
+        const previous = obs[obs.length - 2]!;
+        const change = latest.value - previous.value;
+        const changePercent = (change / previous.value) * 100;
+        let displayValue = latest.value;
+        if (config.id === 'WALCL') displayValue = latest.value / 1000;
+
+        out.push({
+          id: config.id, name: config.name,
+          value: Number(displayValue.toFixed(config.precision)),
+          previousValue: Number(previous.value.toFixed(config.precision)),
+          change: Number(change.toFixed(config.precision)),
+          changePercent: Number(changePercent.toFixed(2)),
+          date: latest.date, unit: config.unit,
+        });
+      } else {
+        const latest = obs[0]!;
+        let displayValue = latest.value;
+        if (config.id === 'WALCL') displayValue = latest.value / 1000;
+        out.push({
+          id: config.id, name: config.name,
+          value: Number(displayValue.toFixed(config.precision)),
+          previousValue: null, change: null, changePercent: null,
+          date: latest.date, unit: config.unit,
+        });
+      }
+    }
+    return out;
+  } catch (err: unknown) {
+    // 404 fallback for deploy-skew: batch endpoint not yet deployed
+    if (err && typeof err === 'object' && 'statusCode' in err && (err as { statusCode: number }).statusCode === 404) {
+      const results = await Promise.all(FRED_SERIES.map(fetchSingleFredSeries));
+      return results.filter((r): r is FredSeries => r !== null);
+    }
+    return [];
+  }
 }
 
 export function getFredStatus(): string {

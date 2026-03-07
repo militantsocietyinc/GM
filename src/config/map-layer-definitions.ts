@@ -1,7 +1,7 @@
 import type { MapLayers } from '@/types';
 
 export type MapRenderer = 'flat' | 'globe';
-export type MapVariant = 'full' | 'tech' | 'finance' | 'happy' | 'commodity';
+export type MapVariant = 'full' | 'tech' | 'finance' | 'happy' | 'commodity' | 'australia';
 
 export interface LayerDefinition {
   key: keyof MapLayers;
@@ -103,6 +103,9 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'miningSites', 'processingPlants', 'commodityPorts', 'commodityHubs',
     'minerals', 'pipelines', 'waterways', 'tradeRoutes',
     'natural', 'weather', 'outages', 'dayNight',
+  ],
+  australia: [
+    'fires', 'weather', 'natural', 'climate', 'outages',
   ],
 };
 

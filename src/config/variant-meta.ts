@@ -11,7 +11,32 @@ export interface VariantMeta {
   features: string[];
 }
 
-export const VARIANT_META: { full: VariantMeta; [k: string]: VariantMeta } = {
+export const VARIANT_META: { full: VariantMeta; australia: VariantMeta; [k: string]: VariantMeta } = {
+  australia: {
+    title: 'Australia Monitor - Live Traffic, Bushfires, Weather & Emergency Dashboard',
+    description: 'Real-time Australian monitoring dashboard with live traffic cameras, bushfire tracking, weather warnings, floods, earthquakes, transport disruptions, and AI-generated situation summaries.',
+    keywords: 'australia dashboard, traffic cameras, bushfires, weather warnings, flood warnings, earthquakes, transport disruptions, NSW traffic, QLD traffic, VIC traffic, emergency alerts, live cameras, australia news, BOM warnings',
+    url: 'https://australiamonitor.app/',
+    siteName: 'Australia Monitor',
+    shortName: 'AustraliaMonitor',
+    subject: 'Australian Emergency, Traffic, and Situation Awareness',
+    classification: 'Emergency Dashboard, Traffic Monitor, Weather Tracker',
+    categories: ['news', 'weather', 'traffic'],
+    features: [
+      'Live traffic cameras',
+      'Traffic incident tracking',
+      'Bushfire monitoring',
+      'Weather warning alerts',
+      'Flood warning tracking',
+      'Earthquake monitoring',
+      'Transport disruption alerts',
+      'State & city filtering',
+      'AI situation summary',
+      'Australian news aggregation',
+      'Public camera feeds',
+      'Real-time map overlays',
+    ],
+  },
   full: {
     title: 'World Monitor - Real-Time Global Intelligence Dashboard',
     description: 'Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data. OSINT in one view.',

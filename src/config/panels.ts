@@ -763,37 +763,52 @@ const COMMODITY_MOBILE_MAP_LAYERS: MapLayers = {
 };
 
 // ============================================
+// AUSTRALIA VARIANT
+// ============================================
+import {
+  DEFAULT_PANELS as AU_PANELS,
+  DEFAULT_MAP_LAYERS as AU_MAP_LAYERS,
+  MOBILE_DEFAULT_MAP_LAYERS as AU_MOBILE_MAP_LAYERS,
+} from './variants/australia';
+
+// ============================================
 // VARIANT-AWARE EXPORTS
 // ============================================
-export const DEFAULT_PANELS = SITE_VARIANT === 'happy' 
-  ? HAPPY_PANELS 
-  : SITE_VARIANT === 'tech' 
-    ? TECH_PANELS 
-    : SITE_VARIANT === 'finance' 
-      ? FINANCE_PANELS 
-      : SITE_VARIANT === 'commodity'
-        ? COMMODITY_PANELS
-        : FULL_PANELS;
+export const DEFAULT_PANELS = SITE_VARIANT === 'australia'
+  ? AU_PANELS
+  : SITE_VARIANT === 'happy'
+    ? HAPPY_PANELS
+    : SITE_VARIANT === 'tech'
+      ? TECH_PANELS
+      : SITE_VARIANT === 'finance'
+        ? FINANCE_PANELS
+        : SITE_VARIANT === 'commodity'
+          ? COMMODITY_PANELS
+          : FULL_PANELS;
 
-export const DEFAULT_MAP_LAYERS = SITE_VARIANT === 'happy' 
-  ? HAPPY_MAP_LAYERS 
-  : SITE_VARIANT === 'tech' 
-    ? TECH_MAP_LAYERS 
-    : SITE_VARIANT === 'finance' 
-      ? FINANCE_MAP_LAYERS 
-      : SITE_VARIANT === 'commodity'
-        ? COMMODITY_MAP_LAYERS
-        : FULL_MAP_LAYERS;
+export const DEFAULT_MAP_LAYERS = SITE_VARIANT === 'australia'
+  ? AU_MAP_LAYERS
+  : SITE_VARIANT === 'happy'
+    ? HAPPY_MAP_LAYERS
+    : SITE_VARIANT === 'tech'
+      ? TECH_MAP_LAYERS
+      : SITE_VARIANT === 'finance'
+        ? FINANCE_MAP_LAYERS
+        : SITE_VARIANT === 'commodity'
+          ? COMMODITY_MAP_LAYERS
+          : FULL_MAP_LAYERS;
 
-export const MOBILE_DEFAULT_MAP_LAYERS = SITE_VARIANT === 'happy' 
-  ? HAPPY_MOBILE_MAP_LAYERS 
-  : SITE_VARIANT === 'tech' 
-    ? TECH_MOBILE_MAP_LAYERS 
-    : SITE_VARIANT === 'finance' 
-      ? FINANCE_MOBILE_MAP_LAYERS 
-      : SITE_VARIANT === 'commodity'
-        ? COMMODITY_MOBILE_MAP_LAYERS
-        : FULL_MOBILE_MAP_LAYERS;
+export const MOBILE_DEFAULT_MAP_LAYERS = SITE_VARIANT === 'australia'
+  ? AU_MOBILE_MAP_LAYERS
+  : SITE_VARIANT === 'happy'
+    ? HAPPY_MOBILE_MAP_LAYERS
+    : SITE_VARIANT === 'tech'
+      ? TECH_MOBILE_MAP_LAYERS
+      : SITE_VARIANT === 'finance'
+        ? FINANCE_MOBILE_MAP_LAYERS
+        : SITE_VARIANT === 'commodity'
+          ? COMMODITY_MOBILE_MAP_LAYERS
+          : FULL_MOBILE_MAP_LAYERS;
 
 /** Maps map-layer toggle keys to their data-freshness source IDs (single source of truth). */
 export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> = {
@@ -907,6 +922,28 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
     labelKey: 'header.panelCatGulfMena',
     panelKeys: ['gulf-economies', 'gcc-investments', 'gccNews', 'monitors', 'world-clock'],
     variants: ['finance'],
+  },
+
+  // Australia variant
+  auEmergency: {
+    labelKey: 'header.panelCatAuEmergency',
+    panelKeys: ['au-summary', 'bushfires', 'floods', 'weather', 'earthquakes'],
+    variants: ['australia'],
+  },
+  auTraffic: {
+    labelKey: 'header.panelCatAuTraffic',
+    panelKeys: ['traffic-incidents', 'traffic-cameras', 'transport', 'open-cameras'],
+    variants: ['australia'],
+  },
+  auNews: {
+    labelKey: 'header.panelCatAuNews',
+    panelKeys: ['au-national', 'au-nsw', 'au-vic', 'au-qld', 'au-wa', 'au-sa', 'au-politics'],
+    variants: ['australia'],
+  },
+  auBusinessTech: {
+    labelKey: 'header.panelCatAuBusinessTech',
+    panelKeys: ['au-business', 'markets', 'commodities', 'au-tech', 'monitors'],
+    variants: ['australia'],
   },
 };
 

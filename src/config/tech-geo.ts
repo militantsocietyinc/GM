@@ -371,7 +371,12 @@ export const TECH_HQS: TechHQ[] = [
   // Ireland
   { id: 'stripe-eu', company: 'Stripe EU', city: 'Dublin', country: 'Ireland', lat: 53.3382, lon: -6.2591, type: 'unicorn' },
   { id: 'intercom', company: 'Intercom', city: 'Dublin', country: 'Ireland', lat: 53.3433, lon: -6.2605, type: 'unicorn' },
-
+  { id: 'apple-emea', company: 'Apple EMEA HQ', city: 'Cork', country: 'Ireland', lat: 51.9077, lon: -8.4753, type: 'faang' },
+  { id: 'google-emea', company: 'Google EMEA HQ', city: 'Dublin', country: 'Ireland', lat: 53.3438, lon: -6.2302, type: 'faang' },
+  { id: 'meta-emea', company: 'Meta EMEA HQ', city: 'Dublin', country: 'Ireland', lat: 53.3450, lon: -6.2290, type: 'faang' },
+  { id: 'microsoft-emea', company: 'Microsoft EMEA HQ', city: 'Dublin', country: 'Ireland', lat: 53.3410, lon: -6.2360, type: 'public' },
+  { id: 'salesforce-emea', company: 'Salesforce EMEA HQ', city: 'Dublin', country: 'Ireland', lat: 53.3430, lon: -6.2330, type: 'public' },
+  
   // Finland
   { id: 'nokia', company: 'Nokia', city: 'Espoo', country: 'Finland', lat: 60.1756, lon: 24.8272, type: 'public' },
   { id: 'supercell', company: 'Supercell', city: 'Helsinki', country: 'Finland', lat: 60.1699, lon: 24.9384, type: 'unicorn' },

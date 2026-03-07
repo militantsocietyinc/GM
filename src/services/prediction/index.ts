@@ -98,8 +98,16 @@ export async function fetchCountryMarkets(country: string): Promise<PredictionMa
         .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
         .slice(0, 5);
     }
-    return [];
-  } catch {
-    return [];
+  } catch { /* RPC failed, fall through to bootstrap filter */ }
+
+  const hydrated = getHydratedData('predictions') as BootstrapPredictionData | undefined;
+  if (hydrated?.geopolitical?.length) {
+    const lower = country.toLowerCase();
+    const filtered = hydrated.geopolitical
+      .filter(m => !isExpired(m.endDate) && m.title.toLowerCase().includes(lower))
+      .slice(0, 5);
+    if (filtered.length > 0) return filtered;
   }
+
+  return [];
 }

@@ -84,7 +84,7 @@ export class AirlineIntelPanel extends Panel {
     private tabBar!: HTMLElement;
 
     constructor() {
-        super({ id: 'airline-intel', title: '✈️ ' + t('panels.airlineIntel'), trackActivity: true });
+        super({ id: 'airline-intel', title: t('panels.airlineIntel'), trackActivity: true });
 
         const wl = aviationWatchlist.get();
         this.airports = wl.airports.slice(0, 8);
@@ -343,9 +343,9 @@ export class AirlineIntelPanel extends Panel {
           <option value="try"${this.pricesCurrency === 'try' ? ' selected' : ''}>TRY</option>
           <option value="gbp"${this.pricesCurrency === 'gbp' ? ' selected' : ''}>GBP</option>
         </select>
-        <button id="priceSearchBtn" class="icon-btn" style="padding:4px 10px">Search</button>
+        <button id="priceSearchBtn" class="icon-btn" style="padding:4px 10px">${t('common.search')}</button>
       </div>
-      <div style="margin-bottom:6px">${providerBadge}<span style="font-size:10px;color:#6b7280;margin-left:6px">All prices indicative</span></div>`;
+      <div style="margin-bottom:6px">${providerBadge}<span style="font-size:10px;color:#6b7280;margin-left:6px">${t('components.airlineIntel.pricesIndicative')}</span></div>`;
 
         if (!this.pricesData.length) {
             this.content.innerHTML = `${searchForm}<div class="no-data">${t('components.airlineIntel.enterRoute')}</div>`;

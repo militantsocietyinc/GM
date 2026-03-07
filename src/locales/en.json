@@ -265,7 +265,7 @@
     "gulfIndices": "Gulf Indices",
     "gulfCurrencies": "Gulf Currencies",
     "gulfOil": "Gulf Oil",
-    "airlineIntel": "Airline Intelligence"
+    "airlineIntel": "✈️ Airline Intelligence"
   },
   "commands": {
     "prefixes": {
@@ -680,7 +680,8 @@
       "noNews": "No aviation news.",
       "enterRoute": "Enter route and search for prices.",
       "cachedInsight": "Cached insight",
-      "demoMode": "DEMO MODE"
+      "demoMode": "DEMO MODE",
+      "pricesIndicative": "All prices indicative"
     },
     "goodThingsDigest": {
       "noStories": "No stories available",

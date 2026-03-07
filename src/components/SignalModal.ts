@@ -13,7 +13,6 @@ export class SignalModal {
   private audio: HTMLAudioElement | null = null;
   private onLocationClick?: (lat: number, lon: number) => void;
   private escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.hide(); };
-  private escActive = false;
 
   constructor() {
     this.element = document.createElement('div');
@@ -102,9 +101,7 @@ export class SignalModal {
   }
 
   private activateEsc(): void {
-    if (this.escActive) return;
     document.addEventListener('keydown', this.escHandler);
-    this.escActive = true;
   }
 
   public show(signals: CorrelationSignal[]): void {
@@ -241,10 +238,7 @@ export class SignalModal {
 
   public hide(): void {
     this.element.classList.remove('active');
-    if (this.escActive) {
-      document.removeEventListener('keydown', this.escHandler);
-      this.escActive = false;
-    }
+    document.removeEventListener('keydown', this.escHandler);
   }
 
   private renderSignals(): void {

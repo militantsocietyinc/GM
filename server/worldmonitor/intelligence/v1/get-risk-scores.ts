@@ -155,11 +155,11 @@ async function fetchAuxiliarySources(): Promise<{
   iranEvents: any[];
 }> {
   const [ucdpRes, outagesRes, climateRes, cyberRes, firesRes, gpsRaw, iranRaw] = await Promise.all([
-    listUcdpEvents(DUMMY_CTX, {}).catch(() => null),
-    listInternetOutages(DUMMY_CTX, {}).catch(() => null),
-    listClimateAnomalies(DUMMY_CTX, {}).catch(() => null),
-    listCyberThreats(DUMMY_CTX, {}).catch(() => null),
-    listFireDetections(DUMMY_CTX, {}).catch(() => null),
+    listUcdpEvents(DUMMY_CTX, {} as any).catch(() => null),
+    listInternetOutages(DUMMY_CTX, {} as any).catch(() => null),
+    listClimateAnomalies(DUMMY_CTX, {} as any).catch(() => null),
+    listCyberThreats(DUMMY_CTX, {} as any).catch(() => null),
+    listFireDetections(DUMMY_CTX, {} as any).catch(() => null),
     getCachedJson('intelligence:gpsjam:v1', true).catch(() => null),
     getCachedJson('conflict:iran-events:v1', true).catch(() => null),
   ]);

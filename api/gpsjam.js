@@ -44,10 +44,15 @@ async function fetchGpsJamData() {
         source: v1.source || 'gpsjam.org (normalized)',
         hexes: v1.hexes.map(hex => {
           if ('npAvg' in hex) return hex;
+          const pct = hex.pct || 0;
           return {
-            ...hex,
-            npAvg: 0,
-            sampleCount: hex.total || 0,
+            h3: hex.h3,
+            lat: hex.lat,
+            lon: hex.lon,
+            level: hex.level,
+            region: hex.region,
+            npAvg: pct > 10 ? 0.3 : pct >= 2 ? 0.8 : 1.5,
+            sampleCount: hex.bad || 0,
             aircraftCount: hex.total || 0,
           };
         }),

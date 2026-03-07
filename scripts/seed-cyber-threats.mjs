@@ -450,7 +450,10 @@ async function fetchAbuseIpDb() {
       console.log('  AbuseIPDB: skipped (rate limit, no cache)');
       return { ok: false, threats: [] };
     }
-  } catch { /* proceed if rate check fails */ }
+  } catch {
+    console.warn('  AbuseIPDB: rate-limit check failed (Redis), skipping to avoid quota burn');
+    return { ok: false, threats: [] };
+  }
 
   try {
     const url = `${ABUSEIPDB_BLACKLIST_URL}?confidenceMinimum=90&limit=${Math.min(MAX_LIMIT, 500)}`;

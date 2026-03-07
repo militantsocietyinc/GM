@@ -567,7 +567,7 @@ export function mergeNotamWithExistingAlert(
     SEV_ORDER.indexOf(existingSevName),
     SEV_ORDER.indexOf(notamCancelSev),
     SEV_ORDER.indexOf(notamFloor),
-  )];
+  )] ?? 'moderate';
 
   let delayType: string;
   if (effectiveSev === 'severe' && cancelRate >= 80) delayType = 'closure';

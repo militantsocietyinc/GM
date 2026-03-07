@@ -74,7 +74,7 @@ export async function getAirportOpsSummary(
                         sevOrder.indexOf(cancelSev),
                         sevOrder.indexOf(delaySev),
                         sevOrder.indexOf(notamFloor),
-                    )];
+                    )] ?? 'normal';
                     const severity = `FLIGHT_DELAY_SEVERITY_${sevStr.toUpperCase()}` as FlightDelaySeverity;
 
                     const notamFlags: string[] = [];

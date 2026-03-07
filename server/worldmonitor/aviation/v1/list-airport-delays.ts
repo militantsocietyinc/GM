@@ -137,7 +137,7 @@ export async function listAirportDelays(
       if (existingIatas.has(airport.iata)) {
         const idx = allAlerts.findIndex(a => a.iata === airport.iata);
         if (idx >= 0) {
-          allAlerts[idx] = mergeNotamWithExistingAlert(airport, reason, allAlerts[idx]);
+          allAlerts[idx] = mergeNotamWithExistingAlert(airport, reason, allAlerts[idx] ?? null);
         }
       } else {
         allAlerts.push(buildNotamAlert(airport, reason));

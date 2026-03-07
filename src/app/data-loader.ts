@@ -64,7 +64,7 @@ import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid } from '@/services/clustering';
 import { ingestProtests, ingestFlights, ingestVessels, ingestEarthquakes, detectGeoConvergence, geoConvergenceToSignal } from '@/services/geo-convergence';
 import { signalAggregator } from '@/services/signal-aggregator';
-import { updateAndCheck } from '@/services/temporal-baseline';
+import { updateAndCheck, consumeServerAnomalies, fetchLiveAnomalies } from '@/services/temporal-baseline';
 import { fetchAllFires, flattenFires, computeRegionStats, toMapFires } from '@/services/wildfires';
 import { analyzeFlightsForSurge, surgeAlertToSignal, detectForeignMilitaryPresence, foreignPresenceToSignal, type TheaterPostureSummary } from '@/services/military-surge';
 import { fetchCachedTheaterPosture } from '@/services/cached-theater-posture';
@@ -413,6 +413,20 @@ export class DataLoaderManager implements AppModule {
     }
 
     this.updateSearchIndex();
+
+    const { anomalies, trackedTypes } = consumeServerAnomalies();
+    if (anomalies.length > 0 || trackedTypes.length > 0) {
+      signalAggregator.ingestTemporalAnomalies(anomalies, trackedTypes);
+      ingestTemporalAnomaliesForCII(anomalies);
+      this.refreshCiiAndBrief();
+    }
+  }
+
+  async refreshTemporalBaseline(): Promise<void> {
+    const { anomalies, trackedTypes } = await fetchLiveAnomalies();
+    signalAggregator.ingestTemporalAnomalies(anomalies, trackedTypes);
+    ingestTemporalAnomaliesForCII(anomalies);
+    this.refreshCiiAndBrief();
   }
 
   async loadDataForLayer(layer: keyof MapLayers): Promise<void> {
@@ -927,15 +941,6 @@ export class DataLoaderManager implements AppModule {
     this.ctx.allNews = collectedNews;
     this.ctx.initialLoadComplete = true;
     mountCommunityWidget();
-    updateAndCheck([
-      { type: 'news', region: 'global', count: collectedNews.length },
-    ]).then(anomalies => {
-      if (anomalies.length > 0) {
-        signalAggregator.ingestTemporalAnomalies(anomalies);
-        ingestTemporalAnomaliesForCII(anomalies);
-        this.refreshCiiAndBrief();
-      }
-    }).catch(() => { });
 
     this.ctx.map?.updateHotspotActivity(this.ctx.allNews);
 
@@ -2157,16 +2162,6 @@ export class DataLoaderManager implements AppModule {
         (this.ctx.panels['satellite-fires'] as SatelliteFiresPanel)?.update(stats, totalCount);
 
         dataFreshness.recordUpdate('firms', totalCount);
-
-        updateAndCheck([
-          { type: 'satellite_fires', region: 'global', count: totalCount },
-        ]).then(anomalies => {
-          if (anomalies.length > 0) {
-            signalAggregator.ingestTemporalAnomalies(anomalies);
-            ingestTemporalAnomaliesForCII(anomalies);
-            this.refreshCiiAndBrief();
-          }
-        }).catch(() => { });
       } else {
         ingestSatelliteFiresForCII([]);
         this.refreshCiiAndBrief();

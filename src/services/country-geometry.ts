@@ -14,8 +14,8 @@ interface CountryHit {
 
 const COUNTRY_GEOJSON_URL = '/data/countries.geojson';
 
-/** Optional higher-resolution boundary overrides sourced from Natural Earth. */
-const COUNTRY_OVERRIDES_URL = '/data/country-boundary-overrides.geojson';
+/** Optional higher-resolution boundary overrides sourced from Natural Earth (served from R2 CDN). */
+const COUNTRY_OVERRIDES_URL = 'https://pub-8ace9f6a86d74cb2bd5eb1de5590dd9e.r2.dev/country-boundary-overrides.geojson';
 
 const POLITICAL_OVERRIDES: Record<string, string> = { 'CN-TW': 'TW' };
 

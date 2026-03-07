@@ -375,10 +375,15 @@ const LivePreview = () => (
           </a>
         </div>
         <div className="relative aspect-[16/9] bg-black">
+          <img
+            src="/docs/images/worldmonitor-7-mar-2026.jpg"
+            alt="World Monitor Dashboard"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
           <iframe
             src="https://worldmonitor.app"
             title={t('livePreview.iframeTitle')}
-            className="w-full h-full border-0"
+            className="relative w-full h-full border-0"
             loading="lazy"
             sandbox="allow-scripts allow-same-origin"
           />

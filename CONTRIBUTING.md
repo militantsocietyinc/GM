@@ -259,7 +259,7 @@ For endpoints that deal with non-JSON payloads (XML feeds, binary data, HTML emb
 
 ### Country boundary overrides
 
-Country outlines are loaded from `public/data/countries.geojson`. Optional overrides (e.g. for disputed boundaries such as Pakistan-administered Kashmir / Azad Kashmir) live in `public/data/country-boundary-overrides.geojson`. The app loads overrides after the main file and replaces geometry for any country whose `ISO3166-1-Alpha-2` (or `ISO_A2`) matches. To refresh the Pakistan boundary from Natural Earth (de facto boundaries), run:
+Country outlines are loaded from `public/data/countries.geojson`. Optional higher-resolution overrides (sourced from [Natural Earth](https://www.naturalearthdata.com/)) live in `public/data/country-boundary-overrides.geojson`. The app loads overrides after the main file and replaces geometry for any country whose `ISO3166-1-Alpha-2` (or `ISO_A2`) matches. To refresh the Pakistan boundary from Natural Earth, run:
 
 ```bash
 node scripts/fetch-pakistan-boundary-override.mjs

@@ -14,7 +14,7 @@ interface CountryHit {
 
 const COUNTRY_GEOJSON_URL = '/data/countries.geojson';
 
-/** Optional overrides for country boundaries (e.g. Pakistan including Azad Kashmir). */
+/** Optional higher-resolution boundary overrides sourced from Natural Earth. */
 const COUNTRY_OVERRIDES_URL = '/data/country-boundary-overrides.geojson';
 
 const POLITICAL_OVERRIDES: Record<string, string> = { 'CN-TW': 'TW' };
@@ -179,7 +179,10 @@ async function ensureLoaded(): Promise<void> {
     if (typeof fetch !== 'function') return;
 
     try {
-      const response = await fetch(COUNTRY_GEOJSON_URL);
+      const [response, overrideResp] = await Promise.all([
+        fetch(COUNTRY_GEOJSON_URL),
+        fetch(COUNTRY_OVERRIDES_URL).catch(() => null),
+      ]);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -223,10 +226,9 @@ async function ensureLoaded(): Promise<void> {
         }
       }
 
-      // Apply optional boundary overrides (e.g. Pakistan with correct Azad Kashmir boundary)
+      // Apply optional higher-resolution boundary overrides (sourced from Natural Earth)
       try {
-        const overrideResp = await fetch(COUNTRY_OVERRIDES_URL);
-        if (overrideResp.ok) {
+        if (overrideResp?.ok) {
           const overrideData = (await overrideResp.json()) as FeatureCollection<Geometry>;
           if (overrideData?.type === 'FeatureCollection' && Array.isArray(overrideData.features)) {
             for (const overrideFeature of overrideData.features) {

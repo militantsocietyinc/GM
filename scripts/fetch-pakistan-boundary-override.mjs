@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * Fetches Pakistan's boundary from Natural Earth 50m Admin 0 Countries and writes
- * public/data/country-boundary-overrides.geojson. Natural Earth depicts de facto
- * boundaries (including Pakistan-administered Kashmir / Azad Kashmir).
+ * public/data/country-boundary-overrides.geojson.
+ *
+ * Note: downloads the full NE 50m countries file (~24 MB) to extract Pakistan.
  *
  * Usage: node scripts/fetch-pakistan-boundary-override.mjs
  * Requires network access.
@@ -19,7 +20,7 @@ const OUT_FILE = join(OUT_DIR, 'country-boundary-overrides.geojson');
 
 async function main() {
   console.log('Fetching Natural Earth 50m countries...');
-  const resp = await fetch(NE_50M_URL);
+  const resp = await fetch(NE_50M_URL, { signal: AbortSignal.timeout(60_000) });
   if (!resp.ok) {
     throw new Error(`Fetch failed: ${resp.status} ${resp.statusText}`);
   }
@@ -46,7 +47,7 @@ async function main() {
     ],
   };
   mkdirSync(OUT_DIR, { recursive: true });
-  writeFileSync(OUT_FILE, JSON.stringify(override), 'utf8');
+  writeFileSync(OUT_FILE, JSON.stringify(override) + '\n', 'utf8');
   console.log('Wrote', OUT_FILE);
 }
 

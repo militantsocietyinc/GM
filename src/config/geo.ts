@@ -694,7 +694,7 @@ export const CONFLICT_ZONES: ConflictZone[] = [
   },
   {
     id: 'pak_afghan',
-    name: 'Pakistan–Afghanistan War',
+    name: 'Pakistan–Afghanistan Border Conflict',
     coords: [
       [72.50, 35.70],
       [69.40, 31.69],
@@ -704,15 +704,15 @@ export const CONFLICT_ZONES: ConflictZone[] = [
       [72.50, 35.70],
     ],
     center: [69, 31.8],
-    intensity: 'high',
+    intensity: 'medium',
     parties: ['Pakistan (Military)', 'TTP', 'Afghan Taliban'],
     casualties: 'Ongoing military and civilian casualties',
     displaced: 'Displacement along border areas',
     keywords: ['pakistan', 'afghanistan', 'ttp', 'taliban', 'torkham', 'chaman', 'waziristan', 'kpk', 'border', 'cross-border', 'airstrike'],
     startDate: 'Feb 21, 2026',
     location: 'Pakistan–Afghanistan border (KPK, Balochistan, Federally Administered Tribal Areas)',
-    description: `Pakistan declared “open war” against Taliban-ruled Afghanistan, launching air and missile strikes on targets in Kabul and Kandahar. The conflict occurred against the backdrop of long-running tensions between Pakistan and the Taliban government of Afghanistan, centred on Pakistan's accusations that Afghan soil is used as a safe haven by the Tehrik-e-Taliban Pakistan (TTP) and other militants to launch attacks inside Pakistan.`,
-    keyDevelopments: ['Pakistan declared “open war” against Taliban-ruled Afghanistan', 'Pakistan airstrikes in Kabul and Kandahar', 'TTP attacks in KPK', 'Torkham/Chaman crossing tensions', 'Militant infiltration'],
+    description: 'Escalating tensions along the Pakistan–Afghanistan border. Pakistan has conducted cross-border strikes targeting TTP sanctuaries in Afghan territory, prompting border closures and diplomatic friction with the Taliban government. Long-running dispute over militant safe havens and border security.',
+    keyDevelopments: ['Pakistan cross-border strikes in Afghanistan', 'TTP attacks in KPK', 'Torkham/Chaman crossing tensions', 'Militant infiltration', 'Border closures'],
   },
 ];
 

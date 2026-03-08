@@ -124,7 +124,7 @@ export function getNonParityFeatures(): DesktopParityFeature[] {
 }
 
 export function getDesktopReadinessChecks(localBackendEnabled: boolean): DesktopReadinessCheck[] {
-  const liveTrackingReady = isFeatureAvailable('aisRelay') || isFeatureAvailable('openskyRelay');
+  const liveTrackingReady = isFeatureAvailable('aisRelay') || isFeatureAvailable('militaryFlights');
 
   return [
     { id: 'startup', label: 'Desktop startup + sidecar API health', ready: localBackendEnabled },

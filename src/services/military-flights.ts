@@ -285,7 +285,7 @@ export async function fetchMilitaryFlights(): Promise<{
   flights: MilitaryFlight[];
   clusters: MilitaryFlightCluster[];
 }> {
-  if (!isFeatureAvailable('openskyRelay')) {
+  if (!isFeatureAvailable('militaryFlights')) {
     return { flights: [], clusters: [] };
   }
 

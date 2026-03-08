@@ -2751,13 +2751,15 @@ async function seedMilitaryFlights() {
     const ok2 = await upstashSet(MIL_FLIGHTS_STALE_KEY, payload, MIL_FLIGHTS_STALE_TTL);
     await upstashSet('seed-meta:military:flights', { fetchedAt: Date.now(), recordCount: flights.length }, 604800);
 
-    lastMilFlightsSeedMs = Date.now();
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     console.log(`[MilitaryFlights] Seeded ${flights.length} flights (${Object.entries(byType).map(([t, n]) => `${t}:${n}`).join(', ')}), redis: ${ok1 && ok2 ? 'OK' : 'PARTIAL'} [${elapsed}s]`);
 
-    await seedTheaterPostureFromFlights(flights).catch((e) =>
-      console.warn(`[MilitaryFlights] Theater posture passthrough error: ${e?.message || e}`)
-    );
+    try {
+      await seedTheaterPostureFromFlights(flights);
+      lastMilFlightsSeedMs = Date.now();
+    } catch (e) {
+      console.warn(`[MilitaryFlights] Theater posture passthrough error: ${e?.message || e}`);
+    }
   } finally {
     milFlightsSeedRunning = false;
   }
@@ -2974,7 +2976,7 @@ async function seedTheaterPostureFromFlights(milFlights) {
     altitude: f.altitude || 0,
     heading: f.heading || 0,
     speed: f.speed || 0,
-    aircraftType: theaterDetectAircraftType(f.callsign),
+    aircraftType: f.aircraftType || theaterDetectAircraftType(f.callsign),
   }));
   if (flights.length === 0) return;
   const theaters = calculateTheaterPostures(flights);

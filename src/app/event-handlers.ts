@@ -283,19 +283,17 @@ export class EventHandlerManager implements AppModule {
     });
 
     const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (this.ctx.isDesktopApp || isLocalDev) {
-      this.ctx.container.querySelectorAll<HTMLAnchorElement>('.variant-option').forEach(link => {
-        link.addEventListener('click', (e) => {
-          const variant = link.dataset.variant;
-          if (variant && variant !== SITE_VARIANT) {
-            e.preventDefault();
-            trackVariantSwitch(SITE_VARIANT, variant);
-            localStorage.setItem('worldmonitor-variant', variant);
-            window.location.reload();
-          }
+    this.ctx.container.querySelectorAll<HTMLAnchorElement>('.variant-option').forEach(link => {
+      link.addEventListener('click', (e) => {
+        const variant = link.dataset.variant;
+        if (!variant || variant === SITE_VARIANT) return;
+        e.preventDefault();
+        void this.navigateToVariant(variant, {
+          href: link.href,
+          isLocalDev,
         });
       });
-    }
+    });
 
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     if (!this.ctx.isDesktopApp && fullscreenBtn) {
@@ -397,21 +395,8 @@ export class EventHandlerManager implements AppModule {
     menu.querySelectorAll<HTMLButtonElement>('.mobile-menu-variant').forEach(btn => {
       btn.addEventListener('click', () => {
         const variant = btn.dataset.variant;
-        if (variant && variant !== SITE_VARIANT) {
-          if (this.ctx.isDesktopApp || isLocalDev) {
-            trackVariantSwitch(SITE_VARIANT, variant);
-            localStorage.setItem('worldmonitor-variant', variant);
-            window.location.reload();
-          } else {
-            const hosts: Record<string, string> = {
-              full: 'https://worldmonitor.app',
-              tech: 'https://tech.worldmonitor.app',
-              finance: 'https://finance.worldmonitor.app',
-              happy: 'https://happy.worldmonitor.app',
-            };
-            if (hosts[variant]) window.location.href = hosts[variant];
-          }
-        }
+        if (!variant || variant === SITE_VARIANT) return;
+        void this.navigateToVariant(variant, { isLocalDev });
       });
     });
 
@@ -677,6 +662,42 @@ export class EventHandlerManager implements AppModule {
       button.textContent = originalText;
       button.classList.remove('copied');
     }, 1500);
+  }
+
+  private async exitFullscreenForNavigation(): Promise<void> {
+    if (!document.fullscreenElement) return;
+    try {
+      await document.exitFullscreen?.();
+    } catch {
+      // Ignore exit failures and fall back to normal navigation.
+    }
+    if (document.fullscreenElement) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
+  }
+
+  private async navigateToVariant(
+    variant: string,
+    options: { href?: string; isLocalDev: boolean },
+  ): Promise<void> {
+    trackVariantSwitch(SITE_VARIANT, variant);
+    await this.exitFullscreenForNavigation();
+
+    if (this.ctx.isDesktopApp || options.isLocalDev) {
+      localStorage.setItem('worldmonitor-variant', variant);
+      window.location.reload();
+      return;
+    }
+
+    const hosts: Record<string, string> = {
+      full: 'https://worldmonitor.app',
+      tech: 'https://tech.worldmonitor.app',
+      finance: 'https://finance.worldmonitor.app',
+      happy: 'https://happy.worldmonitor.app',
+    };
+
+    const target = options.href || hosts[variant];
+    if (target) window.location.href = target;
   }
 
   toggleFullscreen(): void {

@@ -1319,7 +1319,3 @@ Dedicated Android TV app for SOC walls and trading floors. Separate codebase.
 - **AI-generated briefs**: retained 30 days per user, older briefs auto-deleted
 - **PII handling**: email + name stored in Convex (encrypted at rest). No PII in Redis cache. No PII in outbound delivery payloads.
 - **Account deletion**: Clerk `user.deleted` webhook → delete user data. **Audit logs and billing records are NOT deleted** — user identifiers anonymized/tombstoned (`deleted-{hash}`). Stripe customer marked deleted; invoice history retained by Stripe.
-
-## Codex Review Status
-
-Plan reviewed and approved by OpenAI Codex (gpt-5.3-codex) after 3 rounds of iterative review.

@@ -1,0 +1,156 @@
+{
+  "vendors": [
+    {
+      "name": "远光软件",
+      "code": "yuanguang",
+      "color": "#00d4ff",
+      "stockCode": "002063",
+      "description": "电力行业财务软件龙头，国网数科旗下唯一科技上市平台",
+      "sources": [
+        {
+          "name": "远光软件官网",
+          "url": "https://www.ygsoft.com/news/",
+          "type": "official"
+        },
+        {
+          "name": "东方财富股吧",
+          "url": "https://guba.eastmoney.com/list,002063.html",
+          "type": "community"
+        },
+        {
+          "name": "同花顺",
+          "url": "https://stockpage.10jqka.com.cn/002063/",
+          "type": "financial"
+        }
+      ]
+    },
+    {
+      "name": "用友网络",
+      "code": "yongyou",
+      "color": "#4caf50",
+      "stockCode": "600588",
+      "description": "中国 ERP 龙头，央企财务数字化领域领先者",
+      "sources": [
+        {
+          "name": "用友网络官网",
+          "url": "https://www.yonyou.com/news/",
+          "type": "official"
+        },
+        {
+          "name": "中国政府采购网",
+          "url": "http://www.ccgp.gov.cn/",
+          "type": "government"
+        },
+        {
+          "name": "同花顺",
+          "url": "https://stockpage.10jqka.com.cn/600588/",
+          "type": "financial"
+        }
+      ]
+    },
+    {
+      "name": "金蝶国际",
+      "code": "jindie",
+      "color": "#9c27b0",
+      "stockCode": "00268",
+      "description": "云 ERP 龙头，中小企业云 ERP 市场占有率第一",
+      "sources": [
+        {
+          "name": "金蝶国际官网",
+          "url": "https://www.kingdee.com/news/",
+          "type": "official"
+        },
+        {
+          "name": "港交所披露易",
+          "url": "https://www.hkexnews.hk/",
+          "type": "financial"
+        },
+        {
+          "name": "中国政府采购网",
+          "url": "http://www.ccgp.gov.cn/",
+          "type": "government"
+        }
+      ]
+    },
+    {
+      "name": "浪潮软件",
+      "code": "langchao",
+      "color": "#ff9800",
+      "stockCode": "600756",
+      "description": "政务云龙头，在山东、河南等省份市场占有率第一",
+      "sources": [
+        {
+          "name": "浪潮软件官网",
+          "url": "https://www.inspur.com/",
+          "type": "official"
+        },
+        {
+          "name": "中国政府采购网",
+          "url": "http://www.ccgp.gov.cn/",
+          "type": "government"
+        },
+        {
+          "name": "证券时报",
+          "url": "https://www.stcn.com/",
+          "type": "media"
+        }
+      ]
+    },
+    {
+      "name": "中兴新云",
+      "code": "zhongxing",
+      "color": "#9e9e9e",
+      "stockCode": "000063",
+      "description": "财务云服务提供商，在通信、电力等行业取得突破",
+      "sources": [
+        {
+          "name": "中兴通讯官网",
+          "url": "https://www.zte.com.cn/",
+          "type": "official"
+        },
+        {
+          "name": "中国政府采购网",
+          "url": "http://www.ccgp.gov.cn/",
+          "type": "government"
+        }
+      ]
+    }
+  ],
+  "policySources": [
+    {
+      "name": "中国政府网",
+      "url": "http://www.gov.cn/",
+      "type": "government"
+    },
+    {
+      "name": "财政部",
+      "url": "http://www.mof.gov.cn/",
+      "type": "government"
+    },
+    {
+      "name": "国资委",
+      "url": "http://www.sasac.gov.cn/",
+      "type": "government"
+    },
+    {
+      "name": "发改委",
+      "url": "http://www.ndrc.gov.cn/",
+      "type": "government"
+    },
+    {
+      "name": "工信部",
+      "url": "http://www.miit.gov.cn/",
+      "type": "government"
+    },
+    {
+      "name": "国家税务总局",
+      "url": "http://www.chinatax.gov.cn/",
+      "type": "government"
+    },
+    {
+      "name": "国家统计局",
+      "url": "http://www.stats.gov.cn/",
+      "type": "government"
+    }
+  ]
+}

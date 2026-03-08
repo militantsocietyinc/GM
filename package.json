@@ -1,7 +1,9 @@
 {
-  "name": "world-monitor",
+  "name": "energy-erp-intelligence",
+  "description": "能源 ERP 情报中心 - 企业管理软件与智慧能源行业情报平台",
+  "author": "yunxiao-789",
   "private": true,
-  "version": "2.5.25",
+  "version": "1.0.0",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {

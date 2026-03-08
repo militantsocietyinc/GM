@@ -11,7 +11,7 @@ describe('DeckGLMap layer state isolation', () => {
   it('constructor does not assign initialState directly to this.state', () => {
     assert.ok(
       !src.includes('this.state = initialState'),
-      'DeckGLMap constructor must shallow-copy initialState to prevent caller aliasing',
+      'constructor must shallow-copy initialState to prevent caller aliasing',
     );
   });
 
@@ -19,6 +19,27 @@ describe('DeckGLMap layer state isolation', () => {
     assert.ok(
       !src.includes('this.state.layers = layers;'),
       'setLayers must shallow-copy the layers argument to prevent caller aliasing',
+    );
+  });
+
+  it('getState returns a deep-enough copy of layers and pan', () => {
+    const getStateMatch = src.match(/public getState\(\): DeckMapState \{([\s\S]*?)\n  \}/);
+    assert.ok(getStateMatch, 'getState method must exist');
+    const body = getStateMatch[1];
+    assert.ok(
+      body.includes('layers: { ...this.state.layers }'),
+      'getState must shallow-copy layers to prevent external mutation',
+    );
+    assert.ok(
+      body.includes('pan: { ...this.state.pan }'),
+      'getState must shallow-copy pan to prevent external mutation',
+    );
+  });
+
+  it('onStateChange callbacks never pass this.state directly', () => {
+    assert.ok(
+      !src.includes('this.onStateChange?.(this.state)'),
+      'onStateChange must pass a copy (via this.getState()) not the raw reference',
     );
   });
 });

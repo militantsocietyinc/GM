@@ -672,7 +672,7 @@ export class DeckGLMap {
       this.debouncedFetchBases();
       this.debouncedFetchAircraft();
       this.state.zoom = this.maplibreMap?.getZoom() ?? this.state.zoom;
-      this.onStateChange?.(this.state);
+      this.onStateChange?.(this.getState());
     });
 
     this.maplibreMap.on('move', () => {
@@ -699,7 +699,7 @@ export class DeckGLMap {
         this.debouncedRebuildLayers();
       }
       this.state.zoom = this.maplibreMap?.getZoom() ?? this.state.zoom;
-      this.onStateChange?.(this.state);
+      this.onStateChange?.(this.getState());
     });
   }
 
@@ -3928,7 +3928,7 @@ export class DeckGLMap {
     const viewSelect = this.container.querySelector('.view-select') as HTMLSelectElement;
     if (viewSelect) viewSelect.value = view;
 
-    this.onStateChange?.(this.state);
+    this.onStateChange?.(this.getState());
   }
 
   public setZoom(zoom: number): void {
@@ -3991,7 +3991,11 @@ export class DeckGLMap {
   }
 
   public getState(): DeckMapState {
-    return { ...this.state };
+    return {
+      ...this.state,
+      pan: { ...this.state.pan },
+      layers: { ...this.state.layers },
+    };
   }
 
   // Zoom controls - public for external access

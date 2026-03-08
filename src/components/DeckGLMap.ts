@@ -402,6 +402,7 @@ export class DeckGLMap {
     this.container = container;
     this.state = {
       ...initialState,
+      pan: { ...initialState.pan },
       layers: { ...initialState.layers },
     };
     this.hotspots = [...INTEL_HOTSPOTS];
@@ -3979,13 +3980,11 @@ export class DeckGLMap {
   }
 
   public setLayers(layers: MapLayers): void {
-    const nextLayers = { ...layers };
-    this.state.layers = nextLayers;
-    this.manageAircraftTimer(nextLayers.flights);
+    this.state.layers = { ...layers };
+    this.manageAircraftTimer(this.state.layers.flights);
     this.render(); // Debounced
 
-    // Update toggle checkboxes
-    Object.entries(nextLayers).forEach(([key, value]) => {
+    Object.entries(this.state.layers).forEach(([key, value]) => {
       const toggle = this.container.querySelector(`.layer-toggle[data-layer="${key}"] input`) as HTMLInputElement;
       if (toggle) toggle.checked = value;
     });

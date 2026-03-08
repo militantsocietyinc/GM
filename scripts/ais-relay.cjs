@@ -2637,6 +2637,67 @@ const MIL_QUERY_REGIONS = [
   { name: 'WESTERN', lamin: 13, lamax: 85, lomin: -10, lomax: 57 },
 ];
 
+async function fetchMilitaryFlightsFromWingbits() {
+  const apiKey = process.env.WINGBITS_API_KEY;
+  if (!apiKey) return [];
+  const areas = MIL_QUERY_REGIONS.map((r) => ({
+    alias: r.name,
+    by: 'box',
+    la: (r.lamax + r.lamin) / 2,
+    lo: (r.lomax + r.lomin) / 2,
+    w: Math.abs(r.lomax - r.lomin) * 60,
+    h: Math.abs(r.lamax - r.lamin) * 60,
+    unit: 'nm',
+  }));
+  try {
+    const resp = await fetch('https://customer-api.wingbits.com/v1/flights', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': CHROME_UA },
+      body: JSON.stringify(areas),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) {
+      console.warn(`[MilitaryFlights] Wingbits ${resp.status}`);
+      return [];
+    }
+    const data = await resp.json();
+    const seenIds = new Set();
+    const states = [];
+    for (const areaResult of data) {
+      const flightList = Array.isArray(areaResult.flights || areaResult) ? (areaResult.flights || areaResult) : [];
+      for (const f of flightList) {
+        const icao24 = f.h || f.icao24 || f.id;
+        if (!icao24 || seenIds.has(icao24)) continue;
+        seenIds.add(icao24);
+        const callsign = (f.f || f.callsign || f.flight || '').trim();
+        // Convert Wingbits to OpenSky state array format for unified processing
+        states.push([
+          icao24,                                    // [0] icao24
+          callsign,                                  // [1] callsign
+          f.co || f.originCountry || '',             // [2] origin country
+          null,                                      // [3] time_position
+          f.ts ? f.ts / 1000 : Date.now() / 1000,   // [4] last_contact (seconds)
+          f.lo || f.longitude || f.lon || f.lng,     // [5] longitude
+          f.la || f.latitude || f.lat,               // [6] latitude
+          (f.ab || f.altitude || f.alt || 0) * 0.3048, // [7] baro_altitude (Wingbits ft → meters for unified conversion)
+          f.gr || f.onGround || false,               // [8] on_ground
+          (f.gs || f.groundSpeed || f.speed || 0) * 0.514444, // [9] velocity (Wingbits kts → m/s)
+          f.th || f.heading || f.track || 0,         // [10] true_track
+          (f.vr || f.verticalRate || 0) * 0.00508,   // [11] vertical_rate (Wingbits ft/min → m/s)
+          null,                                      // [12] sensors
+          null,                                      // [13] geo_altitude
+          f.sq || f.squawk || null,                  // [14] squawk
+        ]);
+      }
+    }
+    console.log(`[MilitaryFlights] Wingbits returned ${states.length} aircraft`);
+    return states;
+  } catch (e) {
+    console.warn(`[MilitaryFlights] Wingbits failed: ${e?.message || e}`);
+    return [];
+  }
+}
+
 async function seedMilitaryFlights() {
   if (milFlightsSeedRunning) {
     console.log('[MilitaryFlights] Skipping — previous seed still running');
@@ -2649,25 +2710,60 @@ async function seedMilitaryFlights() {
     const allStates = [];
     for (const region of MIL_QUERY_REGIONS) {
       const params = `lamin=${region.lamin}&lamax=${region.lamax}&lomin=${region.lomin}&lomax=${region.lomax}`;
+      let data = null;
+      // Try authenticated proxy first
       try {
         const resp = await fetch(`http://localhost:${PORT}/opensky?${params}`, {
           headers: { 'User-Agent': CHROME_UA, ...(RELAY_SHARED_SECRET ? { 'x-relay-key': RELAY_SHARED_SECRET } : {}) },
           signal: AbortSignal.timeout(20_000),
         });
-        if (!resp.ok) {
-          console.warn(`[MilitaryFlights] OpenSky ${resp.status} for ${region.name}`);
-          continue;
+        if (resp.ok) {
+          data = await resp.json();
+        } else {
+          console.warn(`[MilitaryFlights] Proxy ${resp.status} for ${region.name}, trying anonymous`);
         }
-        const data = await resp.json();
-        if (!data.states) continue;
-        for (const state of data.states) {
+      } catch (e) {
+        console.warn(`[MilitaryFlights] Proxy failed for ${region.name}: ${e?.message || e}, trying anonymous`);
+      }
+      // Fallback to anonymous OpenSky API (no auth, ~10 req/min)
+      if (!data || !data.states) {
+        try {
+          const anonResp = await fetch(`https://opensky-network.org/api/states/all?${params}`, {
+            headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' },
+            signal: AbortSignal.timeout(15_000),
+          });
+          if (anonResp.ok) {
+            data = await anonResp.json();
+            if (data?.states) console.log(`[MilitaryFlights] Anonymous fallback OK for ${region.name}: ${data.states.length} states`);
+          } else {
+            console.warn(`[MilitaryFlights] Anonymous ${anonResp.status} for ${region.name}`);
+          }
+        } catch (e) {
+          console.warn(`[MilitaryFlights] Anonymous failed for ${region.name}: ${e?.message || e}`);
+        }
+      }
+      if (!data?.states) continue;
+      for (const state of data.states) {
+        const icao24 = state[0];
+        if (seenIds.has(icao24)) continue;
+        seenIds.add(icao24);
+        allStates.push(state);
+      }
+    }
+
+    // Wingbits fallback — always try to supplement (merges with OpenSky, dedupes by icao24)
+    if (allStates.length === 0 || process.env.WINGBITS_API_KEY) {
+      try {
+        const wbStates = await fetchMilitaryFlightsFromWingbits();
+        for (const state of wbStates) {
           const icao24 = state[0];
           if (seenIds.has(icao24)) continue;
           seenIds.add(icao24);
           allStates.push(state);
         }
+        if (wbStates.length > 0) console.log(`[MilitaryFlights] Merged ${wbStates.length} Wingbits states (total: ${allStates.length})`);
       } catch (e) {
-        console.warn(`[MilitaryFlights] ${region.name} fetch error: ${e?.message || e}`);
+        console.warn(`[MilitaryFlights] Wingbits merge error: ${e?.message || e}`);
       }
     }
 

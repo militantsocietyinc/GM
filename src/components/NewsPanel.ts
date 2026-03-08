@@ -50,6 +50,7 @@ export class NewsPanel extends Panel {
     this.createSummarizeButton();
     this.setupActivityTracking();
     this.initWindowedList();
+    this.setupContentDelegation();
   }
 
   private initWindowedList(): void {
@@ -118,6 +119,14 @@ export class NewsPanel extends Panel {
     this.summaryContainer.style.display = 'none';
     this.element.insertBefore(this.summaryContainer, this.content);
 
+    // Event delegation: handle close button clicks inside summaryContainer
+    // regardless of how many times innerHTML is replaced by showSummary()
+    this.summaryContainer.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.panel-summary-close')) {
+        this.hideSummary();
+      }
+    });
+
     // Create summarize button
     this.summaryBtn = document.createElement('button');
     this.summaryBtn.className = 'panel-summarize-btn';
@@ -158,6 +167,7 @@ export class NewsPanel extends Panel {
 
     try {
       const result = await generateSummary(this.currentHeadlines.slice(0, 8), undefined, this.panelId, currentLang);
+      if (!this.element?.isConnected) return;
       if (this.lastHeadlineSignature !== sigAtStart) {
         this.hideSummary();
         return;
@@ -166,16 +176,19 @@ export class NewsPanel extends Panel {
         this.setCachedSummary(cacheKey, result.summary);
         this.showSummary(result.summary);
       } else {
-        this.summaryContainer.innerHTML = '<div class="panel-summary-error">Could not generate summary</div>';
+        this.summaryContainer.innerHTML = `<div class="panel-summary-error">${t('components.newsPanel.summaryError')}</div>`;
         setTimeout(() => this.hideSummary(), 3000);
       }
     } catch {
-      this.summaryContainer.innerHTML = '<div class="panel-summary-error">Summary failed</div>';
+      if (!this.element?.isConnected) return;
+      this.summaryContainer.innerHTML = `<div class="panel-summary-error">${t('components.newsPanel.summaryFailed')}</div>`;
       setTimeout(() => this.hideSummary(), 3000);
     } finally {
       this.isSummarizing = false;
-      this.summaryBtn.innerHTML = '✨';
-      this.summaryBtn.disabled = false;
+      if (this.summaryBtn) {
+        this.summaryBtn.innerHTML = '✨';
+        this.summaryBtn.disabled = false;
+      }
     }
   }
 
@@ -194,6 +207,7 @@ export class NewsPanel extends Panel {
 
     try {
       const translated = await translateText(text, currentLang);
+      if (!this.element?.isConnected) return;
       if (translated) {
         titleEl.textContent = translated;
         titleEl.dataset.original = originalText;
@@ -205,23 +219,26 @@ export class NewsPanel extends Panel {
         // Shake animation or error state could be added here
       }
     } catch (e) {
+      if (!this.element?.isConnected) return;
       console.error('Translation failed', e);
       element.innerHTML = '文';
     } finally {
-      element.style.pointerEvents = 'auto';
+      if (element.isConnected) {
+        element.style.pointerEvents = 'auto';
+      }
     }
   }
 
   private showSummary(summary: string): void {
-    if (!this.summaryContainer) return;
+    if (!this.summaryContainer || !this.element?.isConnected) return;
     this.summaryContainer.style.display = 'block';
     this.summaryContainer.innerHTML = `
       <div class="panel-summary-content">
         <span class="panel-summary-text">${escapeHtml(summary)}</span>
-        <button class="panel-summary-close" title="${t('components.newsPanel.close')}">×</button>
+        <button class="panel-summary-close" title="${t('components.newsPanel.close')}" aria-label="${t('components.newsPanel.close')}">×</button>
       </div>
     `;
-    this.summaryContainer.querySelector('.panel-summary-close')?.addEventListener('click', () => this.hideSummary());
+    // Close button click is handled via event delegation on summaryContainer (set up in constructor)
   }
 
   private hideSummary(): void {
@@ -415,7 +432,6 @@ export class NewsPanel extends Panel {
         .map(p => this.renderClusterHtmlSafely(p.cluster, p.isNew, p.shouldHighlight, p.showNewTag))
         .join('');
       this.setContent(html);
-      this.bindRelatedAssetEvents();
     }
   }
 
@@ -563,48 +579,53 @@ export class NewsPanel extends Panel {
     `;
   }
 
-  private bindRelatedAssetEvents(): void {
-    const containers = this.content.querySelectorAll<HTMLDivElement>('.related-assets');
-    containers.forEach((container) => {
-      const clusterId = container.dataset.clusterId;
-      if (!clusterId) return;
-      const context = this.relatedAssetContext.get(clusterId);
-      if (!context) return;
+  private setupContentDelegation(): void {
+    this.content.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
 
-      container.addEventListener('mouseenter', () => {
-        this.onRelatedAssetsFocus?.(context.assets, context.origin.label);
-      });
-
-      container.addEventListener('mouseleave', () => {
-        this.onRelatedAssetsClear?.();
-      });
-    });
-
-    const assetButtons = this.content.querySelectorAll<HTMLButtonElement>('.related-asset');
-    assetButtons.forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const clusterId = button.dataset.clusterId;
-        const assetId = button.dataset.assetId;
-        const assetType = button.dataset.assetType as RelatedAsset['type'] | undefined;
+      const assetBtn = target.closest<HTMLElement>('.related-asset');
+      if (assetBtn) {
+        e.stopPropagation();
+        const clusterId = assetBtn.dataset.clusterId;
+        const assetId = assetBtn.dataset.assetId;
+        const assetType = assetBtn.dataset.assetType as RelatedAsset['type'] | undefined;
         if (!clusterId || !assetId || !assetType) return;
         const context = this.relatedAssetContext.get(clusterId);
         const asset = context?.assets.find(item => item.id === assetId && item.type === assetType);
-        if (asset) {
-          this.onRelatedAssetClick?.(asset);
-        }
-      });
+        if (asset) this.onRelatedAssetClick?.(asset);
+        return;
+      }
+
+      const translateBtn = target.closest<HTMLElement>('.item-translate-btn');
+      if (translateBtn) {
+        e.stopPropagation();
+        const text = translateBtn.dataset.text;
+        if (text) this.handleTranslate(translateBtn, text);
+        return;
+      }
     });
 
-    // Translation buttons
-    const translateBtns = this.content.querySelectorAll<HTMLElement>('.item-translate-btn');
-    translateBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const text = btn.dataset.text;
-        if (text) this.handleTranslate(btn, text);
-      });
+    this.content.addEventListener('mouseover', (e) => {
+      const container = (e.target as HTMLElement).closest<HTMLElement>('.related-assets');
+      if (!container) return;
+      const related = (e as MouseEvent).relatedTarget as Node | null;
+      if (related && container.contains(related)) return;
+      const context = this.relatedAssetContext.get(container.dataset.clusterId ?? '');
+      if (context) this.onRelatedAssetsFocus?.(context.assets, context.origin.label);
     });
+
+    this.content.addEventListener('mouseout', (e) => {
+      const container = (e.target as HTMLElement).closest<HTMLElement>('.related-assets');
+      if (!container) return;
+      const related = (e as MouseEvent).relatedTarget as Node | null;
+      if (related && container.contains(related)) return;
+      this.onRelatedAssetsClear?.();
+    });
+  }
+
+  private bindRelatedAssetEvents(): void {
+    // Event delegation is set up in setupContentDelegation() — this is now a no-op
+    // kept for WindowedList callback compatibility
   }
 
   private getLocalizedAssetLabel(type: RelatedAsset['type']): string {

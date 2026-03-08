@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@/services/runtime';
+import { getApiBaseUrl, startSmartPollLoop, type SmartPollLoopHandle } from '@/services/runtime';
 import { translateText } from '@/services/summarization';
 
 export interface OrefAlert {
@@ -35,7 +35,7 @@ export interface OrefHistoryResponse {
 let cachedResponse: OrefAlertsResponse | null = null;
 let lastFetchAt = 0;
 const CACHE_TTL = 8_000;
-let pollingInterval: ReturnType<typeof setInterval> | null = null;
+let pollingLoop: SmartPollLoopHandle | null = null;
 let updateCallbacks: Array<(data: OrefAlertsResponse) => void> = [];
 
 let locationTranslator: ((s: string) => string) | null = null;
@@ -114,6 +114,14 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const OREF_LABEL_RE = /(?:ALERT|AREAS|DESC)\[[^\]]*\]:\s*/g;
+
+function stripOrefLabels(text: string): string {
+  return text.replace(OREF_LABEL_RE, '').trim();
+}
+
+export { stripOrefLabels };
+
 function buildTranslationPrompt(alerts: OrefAlert[]): string {
   const lines: string[] = [];
   for (const a of alerts) {
@@ -131,9 +139,9 @@ function parseTranslationResponse(raw: string, alerts: OrefAlert[]): void {
     const reAlert = new RegExp(`ALERT\\[${eid}\\]:\\s*(.+)`);
     const reAreas = new RegExp(`AREAS\\[${eid}\\]:\\s*(.+)`);
     const reDesc = new RegExp(`DESC\\[${eid}\\]:\\s*(.+)`);
-    let title = alert.title;
-    let areas = alert.data;
-    let desc = alert.desc;
+    let title: string | null = null;
+    let areas: string[] | null = null;
+    let desc: string | null = null;
     for (const line of lines) {
       const alertMatch = line.match(reAlert);
       if (alertMatch?.[1]) title = alertMatch[1].trim();
@@ -142,7 +150,13 @@ function parseTranslationResponse(raw: string, alerts: OrefAlert[]): void {
       const descMatch = line.match(reDesc);
       if (descMatch?.[1]) desc = descMatch[1].trim();
     }
-    translationCache.set(alert.id, { title, data: areas, desc });
+    if (title === null && areas === null && desc === null) continue;
+    const entry = {
+      title: stripOrefLabels(title && !hasHebrew(title) ? title : staticTranslate(alert.title)),
+      data: (areas && !areas.some(hasHebrew) ? areas : alert.data.map(d => locationTranslator ? locationTranslator(staticTranslate(d)) : staticTranslate(d))).map(stripOrefLabels),
+      desc: stripOrefLabels(desc && !hasHebrew(desc) ? desc : staticTranslate(alert.desc)),
+    };
+    translationCache.set(alert.id, entry);
   }
   if (translationCache.size > MAX_TRANSLATION_CACHE) {
     const excess = translationCache.size - MAX_TRANSLATION_CACHE;
@@ -154,18 +168,23 @@ function parseTranslationResponse(raw: string, alerts: OrefAlert[]): void {
   }
 }
 
+function translateFields(alert: OrefAlert): OrefAlert {
+  return {
+    ...alert,
+    title: staticTranslate(alert.title),
+    data: alert.data.map(d => locationTranslator ? locationTranslator(staticTranslate(d)) : staticTranslate(d)),
+    desc: staticTranslate(alert.desc),
+  };
+}
+
 function applyTranslations(alerts: OrefAlert[]): OrefAlert[] {
   return alerts.map(a => {
     const cached = translationCache.get(a.id);
-    if (cached) return { ...a, ...cached };
-    if (alertNeedsTranslation(a)) {
-      return {
-        ...a,
-        title: staticTranslate(a.title),
-        data: a.data.map(d => locationTranslator ? locationTranslator(staticTranslate(d)) : staticTranslate(d)),
-        desc: staticTranslate(a.desc),
-      };
+    if (cached) {
+      const merged = { ...a, ...cached };
+      return alertNeedsTranslation(merged) ? translateFields(merged) : merged;
     }
+    if (alertNeedsTranslation(a)) return translateFields(a);
     return a;
   });
 }
@@ -209,7 +228,7 @@ function getOrefApiUrl(endpoint?: string): string {
   return `${base}/api/oref-alerts${suffix}`;
 }
 
-export async function fetchOrefAlerts(): Promise<OrefAlertsResponse> {
+export async function fetchOrefAlerts(options: { signal?: AbortSignal } = {}): Promise<OrefAlertsResponse> {
   await ensureLocationMapLoaded();
   const now = Date.now();
   if (cachedResponse && now - lastFetchAt < CACHE_TTL) {
@@ -219,6 +238,7 @@ export async function fetchOrefAlerts(): Promise<OrefAlertsResponse> {
   try {
     const res = await fetch(getOrefApiUrl(), {
       headers: { Accept: 'application/json' },
+      signal: options.signal,
     });
     if (!res.ok) {
       return { configured: false, alerts: [], historyCount24h: 0, timestamp: new Date().toISOString(), error: `HTTP ${res.status}` };
@@ -237,6 +257,9 @@ export async function fetchOrefAlerts(): Promise<OrefAlertsResponse> {
 
     return { ...data, alerts: applyTranslations(data.alerts) };
   } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') {
+      throw err;
+    }
     return { configured: false, alerts: [], historyCount24h: 0, timestamp: new Date().toISOString(), error: String(err) };
   }
 }
@@ -274,17 +297,20 @@ export function onOrefAlertsUpdate(cb: (data: OrefAlertsResponse) => void): void
 }
 
 export function startOrefPolling(): void {
-  if (pollingInterval) return;
-  pollingInterval = setInterval(async () => {
-    const data = await fetchOrefAlerts();
+  if (pollingLoop?.isActive()) return;
+  pollingLoop = startSmartPollLoop(async ({ signal }) => {
+    const data = await fetchOrefAlerts({ signal });
     for (const cb of updateCallbacks) cb(data);
-  }, 120_000);
+  }, {
+    intervalMs: 120_000,
+    pauseWhenHidden: true,
+    refreshOnVisible: true,
+    runImmediately: false,
+  });
 }
 
 export function stopOrefPolling(): void {
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
-  }
+  pollingLoop?.stop();
+  pollingLoop = null;
   updateCallbacks = [];
 }

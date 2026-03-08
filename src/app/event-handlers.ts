@@ -1,4 +1,5 @@
 import type { AppContext, AppModule } from '@/app/app-context';
+import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
 import type { PanelConfig } from '@/types';
 import type { MapView } from '@/components';
 import type { ClusteredEvent } from '@/types';
@@ -6,7 +7,6 @@ import type { DashboardSnapshot } from '@/services/storage';
 import {
   PlaybackControl,
   StatusPanel,
-  MobileWarningModal,
   PizzIntIndicator,
   CIIPanel,
   PredictionPanel,
@@ -20,6 +20,7 @@ import {
   setTheme,
 } from '@/utils';
 import {
+  IDLE_PAUSE_MS,
   STORAGE_KEYS,
   SITE_VARIANT,
   LAYER_TO_SOURCE,
@@ -27,6 +28,7 @@ import {
   INTEL_SOURCES,
   DEFAULT_PANELS,
 } from '@/config';
+import { VARIANT_META } from '@/config/variant-meta';
 import {
   saveSnapshot,
   initAisStream,
@@ -39,7 +41,10 @@ import {
   trackMapViewChange,
   trackMapLayerToggle,
   trackPanelToggled,
+  trackDownloadClicked,
 } from '@/services/analytics';
+import { detectPlatform, allButtons, buttonsForPlatform } from '@/components/DownloadBanner';
+import type { Platform } from '@/components/DownloadBanner';
 import { invokeTauri } from '@/services/tauri-bridge';
 import { dataFreshness } from '@/services/data-freshness';
 import { mlWorker } from '@/services/ml-worker';
@@ -55,6 +60,8 @@ export interface EventHandlerCallbacks {
   loadDataForLayer: (layer: string) => void;
   waitForAisData: () => void;
   syncDataFreshnessWithLayers: () => void;
+  ensureCorrectZones: () => void;
+  refreshOpenCountryBrief?: () => void;
 }
 
 export class EventHandlerManager implements AppModule {
@@ -66,14 +73,26 @@ export class EventHandlerManager implements AppModule {
   private boundVisibilityHandler: (() => void) | null = null;
   private boundDesktopExternalLinkHandler: ((e: MouseEvent) => void) | null = null;
   private boundIdleResetHandler: (() => void) | null = null;
+  private boundStorageHandler: ((e: StorageEvent) => void) | null = null;
+  private boundTvKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private boundFocalPointsReadyHandler: (() => void) | null = null;
+  private boundThemeChangedHandler: (() => void) | null = null;
+  private boundDropdownClickHandler: ((e: MouseEvent) => void) | null = null;
+  private boundDropdownKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private boundMapResizeMoveHandler: ((e: MouseEvent) => void) | null = null;
+  private boundMapEndResizeHandler: (() => void) | null = null;
+  private boundMapResizeVisChangeHandler: (() => void) | null = null;
+  private boundMapFullscreenEscHandler: ((e: KeyboardEvent) => void) | null = null;
+  private boundMobileMenuKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
-  private readonly IDLE_PAUSE_MS = 2 * 60 * 1000;
-  private debouncedUrlSync = debounce(() => {
+
+  private readonly idlePauseMs = IDLE_PAUSE_MS;
+  private readonly debouncedUrlSync = debounce(() => {
     const shareUrl = this.getShareUrl();
     if (!shareUrl) return;
-    try { history.replaceState(null, '', shareUrl); } catch {}
+    try { history.replaceState(null, '', shareUrl); } catch { }
   }, 250);
 
   constructor(ctx: AppContext, callbacks: EventHandlerCallbacks) {
@@ -99,7 +118,7 @@ export class EventHandlerManager implements AppModule {
       tvExitBtn.addEventListener('click', () => this.toggleTvMode());
     }
     // Keyboard shortcut: Shift+T
-    document.addEventListener('keydown', (e) => {
+    this.boundTvKeydownHandler = (e: KeyboardEvent) => {
       if (e.shiftKey && e.key === 'T' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const active = document.activeElement;
         if (active?.tagName !== 'INPUT' && active?.tagName !== 'TEXTAREA') {
@@ -107,7 +126,8 @@ export class EventHandlerManager implements AppModule {
           this.toggleTvMode();
         }
       }
-    });
+    };
+    document.addEventListener('keydown', this.boundTvKeydownHandler);
   }
 
   private toggleTvMode(): void {
@@ -129,6 +149,7 @@ export class EventHandlerManager implements AppModule {
   }
 
   destroy(): void {
+    this.debouncedUrlSync.cancel();
     if (this.boundFullscreenHandler) {
       document.removeEventListener('fullscreenchange', this.boundFullscreenHandler);
       this.boundFullscreenHandler = null;
@@ -163,6 +184,51 @@ export class EventHandlerManager implements AppModule {
       clearInterval(this.clockIntervalId);
       this.clockIntervalId = null;
     }
+    if (this.boundStorageHandler) {
+      window.removeEventListener('storage', this.boundStorageHandler);
+      this.boundStorageHandler = null;
+    }
+    if (this.boundTvKeydownHandler) {
+      document.removeEventListener('keydown', this.boundTvKeydownHandler);
+      this.boundTvKeydownHandler = null;
+    }
+    if (this.boundFocalPointsReadyHandler) {
+      window.removeEventListener('focal-points-ready', this.boundFocalPointsReadyHandler);
+      this.boundFocalPointsReadyHandler = null;
+    }
+    if (this.boundThemeChangedHandler) {
+      window.removeEventListener('theme-changed', this.boundThemeChangedHandler);
+      this.boundThemeChangedHandler = null;
+    }
+    if (this.boundDropdownClickHandler) {
+      document.removeEventListener('click', this.boundDropdownClickHandler);
+      this.boundDropdownClickHandler = null;
+    }
+    if (this.boundDropdownKeydownHandler) {
+      document.removeEventListener('keydown', this.boundDropdownKeydownHandler);
+      this.boundDropdownKeydownHandler = null;
+    }
+    if (this.boundMapResizeMoveHandler) {
+      document.removeEventListener('mousemove', this.boundMapResizeMoveHandler);
+      this.boundMapResizeMoveHandler = null;
+    }
+    if (this.boundMapEndResizeHandler) {
+      document.removeEventListener('mouseup', this.boundMapEndResizeHandler);
+      window.removeEventListener('blur', this.boundMapEndResizeHandler);
+      this.boundMapEndResizeHandler = null;
+    }
+    if (this.boundMapResizeVisChangeHandler) {
+      document.removeEventListener('visibilitychange', this.boundMapResizeVisChangeHandler);
+      this.boundMapResizeVisChangeHandler = null;
+    }
+    if (this.boundMapFullscreenEscHandler) {
+      document.removeEventListener('keydown', this.boundMapFullscreenEscHandler);
+      this.boundMapFullscreenEscHandler = null;
+    }
+    if (this.boundMobileMenuKeyHandler) {
+      document.removeEventListener('keydown', this.boundMobileMenuKeyHandler);
+      this.boundMobileMenuKeyHandler = null;
+    }
     this.ctx.tvMode?.destroy();
     this.ctx.tvMode = null;
     this.ctx.unifiedSettings?.destroy();
@@ -170,10 +236,13 @@ export class EventHandlerManager implements AppModule {
   }
 
   private setupEventListeners(): void {
-    document.getElementById('searchBtn')?.addEventListener('click', () => {
+    const openSearch = () => {
       this.callbacks.updateSearchIndex();
       this.ctx.searchModal?.open();
-    });
+    };
+    document.getElementById('searchBtn')?.addEventListener('click', openSearch);
+    document.getElementById('mobileSearchBtn')?.addEventListener('click', openSearch);
+    document.getElementById('searchMobileFab')?.addEventListener('click', openSearch);
 
     document.getElementById('copyLinkBtn')?.addEventListener('click', async () => {
       const shareUrl = this.getShareUrl();
@@ -188,13 +257,15 @@ export class EventHandlerManager implements AppModule {
       }
     });
 
-    window.addEventListener('storage', (e) => {
+    this.initDownloadDropdown();
+
+    this.boundStorageHandler = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.panels && e.newValue) {
         try {
           this.ctx.panelSettings = JSON.parse(e.newValue) as Record<string, PanelConfig>;
           this.applyPanelSettings();
           this.ctx.unifiedSettings?.refreshPanelToggles();
-        } catch (_) {}
+        } catch (_) { }
       }
       if (e.key === STORAGE_KEYS.liveChannels && e.newValue) {
         const panel = this.ctx.panels['live-news'];
@@ -202,7 +273,8 @@ export class EventHandlerManager implements AppModule {
           (panel as unknown as { refreshChannelsFromStorage: () => void }).refreshChannelsFromStorage();
         }
       }
-    });
+    };
+    window.addEventListener('storage', this.boundStorageHandler);
 
     document.getElementById('headerThemeToggle')?.addEventListener('click', () => {
       const next = getCurrentTheme() === 'dark' ? 'light' : 'dark';
@@ -212,19 +284,17 @@ export class EventHandlerManager implements AppModule {
     });
 
     const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (this.ctx.isDesktopApp || isLocalDev) {
-      this.ctx.container.querySelectorAll<HTMLAnchorElement>('.variant-option').forEach(link => {
-        link.addEventListener('click', (e) => {
-          const variant = link.dataset.variant;
-          if (variant && variant !== SITE_VARIANT) {
-            e.preventDefault();
-            trackVariantSwitch(SITE_VARIANT, variant);
-            localStorage.setItem('worldmonitor-variant', variant);
-            window.location.reload();
-          }
+    this.ctx.container.querySelectorAll<HTMLAnchorElement>('.variant-option').forEach(link => {
+      link.addEventListener('click', (e) => {
+        const variant = link.dataset.variant;
+        if (!variant || variant === SITE_VARIANT) return;
+        e.preventDefault();
+        void this.navigateToVariant(variant, {
+          href: link.href,
+          isLocalDev,
         });
       });
-    }
+    });
 
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     if (!this.ctx.isDesktopApp && fullscreenBtn) {
@@ -242,9 +312,10 @@ export class EventHandlerManager implements AppModule {
       trackMapViewChange(regionSelect.value);
     });
 
-    this.boundResizeHandler = () => {
+    this.boundResizeHandler = debounce(() => {
+      this.ctx.map?.setIsResizing(false);
       this.ctx.map?.render();
-    };
+    }, 150);
     window.addEventListener('resize', this.boundResizeHandler);
 
     this.setupMapResize();
@@ -252,6 +323,9 @@ export class EventHandlerManager implements AppModule {
 
     this.boundVisibilityHandler = () => {
       document.body?.classList.toggle('animations-paused', document.hidden);
+      if (this.ctx.isDesktopApp) {
+        this.ctx.map?.setRenderPaused(document.hidden);
+      }
       if (document.hidden) {
         this.callbacks.setHiddenSince(Date.now());
         mlWorker.unloadOptionalModels();
@@ -262,14 +336,20 @@ export class EventHandlerManager implements AppModule {
     };
     document.addEventListener('visibilitychange', this.boundVisibilityHandler);
 
-    window.addEventListener('focal-points-ready', () => {
+    this.boundFocalPointsReadyHandler = () => {
       (this.ctx.panels['cii'] as CIIPanel)?.refresh(true);
-    });
+      this.callbacks.refreshOpenCountryBrief?.();
+    };
+    window.addEventListener('focal-points-ready', this.boundFocalPointsReadyHandler);
 
-    window.addEventListener('theme-changed', () => {
+    this.boundThemeChangedHandler = () => {
       this.ctx.map?.render();
       this.updateHeaderThemeIcon();
-    });
+      this.updateMobileMenuThemeItem();
+    };
+    window.addEventListener('theme-changed', this.boundThemeChangedHandler);
+
+    this.setupMobileMenu();
 
     if (this.ctx.isDesktopApp) {
       if (this.boundDesktopExternalLinkHandler) {
@@ -281,18 +361,134 @@ export class EventHandlerManager implements AppModule {
         if (!anchor) return;
         const href = anchor.href;
         if (!href || href.startsWith('javascript:') || href === '#' || href.startsWith('#')) return;
+        // Only handle valid http(s) URLs
+        let url: URL;
         try {
-          const url = new URL(href, window.location.href);
-          if (url.origin === window.location.origin) return;
-          e.preventDefault();
-          e.stopPropagation();
-          void invokeTauri<void>('open_url', { url: url.toString() }).catch(() => {
-            window.open(url.toString(), '_blank');
-          });
-        } catch { /* malformed URL -- let browser handle */ }
+          url = new URL(href, window.location.href);
+        } catch {
+          // Malformed URL, let browser handle
+          return;
+        }
+        if (url.origin === window.location.origin) return;
+        if (!/^https?:$/.test(url.protocol)) return; // Only allow http(s) links
+        e.preventDefault();
+        e.stopPropagation();
+        void invokeTauri<void>('open_url', { url: url.toString() }).catch(() => {
+          window.open(url.toString(), '_blank');
+        });
       };
       document.addEventListener('click', this.boundDesktopExternalLinkHandler, true);
     }
+  }
+
+  private setupMobileMenu(): void {
+    const hamburger = document.getElementById('hamburgerBtn');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const menu = document.getElementById('mobileMenu');
+    const closeBtn = document.getElementById('mobileMenuClose');
+    if (!hamburger || !overlay || !menu || !closeBtn) return;
+
+    hamburger.addEventListener('click', () => this.openMobileMenu());
+    overlay.addEventListener('click', () => this.closeMobileMenu());
+    closeBtn.addEventListener('click', () => this.closeMobileMenu());
+
+    const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    menu.querySelectorAll<HTMLButtonElement>('.mobile-menu-variant').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const variant = btn.dataset.variant;
+        if (!variant || variant === SITE_VARIANT) return;
+        void this.navigateToVariant(variant, { isLocalDev });
+      });
+    });
+
+    document.getElementById('mobileMenuRegion')?.addEventListener('click', () => {
+      this.closeMobileMenu();
+      this.openRegionSheet();
+    });
+
+    document.getElementById('mobileMenuSettings')?.addEventListener('click', () => {
+      this.closeMobileMenu();
+      this.ctx.unifiedSettings?.open();
+    });
+
+    document.getElementById('mobileMenuTheme')?.addEventListener('click', () => {
+      this.closeMobileMenu();
+      const next = getCurrentTheme() === 'dark' ? 'light' : 'dark';
+      setTheme(next);
+      this.updateHeaderThemeIcon();
+      trackThemeChanged(next);
+    });
+
+    const sheetBackdrop = document.getElementById('regionSheetBackdrop');
+    sheetBackdrop?.addEventListener('click', () => this.closeRegionSheet());
+
+    const sheet = document.getElementById('regionBottomSheet');
+    sheet?.querySelectorAll<HTMLButtonElement>('.region-sheet-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const region = opt.dataset.region;
+        if (!region) return;
+        this.ctx.map?.setView(region as MapView);
+        trackMapViewChange(region);
+        const regionSelect = document.getElementById('regionSelect') as HTMLSelectElement;
+        if (regionSelect) regionSelect.value = region;
+        sheet.querySelectorAll('.region-sheet-option').forEach(o => {
+          o.classList.toggle('active', o === opt);
+          const check = o.querySelector('.region-sheet-check');
+          if (check) check.textContent = o === opt ? '✓' : '';
+        });
+        const menuRegionLabel = document.getElementById('mobileMenuRegion')?.querySelector('.mobile-menu-item-label');
+        if (menuRegionLabel) menuRegionLabel.textContent = opt.querySelector('span')?.textContent ?? '';
+        this.closeRegionSheet();
+      });
+    });
+
+    this.boundMobileMenuKeyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (sheet?.classList.contains('open')) {
+          this.closeRegionSheet();
+        } else if (menu.classList.contains('open')) {
+          this.closeMobileMenu();
+        }
+      }
+    };
+    document.addEventListener('keydown', this.boundMobileMenuKeyHandler);
+  }
+
+  private openMobileMenu(): void {
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const menu = document.getElementById('mobileMenu');
+    if (!overlay || !menu) return;
+    overlay.classList.add('open');
+    requestAnimationFrame(() => menu.classList.add('open'));
+    document.body.style.overflow = 'hidden';
+  }
+
+  private closeMobileMenu(): void {
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const menu = document.getElementById('mobileMenu');
+    if (!overlay || !menu) return;
+    menu.classList.remove('open');
+    overlay.classList.remove('open');
+    const sheetOpen = document.getElementById('regionBottomSheet')?.classList.contains('open');
+    if (!sheetOpen) document.body.style.overflow = '';
+  }
+
+  private openRegionSheet(): void {
+    const backdrop = document.getElementById('regionSheetBackdrop');
+    const sheet = document.getElementById('regionBottomSheet');
+    if (!backdrop || !sheet) return;
+    backdrop.classList.add('open');
+    requestAnimationFrame(() => sheet.classList.add('open'));
+    document.body.style.overflow = 'hidden';
+  }
+
+  private closeRegionSheet(): void {
+    const backdrop = document.getElementById('regionSheetBackdrop');
+    const sheet = document.getElementById('regionBottomSheet');
+    if (!backdrop || !sheet) return;
+    sheet.classList.remove('open');
+    backdrop.classList.remove('open');
+    document.body.style.overflow = '';
   }
 
   private setupIdleDetection(): void {
@@ -321,7 +517,7 @@ export class EventHandlerManager implements AppModule {
         document.body?.classList.add('animations-paused');
         console.log('[App] User idle - pausing animations to save resources');
       }
-    }, this.IDLE_PAUSE_MS);
+    }, this.idlePauseMs);
   }
 
   setupUrlStateSync(): void {
@@ -349,13 +545,16 @@ export class EventHandlerManager implements AppModule {
     const state = this.ctx.map.getState();
     const center = this.ctx.map.getCenter();
     const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const briefPage = this.ctx.countryBriefPage;
+    const isCountryVisible = briefPage?.isVisible() ?? false;
     return buildMapUrl(baseUrl, {
       view: state.view,
       zoom: state.zoom,
       center,
       timeRange: state.timeRange,
       layers: state.layers,
-      country: this.ctx.countryBriefPage?.isVisible() ? (this.ctx.countryBriefPage.getCode() ?? undefined) : undefined,
+      country: isCountryVisible ? (briefPage?.getCode() ?? undefined) : undefined,
+      expanded: isCountryVisible && briefPage?.getIsMaximized?.() ? true : undefined,
     });
   }
 
@@ -374,6 +573,87 @@ export class EventHandlerManager implements AppModule {
     document.body.removeChild(textarea);
   }
 
+  private platformLabel(p: Platform): string {
+    switch (p) {
+      case 'macos-arm64': return '\uF8FF Silicon';
+      case 'macos-x64': return '\uF8FF Intel';
+      case 'macos': return '\uF8FF macOS';
+      case 'windows': return 'Windows';
+      case 'linux': return 'Linux';
+      default: return t('header.downloadApp');
+    }
+  }
+
+  private initDownloadDropdown(): void {
+    const btn = document.getElementById('downloadBtn');
+    const dropdown = document.getElementById('downloadDropdown');
+    const label = document.getElementById('downloadBtnLabel');
+    if (!btn || !dropdown) return;
+
+    const platform = detectPlatform();
+    if (label) label.textContent = this.platformLabel(platform);
+
+    const primary = buttonsForPlatform(platform);
+    const all = allButtons();
+    const others = all.filter(b => !primary.some(p => p.href === b.href));
+
+    const renderDropdown = () => {
+      const primaryHtml = primary.map(b =>
+        `<a class="dl-dd-btn ${b.cls} primary" href="${b.href}">${b.label}</a>`
+      ).join('');
+      const othersHtml = others.map(b =>
+        `<a class="dl-dd-btn ${b.cls}" href="${b.href}">${b.label}</a>`
+      ).join('');
+
+      dropdown.innerHTML = `
+        <div class="dl-dd-tagline">${t('modals.downloadBanner.description')}</div>
+        <div class="dl-dd-buttons">${primaryHtml}</div>
+        ${others.length ? `<button class="dl-dd-toggle" id="dlDdToggle">${t('modals.downloadBanner.showAllPlatforms')}</button>
+        <div class="dl-dd-others" id="dlDdOthers">${othersHtml}</div>` : ''}
+      `;
+
+      dropdown.querySelectorAll<HTMLAnchorElement>('.dl-dd-btn').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          const plat = new URL(a.href, location.origin).searchParams.get('platform') || 'unknown';
+          trackDownloadClicked(plat);
+          window.open(a.href, '_blank');
+          dropdown.classList.remove('open');
+        });
+      });
+
+      const toggle = dropdown.querySelector('#dlDdToggle');
+      const othersEl = dropdown.querySelector('#dlDdOthers') as HTMLElement | null;
+      if (toggle && othersEl) {
+        toggle.addEventListener('click', () => {
+          const showing = othersEl.classList.toggle('show');
+          toggle.textContent = showing
+            ? t('modals.downloadBanner.showLess')
+            : t('modals.downloadBanner.showAllPlatforms');
+        });
+      }
+    };
+
+    renderDropdown();
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('open');
+    });
+
+    this.boundDropdownClickHandler = (e: MouseEvent) => {
+      if (!dropdown.contains(e.target as Node) && !btn.contains(e.target as Node)) {
+        dropdown.classList.remove('open');
+      }
+    };
+    document.addEventListener('click', this.boundDropdownClickHandler);
+
+    this.boundDropdownKeydownHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dropdown.classList.remove('open');
+    };
+    document.addEventListener('keydown', this.boundDropdownKeydownHandler);
+  }
+
   private setCopyLinkFeedback(button: HTMLElement | null, message: string): void {
     if (!button) return;
     const originalText = button.textContent ?? '';
@@ -385,15 +665,39 @@ export class EventHandlerManager implements AppModule {
     }, 1500);
   }
 
+  private async exitFullscreenForNavigation(): Promise<void> {
+    if (!document.fullscreenElement) return;
+    try {
+      await document.exitFullscreen?.();
+    } catch { /* proceed with navigation regardless */ }
+  }
+
+  private async navigateToVariant(
+    variant: string,
+    options: { href?: string; isLocalDev: boolean },
+  ): Promise<void> {
+    trackVariantSwitch(SITE_VARIANT, variant);
+    await this.exitFullscreenForNavigation();
+
+    if (this.ctx.isDesktopApp || options.isLocalDev) {
+      localStorage.setItem('worldmonitor-variant', variant);
+      window.location.reload();
+      return;
+    }
+
+    const target = options.href || VARIANT_META[variant]?.url;
+    if (target) window.location.href = target;
+  }
+
   toggleFullscreen(): void {
     if (document.fullscreenElement) {
-      try { void document.exitFullscreen()?.catch(() => {}); } catch {}
+      try { void document.exitFullscreen()?.catch(() => { }); } catch { }
     } else {
       const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
       if (el.requestFullscreen) {
-        try { void el.requestFullscreen()?.catch(() => {}); } catch {}
+        try { void el.requestFullscreen()?.catch(() => { }); } catch { }
       } else if (el.webkitRequestFullscreen) {
-        try { el.webkitRequestFullscreen(); } catch {}
+        try { el.webkitRequestFullscreen(); } catch { }
       }
     }
   }
@@ -407,6 +711,16 @@ export class EventHandlerManager implements AppModule {
       : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
   }
 
+  private updateMobileMenuThemeItem(): void {
+    const btn = document.getElementById('mobileMenuTheme');
+    if (!btn) return;
+    const isDark = getCurrentTheme() === 'dark';
+    const icon = btn.querySelector('.mobile-menu-item-icon');
+    const label = btn.querySelector('.mobile-menu-item-label');
+    if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+    if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+  }
+
   startHeaderClock(): void {
     const el = document.getElementById('headerClock');
     if (!el) return;
@@ -417,19 +731,8 @@ export class EventHandlerManager implements AppModule {
     this.clockIntervalId = setInterval(tick, 1000);
   }
 
-  setupMobileWarning(): void {
-    if (MobileWarningModal.shouldShow()) {
-      this.ctx.mobileWarningModal = new MobileWarningModal();
-      this.ctx.mobileWarningModal.show();
-    }
-  }
-
   setupStatusPanel(): void {
     this.ctx.statusPanel = new StatusPanel();
-    const headerLeft = this.ctx.container.querySelector('.header-left');
-    if (headerLeft) {
-      headerLeft.appendChild(this.ctx.statusPanel.getElement());
-    }
   }
 
   setupPizzIntIndicator(): void {
@@ -459,14 +762,21 @@ export class EventHandlerManager implements AppModule {
   setupUnifiedSettings(): void {
     this.ctx.unifiedSettings = new UnifiedSettings({
       getPanelSettings: () => this.ctx.panelSettings,
-      togglePanel: (key: string) => {
-        const config = this.ctx.panelSettings[key];
-        if (config) {
-          config.enabled = !config.enabled;
-          trackPanelToggled(key, config.enabled);
-          saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
-          this.applyPanelSettings();
-        }
+      savePanelSettings: (panels: Record<string, PanelConfig>) => {
+        Object.entries(panels).forEach(([key, nextConfig]) => {
+          const current = this.ctx.panelSettings[key];
+          if (!current) {
+            this.ctx.panelSettings[key] = { ...nextConfig };
+            trackPanelToggled(key, nextConfig.enabled);
+            return;
+          }
+          if (current.enabled !== nextConfig.enabled) {
+            trackPanelToggled(key, nextConfig.enabled);
+          }
+          Object.assign(current, nextConfig);
+        });
+        saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
+        this.applyPanelSettings();
       },
       getDisabledSources: () => this.ctx.disabledSources,
       toggleSource: (name: string) => {
@@ -486,12 +796,29 @@ export class EventHandlerManager implements AppModule {
       },
       getAllSourceNames: () => this.getAllSourceNames(),
       getLocalizedPanelName: (key: string, fallback: string) => this.getLocalizedPanelName(key, fallback),
+      resetLayout: () => {
+        localStorage.removeItem(this.ctx.PANEL_SPANS_KEY);
+        localStorage.removeItem('worldmonitor-panel-col-spans');
+        localStorage.removeItem(this.ctx.PANEL_ORDER_KEY);
+        localStorage.removeItem(this.ctx.PANEL_ORDER_KEY + '-bottom');
+        localStorage.removeItem(this.ctx.PANEL_ORDER_KEY + '-bottom-set');
+        localStorage.removeItem('map-height');
+        window.location.reload();
+      },
       isDesktopApp: this.ctx.isDesktopApp,
+      onMapProviderChange: () => {
+        this.ctx.map?.reloadBasemap();
+      },
     });
 
     const mount = document.getElementById('unifiedSettingsMount');
     if (mount) {
       mount.appendChild(this.ctx.unifiedSettings.getButton());
+    }
+
+    const mobileBtn = document.getElementById('mobileSettingsBtn');
+    if (mobileBtn) {
+      mobileBtn.addEventListener('click', () => this.ctx.unifiedSettings?.open());
     }
   }
 
@@ -555,7 +882,7 @@ export class EventHandlerManager implements AppModule {
       liquidity: 0,
     }));
     this.ctx.latestPredictions = predictions;
-    (this.ctx.panels['polymarket'] as PredictionPanel).renderPredictions(predictions);
+    (this.ctx.panels['polymarket'] as PredictionPanel | undefined)?.renderPredictions(predictions);
 
     this.ctx.map?.setHotspotLevels(snapshot.hotspotLevels);
   }
@@ -586,9 +913,21 @@ export class EventHandlerManager implements AppModule {
         return;
       }
 
+      if (layer === 'flights') {
+        const airlineIntel = this.ctx.panels['airline-intel'] as AirlineIntelPanel | undefined;
+        airlineIntel?.setLiveMode(enabled);
+      }
+
       if (enabled) {
         this.callbacks.loadDataForLayer(layer);
       }
+    });
+
+    // Forward live aircraft positions from map to AirlineIntelPanel + cache
+    this.ctx.map?.setOnAircraftPositionsUpdate((positions) => {
+      this.ctx.intelligenceCache.aircraftPositions = positions;
+      const airlineIntel = this.ctx.panels['airline-intel'] as AirlineIntelPanel | undefined;
+      airlineIntel?.updateLivePositions(positions);
     });
   }
 
@@ -632,18 +971,37 @@ export class EventHandlerManager implements AppModule {
 
   setupMapResize(): void {
     const mapSection = document.getElementById('mapSection');
+    const mapContainer = document.getElementById('mapContainer');
     const resizeHandle = document.getElementById('mapResizeHandle');
-    if (!mapSection || !resizeHandle) return;
+    if (!mapSection || !resizeHandle || !mapContainer) return;
 
-    const getMinHeight = () => (window.innerWidth >= 2000 ? 320 : 400);
-    const getMaxHeight = () => Math.max(getMinHeight(), window.innerHeight - 60);
+    const getMinHeight = () => (window.innerWidth >= 1600 ? 280 : 350);
+    const getMaxHeight = () => {
+      if (window.innerWidth < 1600) return Math.max(getMinHeight(), window.innerHeight - 150);
+
+      const bottomGrid = document.getElementById('mapBottomGrid');
+      const isEmpty = !bottomGrid || bottomGrid.children.length === 0;
+      const headerHeight = 60;
+      const totalAvailable = window.innerHeight - headerHeight;
+
+      if (isEmpty) {
+        return totalAvailable - 25;
+      } else {
+        return totalAvailable - 300;
+      }
+    };
 
     const savedHeight = localStorage.getItem('map-height');
     if (savedHeight) {
       const numeric = Number.parseInt(savedHeight, 10);
       if (Number.isFinite(numeric)) {
         const clamped = Math.max(getMinHeight(), Math.min(numeric, getMaxHeight()));
-        mapSection.style.height = `${clamped}px`;
+        if (window.innerWidth >= 1600) {
+          mapContainer.style.flex = 'none';
+          mapContainer.style.height = `${clamped}px`;
+        } else {
+          mapSection.style.height = `${clamped}px`;
+        }
         if (clamped !== numeric) {
           localStorage.setItem('map-height', `${clamped}px`);
         }
@@ -656,31 +1014,81 @@ export class EventHandlerManager implements AppModule {
     let startY = 0;
     let startHeight = 0;
 
+    const getTarget = () => (window.innerWidth >= 1600 ? mapContainer : mapSection);
+
+    this.boundMapEndResizeHandler = () => {
+      if (!isResizing) return;
+      isResizing = false;
+      this.ctx.map?.setIsResizing(false);
+      this.ctx.map?.resize();
+      mapSection.classList.remove('resizing');
+      document.body.style.cursor = '';
+      localStorage.setItem('map-height', getTarget().style.height);
+    };
+    const endResize = this.boundMapEndResizeHandler;
+
     resizeHandle.addEventListener('mousedown', (e) => {
       isResizing = true;
       startY = e.clientY;
-      startHeight = mapSection.offsetHeight;
+      const target = getTarget();
+      startHeight = target.offsetHeight;
+      this.ctx.map?.setIsResizing(true);
       mapSection.classList.add('resizing');
       document.body.style.cursor = 'ns-resize';
       e.preventDefault();
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!isResizing) return;
-      const deltaY = e.clientY - startY;
-      const newHeight = Math.max(getMinHeight(), Math.min(startHeight + deltaY, getMaxHeight()));
-      mapSection.style.height = `${newHeight}px`;
-      this.ctx.map?.render();
+    resizeHandle.addEventListener('dblclick', () => {
+      const isWide = window.innerWidth >= 1600;
+      const target = isWide ? mapContainer : mapSection;
+
+      const targetHeight = window.innerHeight * 0.5;
+      const finalHeight = Math.max(getMinHeight(), Math.min(targetHeight, getMaxHeight()));
+
+      this.ctx.map?.setIsResizing(true);
+      target.classList.add('map-section-smooth');
+
+      if (isWide) target.style.flex = 'none';
+      target.style.height = `${finalHeight}px`;
+
+      let fired = false;
+      const onEnd = () => {
+        if (fired) return;
+        fired = true;
+
+        target.classList.remove('map-section-smooth');
+        target.removeEventListener('transitionend', onEnd);
+        localStorage.setItem('map-height', `${finalHeight}px`);
+        this.ctx.map?.setIsResizing(false);
+        this.ctx.map?.resize();
+      };
+
+      target.addEventListener('transitionend', onEnd);
+      this.ctx.map?.resize();
+      setTimeout(onEnd, 500);
     });
 
-    document.addEventListener('mouseup', () => {
+    this.boundMapResizeMoveHandler = (e: MouseEvent) => {
       if (!isResizing) return;
-      isResizing = false;
-      mapSection.classList.remove('resizing');
-      document.body.style.cursor = '';
-      localStorage.setItem('map-height', mapSection.style.height);
-      this.ctx.map?.render();
-    });
+      const isWide = window.innerWidth >= 1600;
+      const target = isWide ? mapContainer : mapSection;
+
+      const deltaY = e.clientY - startY;
+      const newHeight = Math.max(getMinHeight(), Math.min(startHeight + deltaY, getMaxHeight()));
+
+      if (isWide) target.style.flex = 'none';
+      target.style.height = `${newHeight}px`;
+
+      this.ctx.map?.resize();
+    };
+    document.addEventListener('mousemove', this.boundMapResizeMoveHandler);
+
+    document.addEventListener('mouseup', endResize);
+    window.addEventListener('blur', endResize);
+    this.boundMapResizeVisChangeHandler = () => {
+      if (document.hidden) endResize();
+    };
+    document.addEventListener('visibilitychange', this.boundMapResizeVisChangeHandler);
   }
 
   setupMapPin(): void {
@@ -701,6 +1109,29 @@ export class EventHandlerManager implements AppModule {
     });
 
     this.setupMapFullscreen(mapSection);
+    this.setupMapDimensionToggle();
+  }
+
+  private setupMapDimensionToggle(): void {
+    const toggle = document.getElementById('mapDimensionToggle');
+    if (!toggle) return;
+    toggle.querySelectorAll<HTMLButtonElement>('.map-dim-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        if (!mode) return;
+        const isGlobe = mode === 'globe';
+        const alreadyGlobe = this.ctx.map?.isGlobeMode() ?? false;
+        if (isGlobe === alreadyGlobe) return;
+        toggle.querySelectorAll('.map-dim-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        saveToStorage(STORAGE_KEYS.mapMode, isGlobe ? 'globe' : 'flat');
+        if (isGlobe) {
+          this.ctx.map?.switchToGlobe();
+        } else {
+          this.ctx.map?.switchToFlat();
+        }
+      });
+    });
   }
 
   private setupMapFullscreen(mapSection: HTMLElement): void {
@@ -716,12 +1147,15 @@ export class EventHandlerManager implements AppModule {
       document.body.classList.toggle('live-news-fullscreen-active', isFullscreen);
       btn.innerHTML = isFullscreen ? shrinkSvg : expandSvg;
       btn.title = isFullscreen ? 'Exit fullscreen' : 'Fullscreen';
+      // Notify map so globe (and deck.gl) can resize after CSS transition completes
+      setTimeout(() => this.ctx.map?.setIsResizing(false), 320);
     };
 
     btn.addEventListener('click', toggle);
-    document.addEventListener('keydown', (e) => {
+    this.boundMapFullscreenEscHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFullscreen) toggle();
-    });
+    };
+    document.addEventListener('keydown', this.boundMapFullscreenEscHandler);
   }
 
   getLocalizedPanelName(panelKey: string, fallback: string): string {
@@ -749,6 +1183,11 @@ export class EventHandlerManager implements AppModule {
         const mapSection = document.getElementById('mapSection');
         if (mapSection) {
           mapSection.classList.toggle('hidden', !config.enabled);
+          const mainContent = document.querySelector('.main-content');
+          if (mainContent) {
+            mainContent.classList.toggle('map-hidden', !config.enabled);
+          }
+          this.callbacks.ensureCorrectZones();
         }
         return;
       }

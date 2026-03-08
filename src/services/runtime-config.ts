@@ -19,7 +19,7 @@ export type RuntimeSecretKey =
   | 'AISSTREAM_API_KEY'
   | 'FINNHUB_API_KEY'
   | 'NASA_FIRMS_API_KEY'
-  | 'UC_DP_KEY'
+  | 'UCDP_ACCESS_TOKEN'
   | 'OLLAMA_API_URL'
   | 'OLLAMA_MODEL'
   | 'WORLDMONITOR_API_KEY'
@@ -47,6 +47,7 @@ export type RuntimeFeatureId =
   | 'supplyChain'
   | 'newsPerFeedFallback'
   | 'aviationStack'
+  | 'ucdpConflicts'
   | 'icaoNotams';
 
 export interface RuntimeFeatureDefinition {
@@ -72,6 +73,9 @@ const TOGGLES_STORAGE_KEY = 'worldmonitor-runtime-feature-toggles';
 function getSidecarEnvUpdateUrl(): string {
   return `${getApiBaseUrl()}/api/local-env-update`;
 }
+function getSidecarEnvUpdateBatchUrl(): string {
+  return `${getApiBaseUrl()}/api/local-env-update-batch`;
+}
 function getSidecarSecretValidateUrl(): string {
   return `${getApiBaseUrl()}/api/local-validate-secret`;
 }
@@ -83,6 +87,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   energyEia: true,
   internetOutages: true,
   acledConflicts: true,
+  ucdpConflicts: true,
   abuseChThreatIntel: true,
   alienvaultOtxThreatIntel: true,
   abuseIpdbThreatIntel: true,
@@ -148,6 +153,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'Conflict and protest event feeds from ACLED.',
     requiredSecrets: ['ACLED_ACCESS_TOKEN'],
     fallback: 'Conflict/protest overlays are hidden.',
+  },
+  {
+    id: 'ucdpConflicts',
+    name: 'UCDP conflict events',
+    description: 'Armed conflict georeferenced event data from Uppsala Conflict Data Program.',
+    requiredSecrets: ['UCDP_ACCESS_TOKEN'],
+    fallback: 'UCDP conflict layer is disabled.',
   },
   {
     id: 'abuseChThreatIntel',
@@ -528,24 +540,29 @@ export async function loadDesktopSecrets(): Promise<void> {
   if (!isDesktopRuntime()) return;
 
   try {
-    // Single batch call to read all keychain secrets at once.
-    // This triggers only ONE macOS Keychain prompt instead of 18 individual ones.
     const allSecrets = await invokeTauri<Record<string, string>>('get_all_secrets');
 
-    const syncResults = await Promise.allSettled(
-      Object.entries(allSecrets).filter(([, value]) => value && value.trim().length > 0).map(async ([key, value]) => {
+    const entries: { key: string; value: string }[] = [];
+    for (const [key, value] of Object.entries(allSecrets)) {
+      if (value && value.trim().length > 0) {
         runtimeConfig.secrets[key as RuntimeSecretKey] = { value, source: 'vault' };
-        try {
-          await pushSecretToSidecar(key as RuntimeSecretKey, value);
-        } catch (error) {
-          console.warn(`[runtime-config] Failed to sync ${key} to sidecar`, error);
-        }
-      })
-    );
+        entries.push({ key, value });
+      }
+    }
 
-    const failures = syncResults.filter((r) => r.status === 'rejected');
-    if (failures.length > 0) {
-      console.warn(`[runtime-config] ${failures.length} key(s) failed to sync to sidecar`);
+    if (entries.length > 0) {
+      try {
+        await pushSecretBatchToSidecar(entries);
+      } catch (batchErr) {
+        console.warn('[runtime-config] Batch env update failed, falling back to individual pushes', batchErr);
+        await Promise.allSettled(
+          entries.map(({ key, value }) =>
+            pushSecretToSidecar(key as RuntimeSecretKey, value).catch((error) => {
+              console.warn(`[runtime-config] Failed to sync ${key} to sidecar`, error);
+            })
+          )
+        );
+      }
     }
 
     notifyConfigChanged();
@@ -553,5 +570,23 @@ export async function loadDesktopSecrets(): Promise<void> {
     console.warn('[runtime-config] Failed to load desktop secrets from vault', error);
   } finally {
     secretsReadyResolve();
+  }
+}
+
+async function pushSecretBatchToSidecar(entries: { key: string; value: string }[]): Promise<void> {
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const token = await getLocalApiToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(getSidecarEnvUpdateBatchUrl(), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ entries }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Batch env update failed (${response.status})`);
   }
 }

@@ -1,11 +1,3 @@
-/**
- * RPC: listUcdpEvents -- Port from api/ucdp-events.js
- *
- * Queries the UCDP GED API with automatic version discovery and paginated
- * backward fetch over a trailing 1-year window.  Supports optional country
- * filtering.  Returns empty array on upstream failure (graceful degradation).
- */
-
 import type {
   ServerContext,
   ListUcdpEventsRequest,
@@ -13,23 +5,20 @@ import type {
   UcdpViolenceEvent,
   UcdpViolenceType,
 } from '../../../../src/generated/server/worldmonitor/conflict/v1/service_server';
-import { cachedFetchJson } from '../../../_shared/redis';
-import { CHROME_UA } from '../../../_shared/constants';
+import { getCachedJson } from '../../../_shared/redis';
 
+const CACHE_KEY = 'conflict:ucdp-events:v1';
+const MAX_AGE_MS = 25 * 60 * 60 * 1000; // 25h — reject if cron hasn't refreshed
+
+let fallback: { events: UcdpViolenceEvent[]; ts: number } | null = null;
+
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const UCDP_PAGE_SIZE = 1000;
-const MAX_PAGES = 12;
+const MAX_PAGES = 4;
+const MAX_EVENTS = 2000;
 const TRAILING_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
-
-const CACHE_KEY = 'ucdp:gedevents:sebuf:v1';
-const CACHE_TTL_FULL = 6 * 60 * 60;        // 6 hours for complete results
-const CACHE_TTL_PARTIAL = 10 * 60;          // 10 minutes for partial results (M-16 port)
-
-// In-memory fallback cache with per-entry TTL
-let fallbackCache: { data: UcdpViolenceEvent[] | null; timestamp: number; ttlMs: number } = {
-  data: null,
-  timestamp: 0,
-  ttlMs: CACHE_TTL_FULL * 1000,
-};
+const DIRECT_FETCH_COOLDOWN_MS = 10 * 60 * 1000; // 10min between direct fetches
+let lastDirectFetchMs = 0;
 
 const VIOLENCE_TYPE_MAP: Record<number, UcdpViolenceType> = {
   1: 'UCDP_VIOLENCE_TYPE_STATE_BASED',
@@ -37,188 +26,134 @@ const VIOLENCE_TYPE_MAP: Record<number, UcdpViolenceType> = {
   3: 'UCDP_VIOLENCE_TYPE_ONE_SIDED',
 };
 
-function parseDateMs(value: unknown): number {
-  if (!value) return NaN;
-  return Date.parse(String(value));
-}
-
-function getMaxDateMs(events: any[]): number {
-  let maxMs = NaN;
-  for (const event of events) {
-    const ms = parseDateMs(event?.date_start);
-    if (!Number.isFinite(ms)) continue;
-    if (!Number.isFinite(maxMs) || ms > maxMs) {
-      maxMs = ms;
-    }
-  }
-  return maxMs;
-}
-
 function buildVersionCandidates(): string[] {
   const year = new Date().getFullYear() - 2000;
-  return Array.from(new Set([`${year}.1`, `${year - 1}.1`, '25.1', '24.1']));
+  return [...new Set([`${year}.1`, `${year - 1}.1`, '25.1', '24.1'])];
 }
 
-// Negative cache: prevent hammering UCDP when it's down
-let lastFailureTimestamp = 0;
-const NEGATIVE_CACHE_MS = 60 * 1000; // 60 seconds backoff after failure
-
-// Discovered version cache: avoid re-probing every request
-let discoveredVersion: string | null = null;
-let discoveredVersionTimestamp = 0;
-const VERSION_CACHE_MS = 60 * 60 * 1000; // 1 hour
-
-async function fetchGedPage(version: string, page: number): Promise<any> {
-  const response = await fetch(
+async function fetchGedPage(version: string, page: number, token: string): Promise<unknown> {
+  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': CHROME_UA };
+  if (token) headers['x-ucdp-access-token'] = token;
+  const resp = await fetch(
     `https://ucdpapi.pcr.uu.se/api/gedevents/${version}?pagesize=${UCDP_PAGE_SIZE}&page=${page}`,
-    {
-      headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
-      signal: AbortSignal.timeout(15000),
-    },
+    { headers, signal: AbortSignal.timeout(30_000) },
   );
-  if (!response.ok) {
-    throw new Error(`UCDP GED API error (${version}, page ${page}): ${response.status}`);
-  }
-  return response.json();
+  if (!resp.ok) throw new Error(`UCDP API ${resp.status}`);
+  return resp.json();
 }
 
-async function discoverGedVersion(): Promise<{ version: string; page0: any }> {
-  // Use cached version if still valid
-  if (discoveredVersion && (Date.now() - discoveredVersionTimestamp) < VERSION_CACHE_MS) {
-    const page0 = await fetchGedPage(discoveredVersion, 0);
-    if (Array.isArray(page0?.Result)) {
-      return { version: discoveredVersion, page0 };
-    }
-    discoveredVersion = null; // Cached version no longer works
+async function fetchDirectFromUcdp(): Promise<UcdpViolenceEvent[]> {
+  const token = (process.env.UCDP_ACCESS_TOKEN || '').trim();
+  const candidates = buildVersionCandidates();
+
+  let version = '';
+  let page0: { Result?: unknown[]; TotalPages?: number } | null = null;
+
+  for (const v of candidates) {
+    try {
+      const data = await fetchGedPage(v, 0, token) as { Result?: unknown[]; TotalPages?: number };
+      if (Array.isArray(data?.Result) && data.Result.length > 0) {
+        version = v;
+        page0 = data;
+        break;
+      }
+    } catch { /* try next */ }
   }
 
-  // Probe all candidates in parallel instead of sequentially
-  const candidates = buildVersionCandidates();
-  const results = await Promise.allSettled(
-    candidates.map(async (version) => {
-      const page0 = await fetchGedPage(version, 0);
-      if (!Array.isArray(page0?.Result)) throw new Error('No results');
-      return { version, page0 };
+  if (!version || !page0) return [];
+
+  const totalPages = Math.max(1, Number(page0.TotalPages) || 1);
+  const newestPage = totalPages - 1;
+
+  const pageResults = await Promise.allSettled(
+    Array.from({ length: Math.min(MAX_PAGES, totalPages) }, (_, i) => {
+      const page = newestPage - i;
+      if (page < 0) return Promise.resolve(null);
+      if (page === 0) return Promise.resolve(page0);
+      return fetchGedPage(version, page, token);
     }),
   );
 
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      discoveredVersion = result.value.version;
-      discoveredVersionTimestamp = Date.now();
-      return result.value;
+  const allEvents: unknown[] = [];
+  let latestMs = NaN;
+
+  for (const r of pageResults) {
+    if (r.status !== 'fulfilled' || !r.value) continue;
+    const events = Array.isArray((r.value as { Result?: unknown[] }).Result)
+      ? (r.value as { Result: unknown[] }).Result : [];
+    allEvents.push(...events);
+    for (const e of events) {
+      const ms = Date.parse(String((e as { date_start?: string }).date_start));
+      if (Number.isFinite(ms) && (!Number.isFinite(latestMs) || ms > latestMs)) latestMs = ms;
     }
   }
 
-  throw new Error('No valid UCDP GED version found');
-}
+  const cutoff = Number.isFinite(latestMs) ? latestMs - TRAILING_WINDOW_MS : 0;
+  const mapped: UcdpViolenceEvent[] = [];
 
-async function fetchUcdpGedEvents(): Promise<UcdpViolenceEvent[] | null> {
-  // Negative cache: skip fetch if UCDP failed recently
-  if (lastFailureTimestamp && (Date.now() - lastFailureTimestamp) < NEGATIVE_CACHE_MS) {
-    return null;
-  }
+  for (const raw of allEvents) {
+    const e = raw as Record<string, unknown>;
+    const dateStart = Date.parse(String(e.date_start));
+    if (!Number.isFinite(dateStart) || dateStart < cutoff) continue;
 
-  try {
-    const { version, page0 } = await discoverGedVersion();
-    const totalPages = Math.max(1, Number(page0?.TotalPages) || 1);
-    const newestPage = totalPages - 1;
-
-    const FAILED = Symbol('failed');
-    const pagesToFetch: Promise<any>[] = [];
-    for (let offset = 0; offset < MAX_PAGES && (newestPage - offset) >= 0; offset++) {
-      const page = newestPage - offset;
-      if (page === 0) {
-        pagesToFetch.push(Promise.resolve(page0));
-      } else {
-        pagesToFetch.push(fetchGedPage(version, page).catch(() => FAILED));
-      }
-    }
-
-    const pageResults = await Promise.all(pagesToFetch);
-
-    const allEvents: any[] = [];
-    let latestDatasetMs = NaN;
-    let failedPages = 0;
-
-    for (const rawData of pageResults) {
-      if (rawData === FAILED) { failedPages++; continue; }
-      const events: any[] = Array.isArray(rawData?.Result) ? rawData.Result : [];
-      allEvents.push(...events);
-
-      const pageMaxMs = getMaxDateMs(events);
-      if (!Number.isFinite(latestDatasetMs) && Number.isFinite(pageMaxMs)) {
-        latestDatasetMs = pageMaxMs;
-      }
-    }
-
-    const isPartial = failedPages > 0;
-
-    const filtered = allEvents.filter((event) => {
-      if (!Number.isFinite(latestDatasetMs)) return true;
-      const eventMs = parseDateMs(event?.date_start);
-      if (!Number.isFinite(eventMs)) return false;
-      return eventMs >= (latestDatasetMs - TRAILING_WINDOW_MS);
-    });
-
-    const mapped = filtered.map((e: any): UcdpViolenceEvent => ({
+    mapped.push({
       id: String(e.id || ''),
-      dateStart: Date.parse(e.date_start) || 0,
-      dateEnd: Date.parse(e.date_end) || 0,
+      dateStart,
+      dateEnd: Date.parse(String(e.date_end)) || 0,
       location: {
         latitude: Number(e.latitude) || 0,
         longitude: Number(e.longitude) || 0,
       },
-      country: e.country || '',
-      sideA: (e.side_a || '').substring(0, 200),
-      sideB: (e.side_b || '').substring(0, 200),
+      country: String(e.country || ''),
+      sideA: String(e.side_a || '').substring(0, 200),
+      sideB: String(e.side_b || '').substring(0, 200),
       deathsBest: Number(e.best) || 0,
       deathsLow: Number(e.low) || 0,
       deathsHigh: Number(e.high) || 0,
-      violenceType: VIOLENCE_TYPE_MAP[e.type_of_violence] || 'UCDP_VIOLENCE_TYPE_UNSPECIFIED',
-      sourceOriginal: (e.source_original || '').substring(0, 300),
-    }));
-
-    mapped.sort((a, b) => b.dateStart - a.dateStart);
-    lastFailureTimestamp = 0;
-
-    if (mapped.length === 0) return null;
-
-    if (isPartial) {
-      fallbackCache = { data: mapped, timestamp: Date.now(), ttlMs: CACHE_TTL_PARTIAL * 1000 };
-      return null;
-    }
-
-    return mapped;
-  } catch {
-    lastFailureTimestamp = Date.now();
-    return null;
+      violenceType: VIOLENCE_TYPE_MAP[Number(e.type_of_violence)] || 'UCDP_VIOLENCE_TYPE_UNSPECIFIED',
+      sourceOriginal: String(e.source_original || '').substring(0, 300),
+    });
   }
+
+  mapped.sort((a, b) => b.dateStart - a.dateStart);
+  return mapped.slice(0, MAX_EVENTS);
 }
 
 export async function listUcdpEvents(
   _ctx: ServerContext,
   req: ListUcdpEventsRequest,
 ): Promise<ListUcdpEventsResponse> {
+  // 1. Try Redis cache (cloud path)
   try {
-    const cached = await cachedFetchJson<UcdpViolenceEvent[]>(CACHE_KEY, CACHE_TTL_FULL, fetchUcdpGedEvents);
-
-    if (cached && Array.isArray(cached) && cached.length > 0) {
-      fallbackCache = { data: cached, timestamp: Date.now(), ttlMs: CACHE_TTL_FULL * 1000 };
-      let events = cached;
+    const raw = await getCachedJson(CACHE_KEY, true) as { events?: UcdpViolenceEvent[]; fetchedAt?: number } | null;
+    if (raw?.events?.length && (!raw.fetchedAt || (Date.now() - raw.fetchedAt) < MAX_AGE_MS)) {
+      fallback = { events: raw.events, ts: Date.now() };
+      let events = raw.events;
       if (req.country) events = events.filter((e) => e.country === req.country);
       return { events, pagination: undefined };
     }
-  } catch {
-    // cachedFetchJson rejected — fall through to fallback
-  }
+  } catch { /* fall through */ }
 
-  if (fallbackCache.data && (Date.now() - fallbackCache.timestamp) < fallbackCache.ttlMs) {
-    let events = fallbackCache.data;
+  // 2. In-memory fallback from a previous successful fetch
+  if (fallback && (Date.now() - fallback.ts) < 12 * 60 * 60 * 1000) {
+    let events = fallback.events;
     if (req.country) events = events.filter((e) => e.country === req.country);
     return { events, pagination: undefined };
   }
-  fallbackCache = { data: null, timestamp: 0, ttlMs: CACHE_TTL_FULL * 1000 };
+
+  // 3. Direct UCDP API fetch (desktop sidecar path — no Redis available)
+  if (Date.now() - lastDirectFetchMs > DIRECT_FETCH_COOLDOWN_MS) {
+    try {
+      const events = await fetchDirectFromUcdp();
+      lastDirectFetchMs = Date.now(); // only after successful fetch
+      if (events.length > 0) {
+        fallback = { events, ts: Date.now() };
+        let filtered = events;
+        if (req.country) filtered = filtered.filter((e) => e.country === req.country);
+        return { events: filtered, pagination: undefined };
+      }
+    } catch { /* fall through to empty */ }
+  }
 
   return { events: [], pagination: undefined };
 }

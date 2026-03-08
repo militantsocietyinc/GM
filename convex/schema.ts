@@ -8,8 +8,12 @@ export default defineSchema({
     registeredAt: v.number(),
     source: v.optional(v.string()),
     appVersion: v.optional(v.string()),
-  }).index("by_normalized_email", ["normalizedEmail"]),
-
+    referralCode: v.optional(v.string()),
+    referredBy: v.optional(v.string()),
+    referralCount: v.optional(v.number()),
+  })
+    .index("by_normalized_email", ["normalizedEmail"])
+    .index("by_referral_code", ["referralCode"]),
   digestSubscriptions: defineTable({
     email: v.string(),
     normalizedEmail: v.string(),
@@ -25,4 +29,8 @@ export default defineSchema({
     .index("by_normalized_email", ["normalizedEmail"])
     .index("by_token", ["token"])
     .index("by_confirmed_frequency", ["confirmed", "frequency"]),
+  counters: defineTable({
+    name: v.string(),
+    value: v.number(),
+  }).index("by_name", ["name"]),
 });

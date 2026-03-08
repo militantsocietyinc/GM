@@ -59,43 +59,80 @@ function isTransientVerificationError(error) {
   return /timed out|timeout|network|fetch failed|failed to fetch|socket hang up/i.test(error.message);
 }
 
+// Global concurrency limiter for upstream requests.
+let _activeUpstream = 0;
+const _upstreamQueue = [];
+const MAX_CONCURRENT_UPSTREAM = 6;
+function acquireUpstreamSlot() {
+  if (_activeUpstream < MAX_CONCURRENT_UPSTREAM) {
+    _activeUpstream++;
+    return Promise.resolve();
+  }
+  return new Promise(resolve => _upstreamQueue.push(resolve));
+}
+function releaseUpstreamSlot() {
+  if (_upstreamQueue.length > 0) {
+    _upstreamQueue.shift()();
+  } else {
+    _activeUpstream--;
+  }
+}
+
+// Global Yahoo Finance rate gate — shared across ALL handler bundles.
+let _yahooLastReq = 0;
+let _yahooQueue = Promise.resolve();
+function sidecarYahooGate() {
+  _yahooQueue = _yahooQueue.then(async () => {
+    const elapsed = Date.now() - _yahooLastReq;
+    if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
+    _yahooLastReq = Date.now();
+  });
+  return _yahooQueue;
+}
+
 globalThis.fetch = async function ipv4Fetch(input, init) {
   const isRequest = input && typeof input === 'object' && 'url' in input;
   let url;
   try { url = new URL(typeof input === 'string' ? input : input.url); } catch { return _originalFetch(input, init); }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return _originalFetch(input, init);
-  const mod = url.protocol === 'https:' ? https : http;
-  const method = init?.method || (isRequest ? input.method : 'GET');
-  const body = await resolveRequestBody(input, init, method, isRequest);
-  const headers = {};
-  const rawHeaders = init?.headers || (isRequest ? input.headers : null);
-  if (rawHeaders) {
-    const h = rawHeaders instanceof Headers ? Object.fromEntries(rawHeaders.entries())
-      : Array.isArray(rawHeaders) ? Object.fromEntries(rawHeaders) : rawHeaders;
-    Object.assign(headers, h);
-  }
-  return new Promise((resolve, reject) => {
-    const req = mod.request({ hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80), path: url.pathname + url.search, method, headers, family: 4 }, (res) => {
-      const chunks = [];
-      res.on('data', (c) => chunks.push(c));
-      res.on('end', () => {
-        const buf = Buffer.concat(chunks);
-        const responseHeaders = new Headers();
-        for (const [k, v] of Object.entries(res.headers)) {
-          if (v) responseHeaders.set(k, Array.isArray(v) ? v.join(', ') : v);
-        }
-        try {
-          resolve(buildSafeResponse(res.statusCode, res.statusMessage, responseHeaders, buf));
-        } catch (error) {
-          reject(error);
-        }
+  if (url.hostname.includes('finance.yahoo.com')) await sidecarYahooGate();
+  await acquireUpstreamSlot();
+  try {
+    const mod = url.protocol === 'https:' ? https : http;
+    const method = init?.method || (isRequest ? input.method : 'GET');
+    const body = await resolveRequestBody(input, init, method, isRequest);
+    const headers = {};
+    const rawHeaders = init?.headers || (isRequest ? input.headers : null);
+    if (rawHeaders) {
+      const h = rawHeaders instanceof Headers ? Object.fromEntries(rawHeaders.entries())
+        : Array.isArray(rawHeaders) ? Object.fromEntries(rawHeaders) : rawHeaders;
+      Object.assign(headers, h);
+    }
+    return await new Promise((resolve, reject) => {
+      const req = mod.request({ hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80), path: url.pathname + url.search, method, headers, family: 4 }, (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          const responseHeaders = new Headers();
+          for (const [k, v] of Object.entries(res.headers)) {
+            if (v) responseHeaders.set(k, Array.isArray(v) ? v.join(', ') : v);
+          }
+          try {
+            resolve(buildSafeResponse(res.statusCode, res.statusMessage, responseHeaders, buf));
+          } catch (error) {
+            reject(error);
+          }
+        });
       });
+      req.on('error', reject);
+      if (init?.signal) { init.signal.addEventListener('abort', () => req.destroy()); }
+      if (body != null) req.write(body);
+      req.end();
     });
-    req.on('error', reject);
-    if (init?.signal) { init.signal.addEventListener('abort', () => req.destroy()); }
-    if (body != null) req.write(body);
-    req.end();
-  });
+  } finally {
+    releaseUpstreamSlot();
+  }
 };
 
 const ALLOWED_ENV_KEYS = new Set([
@@ -105,7 +142,7 @@ const ALLOWED_ENV_KEYS = new Set([
   'VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET',
   'AISSTREAM_API_KEY', 'VITE_WS_RELAY_URL', 'FINNHUB_API_KEY', 'NASA_FIRMS_API_KEY',
   'OLLAMA_API_URL', 'OLLAMA_MODEL', 'WORLDMONITOR_API_KEY', 'WTO_API_KEY',
-  'AVIATIONSTACK_API', 'ICAO_API_KEY',
+  'AVIATIONSTACK_API', 'ICAO_API_KEY', 'UCDP_ACCESS_TOKEN',
 ]);
 
 const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -452,7 +489,7 @@ async function importHandler(modulePath) {
 
 function resolveConfig(options = {}) {
   const port = Number(options.port ?? process.env.LOCAL_API_PORT ?? 46123);
-  const remoteBase = String(options.remoteBase ?? process.env.LOCAL_API_REMOTE_BASE ?? 'https://worldmonitor.app').replace(/\/$/, '');
+  const remoteBase = String(options.remoteBase ?? process.env.LOCAL_API_REMOTE_BASE ?? 'https://api.worldmonitor.app').replace(/\/$/, '');
   const resourceDir = String(options.resourceDir ?? process.env.LOCAL_API_RESOURCE_DIR ?? process.cwd());
   const apiDir = options.apiDir
     ? String(options.apiDir)
@@ -716,7 +753,11 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
     }
 
     case 'ACLED_ACCESS_TOKEN': {
-      const response = await fetchWithTimeout('https://acleddata.com/api/acled/read?_format=json&limit=1', {
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const fmt = (d) => d.toISOString().split('T')[0];
+      const acledProbeUrl = `https://acleddata.com/api/acled/read?event_type=Protests&event_date=${fmt(weekAgo)}|${fmt(now)}&event_date_where=BETWEEN&limit=1&_format=json`;
+      const response = await fetchWithTimeout(acledProbeUrl, {
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${value}`,
@@ -791,8 +832,8 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
     }
 
     case 'FINNHUB_API_KEY': {
-      const response = await fetchWithTimeout(`https://finnhub.io/api/v1/quote?symbol=AAPL&token=${encodeURIComponent(value)}`, {
-        headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+      const response = await fetchWithTimeout(`https://finnhub.io/api/v1/quote?symbol=AAPL`, {
+        headers: { Accept: 'application/json', 'User-Agent': CHROME_UA, 'X-Finnhub-Token': value },
       });
       const text = await response.text();
       if (isCloudflareChallenge403(response, text)) return ok('Finnhub key stored (Cloudflare blocked verification)');
@@ -819,6 +860,26 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
       if (!response.ok) return fail(`NASA FIRMS probe failed (${response.status})`);
       if (/invalid api key|not authorized|forbidden/i.test(text)) return fail('NASA FIRMS rejected this key');
       return ok('NASA FIRMS key verified');
+    }
+
+    case 'UCDP_ACCESS_TOKEN': {
+      const year = new Date().getFullYear() - 2000;
+      const candidates = [...new Set([`${year}.1`, `${year - 1}.1`, '25.1', '24.1'])];
+      for (const version of candidates) {
+        try {
+          const response = await fetchWithTimeout(
+            `https://ucdpapi.pcr.uu.se/api/gedevents/${version}?pagesize=1`,
+            { headers: { Accept: 'application/json', 'x-ucdp-access-token': value, 'User-Agent': CHROME_UA } }
+          );
+          if (isAuthFailure(response.status)) return fail('UCDP rejected this token');
+          if (!response.ok) continue;
+          const text = await response.text();
+          let payload = null;
+          try { payload = JSON.parse(text); } catch { /* ignore */ }
+          if (Array.isArray(payload?.Result)) return ok(`UCDP token verified (GED v${version})`);
+        } catch { continue; }
+      }
+      return fail('Could not verify UCDP token (all GED versions failed)');
     }
 
     case 'OLLAMA_API_URL': {
@@ -1103,6 +1164,15 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // YouTube live detection — requires residential proxy (Railway relay).
+  // Direct fetch from sidecar fails (YouTube blocks datacenter IPs).
+  // Always proxy to cloud, bypassing the cloudFallback flag.
+  if (requestUrl.pathname === '/api/youtube/live') {
+    const cloudResponse = await tryCloudFallback(requestUrl, req, context, 'youtube-live needs relay');
+    if (cloudResponse) return cloudResponse;
+    return json({ error: 'YouTube live detection unavailable' }, 503);
+  }
+
   // RSS proxy — fetch public feeds with SSRF protection
   if (requestUrl.pathname === '/api/rss-proxy') {
     const feedUrl = requestUrl.searchParams.get('url');
@@ -1166,6 +1236,39 @@ async function dispatch(requestUrl, req, routes, context) {
       return json({ error: 'expected { key, value }' }, 400);
     }
     return json({ error: 'POST required' }, 405);
+  }
+
+  if (requestUrl.pathname === '/api/local-env-update-batch') {
+    if (req.method !== 'POST') return json({ error: 'POST required' }, 405);
+    const body = await readBody(req);
+    if (!body) return json({ error: 'expected { entries: [{key, value}, ...] }' }, 400);
+    try {
+      const { entries } = JSON.parse(body.toString());
+      if (!Array.isArray(entries)) return json({ error: 'entries must be an array' }, 400);
+      if (entries.length > 50) return json({ error: 'too many entries (max 50)' }, 400);
+      const results = [];
+      for (const { key, value } of entries) {
+        if (typeof key !== 'string' || !key.length || !ALLOWED_ENV_KEYS.has(key)) {
+          results.push({ key, ok: false, error: 'not in allowlist' });
+          continue;
+        }
+        if (value == null || value === '') {
+          delete process.env[key];
+          context.logger.log(`[local-api] env unset: ${key}`);
+        } else {
+          process.env[key] = String(value);
+          context.logger.log(`[local-api] env set: ${key}`);
+        }
+        results.push({ key, ok: true });
+      }
+      if (results.some(r => r.ok)) {
+        moduleCache.clear();
+        failedImports.clear();
+        cloudPreferred.clear();
+      }
+      return json({ ok: true, results });
+    } catch { /* bad JSON */ }
+    return json({ error: 'invalid JSON' }, 400);
   }
 
   if (requestUrl.pathname === '/api/local-validate-secret') {
@@ -1268,6 +1371,7 @@ export async function createLocalApiServer(options = {}) {
       || requestUrl.pathname === '/api/local-traffic-log'
       || requestUrl.pathname === '/api/local-debug-toggle'
       || requestUrl.pathname === '/api/local-env-update'
+      || requestUrl.pathname === '/api/local-env-update-batch'
       || requestUrl.pathname === '/api/local-validate-secret';
 
     try {

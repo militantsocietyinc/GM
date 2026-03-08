@@ -246,6 +246,7 @@ export interface ConflictZone {
   keyDevelopments?: string[];
 }
 
+
 // UCDP Georeferenced Events
 export type UcdpEventType = 'state-based' | 'non-state' | 'one-sided';
 
@@ -497,6 +498,7 @@ export interface PanelConfig {
   name: string;
   enabled: boolean;
   priority?: number;
+  premium?: 'locked' | 'enhanced';
 }
 
 export interface MapLayers {
@@ -551,8 +553,15 @@ export interface MapLayers {
   iranAttacks: boolean;
   // GPS/GNSS interference layer
   gpsJamming: boolean;
+
+  // CII choropleth layer
+  ciiChoropleth: boolean;
   // Overlay layers
   dayNight: boolean;
+  // Commodity variant layers
+  miningSites: boolean;
+  processingPlants: boolean;
+  commodityPorts: boolean;
 }
 
 export interface AIDataCenter {
@@ -936,6 +945,11 @@ export type NaturalEventCategory =
   | 'seaLakeIce'
   | 'waterColor'
   | 'manmade';
+
+export const NATURAL_EVENT_CATEGORIES: ReadonlySet<NaturalEventCategory> = new Set<NaturalEventCategory>([
+  'severeStorms', 'wildfires', 'volcanoes', 'earthquakes', 'floods', 'landslides',
+  'drought', 'dustHaze', 'snow', 'tempExtremes', 'seaLakeIce', 'waterColor', 'manmade',
+]);
 
 export interface NaturalEvent {
   id: string;

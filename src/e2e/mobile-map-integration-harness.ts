@@ -128,7 +128,12 @@ const layers = {
   renewableInstallations: false,
   tradeRoutes: false,
   iranAttacks: false,
+
+  ciiChoropleth: false,
   dayNight: false,
+  miningSites: false,
+  processingPlants: false,
+  commodityPorts: false,
 };
 
 await initI18n();

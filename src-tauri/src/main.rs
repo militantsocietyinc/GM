@@ -27,7 +27,7 @@ const MENU_HELP_GITHUB_ID: &str = "help.github";
 #[cfg(feature = "devtools")]
 const MENU_HELP_DEVTOOLS_ID: &str = "help.devtools";
 const TRUSTED_WINDOWS: [&str; 3] = ["main", "settings", "live-channels"];
-const SUPPORTED_SECRET_KEYS: [&str; 24] = [
+const SUPPORTED_SECRET_KEYS: [&str; 25] = [
     "GROQ_API_KEY",
     "OPENROUTER_API_KEY",
     "FRED_API_KEY",
@@ -46,6 +46,7 @@ const SUPPORTED_SECRET_KEYS: [&str; 24] = [
     "VITE_WS_RELAY_URL",
     "FINNHUB_API_KEY",
     "NASA_FIRMS_API_KEY",
+    "UCDP_ACCESS_TOKEN",
     "OLLAMA_API_URL",
     "OLLAMA_MODEL",
     "WORLDMONITOR_API_KEY",
@@ -54,11 +55,26 @@ const SUPPORTED_SECRET_KEYS: [&str; 24] = [
     "ICAO_API_KEY",
 ];
 
-#[derive(Default)]
 struct LocalApiState {
     child: Mutex<Option<Child>>,
     token: Mutex<Option<String>>,
     port: Mutex<Option<u16>>,
+    http_client: reqwest::Client,
+}
+
+impl Default for LocalApiState {
+    fn default() -> Self {
+        Self {
+            child: Mutex::new(None),
+            token: Mutex::new(None),
+            port: Mutex::new(None),
+            http_client: reqwest::Client::builder()
+                .use_native_tls()
+                .pool_max_idle_per_host(2)
+                .build()
+                .unwrap_or_default(),
+        }
+    }
 }
 
 /// In-memory cache for keychain secrets. Populated once at startup to avoid
@@ -74,6 +90,8 @@ struct PersistentCache {
     data: Mutex<Map<String, Value>>,
     dirty: Mutex<bool>,
     write_lock: Mutex<()>,
+    generation: Mutex<u64>,
+    flush_scheduled: Mutex<bool>,
 }
 
 impl SecretsCache {
@@ -146,6 +164,8 @@ impl PersistentCache {
             data: Mutex::new(data),
             dirty: Mutex::new(false),
             write_lock: Mutex::new(()),
+            generation: Mutex::new(0),
+            flush_scheduled: Mutex::new(false),
         }
     }
 
@@ -155,6 +175,7 @@ impl PersistentCache {
     }
 
     /// Flush to disk only if dirty. Returns Ok(true) if written.
+    /// Uses atomic write (temp file + rename) to prevent corruption on crash.
     fn flush(&self, path: &Path) -> Result<bool, String> {
         let _write_guard = self.write_lock.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -170,8 +191,13 @@ impl PersistentCache {
         let serialized = serde_json::to_string(&Value::Object(data.clone()))
             .map_err(|e| format!("Failed to serialize cache: {e}"))?;
         drop(data);
-        std::fs::write(path, serialized)
-            .map_err(|e| format!("Failed to write cache {}: {e}", path.display()))?;
+
+        let tmp = path.with_extension("tmp");
+        std::fs::write(&tmp, &serialized)
+            .map_err(|e| format!("Failed to write cache tmp {}: {e}", tmp.display()))?;
+        std::fs::rename(&tmp, path)
+            .map_err(|e| format!("Failed to rename cache {}: {e}", path.display()))?;
+
         let mut dirty = self.dirty.lock().unwrap_or_else(|e| e.into_inner());
         *dirty = false;
         Ok(true)
@@ -223,13 +249,14 @@ fn get_local_api_token(webview: Webview, state: tauri::State<'_, LocalApiState>)
 }
 
 #[tauri::command]
-fn get_desktop_runtime_info(state: tauri::State<'_, LocalApiState>) -> DesktopRuntimeInfo {
+fn get_desktop_runtime_info(webview: Webview, state: tauri::State<'_, LocalApiState>) -> Result<DesktopRuntimeInfo, String> {
+    require_trusted_window(webview.label())?;
     let port = state.port.lock().ok().and_then(|g| *g);
-    DesktopRuntimeInfo {
+    Ok(DesktopRuntimeInfo {
         os: env::consts::OS.to_string(),
         arch: env::consts::ARCH.to_string(),
         local_api_port: port,
-    }
+    })
 }
 
 #[tauri::command]
@@ -336,8 +363,59 @@ fn read_cache_entry(webview: Webview, cache: tauri::State<'_, PersistentCache>, 
     Ok(cache.get(&key))
 }
 
+const MAX_FLUSH_RETRIES: u32 = 5;
+
+fn schedule_debounced_flush(cache: &PersistentCache, app: &AppHandle) {
+    {
+        let mut gen = cache.generation.lock().unwrap_or_else(|e| e.into_inner());
+        *gen += 1;
+    }
+    let should_spawn = {
+        let mut sched = cache.flush_scheduled.lock().unwrap_or_else(|e| e.into_inner());
+        if *sched {
+            false
+        } else {
+            *sched = true;
+            true
+        }
+    };
+    if should_spawn {
+        let handle = app.app_handle().clone();
+        std::thread::spawn(move || {
+            let mut retries = 0u32;
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                let Some(c) = handle.try_state::<PersistentCache>() else { break };
+                let Ok(path) = cache_file_path(&handle) else { break };
+                let gen_before = *c.generation.lock().unwrap_or_else(|e| e.into_inner());
+                match c.flush(&path) {
+                    Ok(_) => {
+                        retries = 0;
+                        let gen_after = *c.generation.lock().unwrap_or_else(|e| e.into_inner());
+                        if gen_after > gen_before {
+                            continue;
+                        }
+                        *c.flush_scheduled.lock().unwrap_or_else(|e| e.into_inner()) = false;
+                        break;
+                    }
+                    Err(e) => {
+                        retries += 1;
+                        eprintln!("[cache] flush error ({retries}/{MAX_FLUSH_RETRIES}): {e}");
+                        if retries >= MAX_FLUSH_RETRIES {
+                            eprintln!("[cache] giving up after {MAX_FLUSH_RETRIES} failures");
+                            *c.flush_scheduled.lock().unwrap_or_else(|e| e.into_inner()) = false;
+                            break;
+                        }
+                        continue;
+                    }
+                }
+            }
+        });
+    }
+}
+
 #[tauri::command]
-fn delete_cache_entry(webview: Webview, cache: tauri::State<'_, PersistentCache>, key: String) -> Result<(), String> {
+fn delete_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, PersistentCache>, key: String) -> Result<(), String> {
     require_trusted_window(webview.label())?;
     {
         let mut data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
@@ -347,7 +425,7 @@ fn delete_cache_entry(webview: Webview, cache: tauri::State<'_, PersistentCache>
         let mut dirty = cache.dirty.lock().unwrap_or_else(|e| e.into_inner());
         *dirty = true;
     }
-    // Disk flush deferred to exit handler (cache.flush) — avoids blocking main thread
+    schedule_debounced_flush(&cache, &app);
     Ok(())
 }
 
@@ -356,7 +434,6 @@ fn write_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, P
     require_trusted_window(webview.label())?;
     let parsed_value: Value = serde_json::from_str(&value)
         .map_err(|e| format!("Invalid cache payload JSON: {e}"))?;
-    let _write_guard = cache.write_lock.lock().unwrap_or_else(|e| e.into_inner());
     {
         let mut data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
         data.insert(key, parsed_value);
@@ -365,19 +442,7 @@ fn write_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, P
         let mut dirty = cache.dirty.lock().unwrap_or_else(|e| e.into_inner());
         *dirty = true;
     }
-
-    // Flush synchronously under write lock so concurrent writes cannot reorder.
-    let path = cache_file_path(&app)?;
-    let data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
-    let serialized = serde_json::to_string(&Value::Object(data.clone()))
-        .map_err(|e| format!("Failed to serialize cache: {e}"))?;
-    drop(data);
-    std::fs::write(&path, &serialized)
-        .map_err(|e| format!("Failed to write cache {}: {e}", path.display()))?;
-    {
-        let mut dirty = cache.dirty.lock().unwrap_or_else(|e| e.into_inner());
-        *dirty = false;
-    }
+    schedule_debounced_flush(&cache, &app);
     Ok(())
 }
 
@@ -425,8 +490,8 @@ fn open_in_shell(arg: &str) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     let mut command = {
-        let mut cmd = Command::new("explorer");
-        cmd.arg(arg);
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/c", "start", "", arg]);
         cmd
     };
 
@@ -450,7 +515,8 @@ fn open_path_in_shell(path: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_url(url: String) -> Result<(), String> {
+fn open_url(webview: Webview, url: String) -> Result<(), String> {
+    require_trusted_window(webview.label())?;
     let parsed = Url::parse(&url).map_err(|_| "Invalid URL".to_string())?;
 
     match parsed.scheme() {
@@ -506,9 +572,24 @@ fn close_settings_window(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn open_live_channels_window_command(
+    webview: Webview,
     app: AppHandle,
     base_url: Option<String>,
 ) -> Result<(), String> {
+    require_trusted_window(webview.label())?;
+    if let Some(ref url) = base_url {
+        if !url.is_empty() {
+            let parsed = Url::parse(url).map_err(|_| "Invalid base URL".to_string())?;
+            match parsed.scheme() {
+                "http" => match parsed.host_str() {
+                    Some("localhost") | Some("127.0.0.1") => {}
+                    _ => return Err("base_url http only allowed for localhost".to_string()),
+                },
+                "https" => {}
+                _ => return Err("base_url must be http(s)".to_string()),
+            }
+        }
+    }
     open_live_channels_window(&app, base_url)
 }
 
@@ -525,7 +606,7 @@ fn close_live_channels_window(app: AppHandle) -> Result<(), String> {
 /// Fetch JSON from Polymarket Gamma API using native TLS (bypasses Cloudflare JA3 blocking).
 /// Called from frontend when browser CORS and sidecar Node.js TLS both fail.
 #[tauri::command]
-async fn fetch_polymarket(webview: Webview, path: String, params: String) -> Result<String, String> {
+async fn fetch_polymarket(webview: Webview, state: tauri::State<'_, LocalApiState>, path: String, params: String) -> Result<String, String> {
     require_trusted_window(webview.label())?;
     let allowed = ["events", "markets", "tags"];
     let segment = path.trim_start_matches('/');
@@ -533,11 +614,7 @@ async fn fetch_polymarket(webview: Webview, path: String, params: String) -> Res
         return Err("Invalid Polymarket path".into());
     }
     let url = format!("https://gamma-api.polymarket.com/{}?{}", segment, params);
-    let client = reqwest::Client::builder()
-        .use_native_tls()
-        .build()
-        .map_err(|e| format!("HTTP client error: {e}"))?;
-    let resp = client
+    let resp = state.http_client
         .get(&url)
         .header("Accept", "application/json")
         .timeout(std::time::Duration::from_secs(10))
@@ -563,6 +640,7 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
 
     let _settings_window = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
         .title("World Monitor Settings")
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
         .inner_size(980.0, 600.0)
         .min_inner_size(820.0, 480.0)
         .resizable(true)
@@ -600,6 +678,7 @@ fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Resul
 
     let _live_channels_window = WebviewWindowBuilder::new(app, "live-channels", url)
     .title("Channel management - World Monitor")
+    .title_bar_style(tauri::TitleBarStyle::Overlay)
     .inner_size(680.0, 760.0)
     .min_inner_size(520.0, 600.0)
     .resizable(true)
@@ -641,7 +720,8 @@ fn open_youtube_login_window(app: &AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn open_youtube_login(app: AppHandle) -> Result<(), String> {
+async fn open_youtube_login(webview: Webview, app: AppHandle) -> Result<(), String> {
+    require_trusted_window(webview.label())?;
     open_youtube_login_window(&app)
 }
 
@@ -849,9 +929,17 @@ fn resolve_node_binary(app: &AppHandle) -> Option<PathBuf> {
     if !cfg!(debug_assertions) {
         let node_name = if cfg!(windows) { "node.exe" } else { "node" };
         if let Ok(resource_dir) = app.path().resource_dir() {
-            let bundled = resource_dir.join("sidecar").join("node").join(node_name);
-            if bundled.is_file() {
-                return Some(bundled);
+            let mut candidates = vec![resource_dir.join("sidecar").join("node").join(node_name)];
+            if cfg!(windows) {
+                // NSIS resource paths can flatten nested names in some upgrade scenarios.
+                // Keep this fallback so sidecar startup still succeeds if the runtime is
+                // materialized as sidecar\node.node.exe instead of sidecar\node\node.exe.
+                candidates.push(resource_dir.join("sidecar").join("node.node.exe"));
+            }
+            for bundled in candidates {
+                if bundled.is_file() {
+                    return Some(bundled);
+                }
             }
         }
     }

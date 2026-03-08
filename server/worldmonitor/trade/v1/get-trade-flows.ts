@@ -5,9 +5,6 @@
  * NOTE: The WTO API does NOT support comma-separated indicator codes.
  * Exports and imports must be fetched in separate requests.
  */
-
-declare const process: { env: Record<string, string | undefined> };
-
 import type {
   ServerContext,
   GetTradeFlowsRequest,
@@ -127,10 +124,14 @@ async function fetchTradeFlows(
   };
 
   // Fetch exports and imports in parallel (separate requests — WTO API doesn't support comma-separated indicators)
-  const [exportsData, importsData] = await Promise.all([
+  const [exportsResult, importsResult] = await Promise.allSettled([
     wtoFetch('/data', { ...baseParams, i: ITS_MTV_AX }),
     wtoFetch('/data', { ...baseParams, i: ITS_MTV_AM }),
   ]);
+  const exportsData = exportsResult.status === 'fulfilled' ? exportsResult.value : null;
+  const importsData = importsResult.status === 'fulfilled' ? importsResult.value : null;
+  if (exportsResult.status === 'rejected') console.warn('[trade] exports fetch failed, using partial results:', exportsResult.reason);
+  if (importsResult.status === 'rejected') console.warn('[trade] imports fetch failed, using partial results:', importsResult.reason);
 
   if (!exportsData && !importsData) return { flows: [], ok: false };
 

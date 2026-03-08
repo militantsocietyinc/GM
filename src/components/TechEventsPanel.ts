@@ -37,6 +37,7 @@ export class TechEventsPanel extends Panel {
           days: 180,
           limit: 100,
         });
+        if (!this.element?.isConnected) return;
         if (!data.success) throw new Error(data.error || 'Unknown error');
 
         this.events = data.events;
@@ -44,19 +45,22 @@ export class TechEventsPanel extends Panel {
         this.error = null;
 
         if (this.events.length === 0 && attempt < 2) {
-          this.showRetrying();
+          this.showRetrying(undefined, 15);
           await new Promise(r => setTimeout(r, 15_000));
+          if (!this.element?.isConnected) return;
           continue;
         }
         break;
       } catch (err) {
         if (this.isAbortError(err)) return;
+        if (!this.element?.isConnected) return;
         if (attempt < 2) {
-          this.showRetrying();
+          this.showRetrying(undefined, 15);
           await new Promise(r => setTimeout(r, 15_000));
+          if (!this.element?.isConnected) return;
           continue;
         }
-        this.error = err instanceof Error ? err.message : 'Failed to fetch events';
+        this.error = t('common.failedToLoad');
         console.error('[TechEvents] Fetch error:', err);
       }
     }
@@ -76,16 +80,11 @@ export class TechEventsPanel extends Panel {
     }
 
     if (this.error) {
-      replaceChildren(this.content,
-        h('div', { className: 'tech-events-error' },
-          h('span', { className: 'error-icon' }, '⚠️'),
-          h('span', { className: 'error-text' }, this.error),
-          h('button', { className: 'retry-btn', onClick: () => this.refresh() }, t('common.retry')),
-        ),
-      );
+      this.showError(this.error, () => this.refresh());
       return;
     }
 
+    this.setErrorState(false);
     const filteredEvents = this.getFilteredEvents();
     const upcomingConferences = this.events.filter(e => e.type === 'conference' && new Date(e.startDate) >= new Date());
     const mappableCount = upcomingConferences.filter(e => e.coords && !e.coords.virtual).length;
@@ -99,10 +98,10 @@ export class TechEventsPanel extends Panel {
 
     replaceChildren(this.content,
       h('div', { className: 'tech-events-panel' },
-        h('div', { className: 'tech-events-tabs' },
+        h('div', { className: 'panel-tabs' },
           ...tabEntries.map(([view, label]) =>
             h('button', {
-              className: `tab ${this.viewMode === view ? 'active' : ''}`,
+              className: `panel-tab ${this.viewMode === view ? 'active' : ''}`,
               dataset: { view },
               onClick: () => { this.viewMode = view; this.render(); },
             }, label),

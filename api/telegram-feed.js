@@ -1,85 +1,76 @@
-// Telegram feed proxy (web)
-// Fetches Telegram Early Signals from the Railway relay (stateful MTProto lives there).
-
+import { getRelayBaseUrl, getRelayHeaders, fetchWithTimeout } from './_relay.js';
 import { getCorsHeaders, isDisallowedOrigin } from './_cors.js';
 
 export const config = { runtime: 'edge' };
 
-async function fetchWithTimeout(url, options, timeoutMs = 25000) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 export default async function handler(req) {
-  const cors = getCorsHeaders(req, 'GET, OPTIONS');
-
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: cors });
-  }
+  const corsHeaders = getCorsHeaders(req, 'GET, OPTIONS');
 
   if (isDisallowedOrigin(req)) {
-    return new Response(JSON.stringify({ error: 'Origin not allowed' }), { status: 403, headers: cors });
+    return new Response(JSON.stringify({ error: 'Origin not allowed' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
-
-  let relay = process.env.WS_RELAY_URL;
-  if (!relay) {
-    return new Response(JSON.stringify({ error: 'WS_RELAY_URL not configured' }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json', ...cors },
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  if (req.method !== 'GET') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
-  // Guard: WS_RELAY_URL should be HTTP(S) for server-side fetches.
-  // If someone accidentally sets a ws:// or wss:// URL, normalize it.
-  if (relay.startsWith('wss://')) relay = relay.replace('wss://', 'https://');
-  if (relay.startsWith('ws://')) relay = relay.replace('ws://', 'http://');
-
-  const url = new URL(req.url);
-  const limit = Math.max(1, Math.min(200, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
-  const topic = (url.searchParams.get('topic') || '').trim();
-  const channel = (url.searchParams.get('channel') || '').trim();
-
-  const relayUrl = new URL('/telegram/feed', relay);
-  relayUrl.searchParams.set('limit', String(limit));
-  if (topic) relayUrl.searchParams.set('topic', topic);
-  if (channel) relayUrl.searchParams.set('channel', channel);
-
-  const fetchHeaders = { 'Accept': 'application/json' };
-  const relaySecret = process.env.RELAY_SHARED_SECRET || '';
-  if (relaySecret) {
-    const relayHeader = (process.env.RELAY_AUTH_HEADER || 'x-relay-key').toLowerCase();
-    fetchHeaders[relayHeader] = relaySecret;
-    fetchHeaders.Authorization = `Bearer ${relaySecret}`;
+  const relayBaseUrl = getRelayBaseUrl();
+  if (!relayBaseUrl) {
+    return new Response(JSON.stringify({ error: 'WS_RELAY_URL is not configured' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
 
   try {
-    const res = await fetchWithTimeout(relayUrl.toString(), {
-      headers: fetchHeaders,
-    }, 25000);
+    const url = new URL(req.url);
+    const limit = Math.max(1, Math.min(200, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+    const topic = (url.searchParams.get('topic') || '').trim();
+    const channel = (url.searchParams.get('channel') || '').trim();
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    if (topic) params.set('topic', encodeURIComponent(topic));
+    if (channel) params.set('channel', encodeURIComponent(channel));
 
-    const text = await res.text();
-    return new Response(text, {
-      status: res.status,
+    const relayUrl = `${relayBaseUrl}/telegram/feed?${params}`;
+    const response = await fetchWithTimeout(relayUrl, {
+      headers: getRelayHeaders({ Accept: 'application/json' }),
+    }, 15000);
+
+    const body = await response.text();
+
+    let cacheControl = 'public, max-age=30, s-maxage=120, stale-while-revalidate=60, stale-if-error=120';
+    try {
+      const parsed = JSON.parse(body);
+      if (!parsed || parsed.count === 0 || !parsed.items || parsed.items.length === 0) {
+        cacheControl = 'public, max-age=0, s-maxage=15, stale-while-revalidate=10';
+      }
+    } catch {}
+
+    return new Response(body, {
+      status: response.status,
       headers: {
-        'Content-Type': res.headers.get('content-type') || 'application/json',
-        // Short cache. Telegram is near-real-time.
-        'Cache-Control': 'public, max-age=10',
-        ...cors,
+        'Content-Type': response.headers.get('content-type') || 'application/json',
+        'Cache-Control': cacheControl,
+        ...corsHeaders,
       },
     });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const isAbort = err && (err.name === 'AbortError' || /aborted/i.test(msg));
+  } catch (error) {
+    const isTimeout = error?.name === 'AbortError';
     return new Response(JSON.stringify({
-      error: isAbort ? 'Telegram relay request timed out' : 'Telegram relay fetch failed',
+      error: isTimeout ? 'Relay timeout' : 'Relay request failed',
+      details: error?.message || String(error),
     }), {
-      status: isAbort ? 504 : 502,
-      headers: { 'Content-Type': 'application/json', ...cors },
+      status: isTimeout ? 504 : 502,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders },
     });
   }
 }

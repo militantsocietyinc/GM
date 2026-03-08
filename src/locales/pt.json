@@ -2202,6 +2202,7 @@
     "sourceRegionGulfMena": "Golfo & MENA",
     "filterPanels": "Filtrar painéis...",
     "resetLayout": "Redefinir layout",
+    "resetLayoutTooltip": "Restore default panel arrangement",
     "unsavedChanges": "Você tem alterações de painel não salvas. Descartá-las?",
     "panelCatCore": "Principal",
     "panelCatIntelligence": "Inteligência",

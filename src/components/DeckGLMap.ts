@@ -270,16 +270,12 @@ const CONFLICT_COUNTRY_ISO: Record<string, string[]> = {
   myanmar: ['MM'],
 };
 
-function isClosedRing(ring: [number, number][]): boolean {
-  if (ring.length < 2) return false;
-  const [firstLon, firstLat] = ring[0];
-  const [lastLon, lastLat] = ring[ring.length - 1];
-  return firstLon === lastLon && firstLat === lastLat;
-}
-
-function closeRing(ring: [number, number][]): [number, number][] {
-  if (ring.length === 0 || isClosedRing(ring)) return ring;
-  return [...ring, ring[0]];
+function ensureClosedRing(ring: [number, number][]): [number, number][] {
+  if (ring.length < 2) return ring;
+  const first = ring[0]!;
+  const last = ring[ring.length - 1]!;
+  if (first[0] === last[0] && first[1] === last[1]) return ring;
+  return [...ring, first];
 }
 
 export class DeckGLMap {
@@ -338,6 +334,7 @@ export class DeckGLMap {
   private speciesRecoveryZones: Array<SpeciesRecovery & { recoveryZone: { name: string; lat: number; lon: number } }> = [];
   private renewableInstallations: RenewableInstallation[] = [];
   private countriesGeoJsonData: FeatureCollection<Geometry> | null = null;
+  private conflictZoneGeoJson: GeoJSON.FeatureCollection | null = null;
 
   // CII choropleth data
   private ciiScoresMap: Map<string, { score: number; level: string }> = new Map();
@@ -1548,6 +1545,8 @@ export class DeckGLMap {
   }
 
   private buildConflictZoneGeoJson(): GeoJSON.FeatureCollection {
+    if (this.conflictZoneGeoJson) return this.conflictZoneGeoJson;
+
     const features: GeoJSON.Feature[] = [];
 
     for (const zone of CONFLICT_ZONES) {
@@ -1561,12 +1560,7 @@ export class DeckGLMap {
 
           features.push({
             type: 'Feature',
-            properties: {
-              ...(feature.properties ?? {}),
-              id: zone.id,
-              name: zone.name,
-              intensity: zone.intensity,
-            },
+            properties: { id: zone.id, name: zone.name, intensity: zone.intensity },
             geometry: feature.geometry,
           });
           usedCountryGeometry = true;
@@ -1578,14 +1572,12 @@ export class DeckGLMap {
       features.push({
         type: 'Feature',
         properties: { id: zone.id, name: zone.name, intensity: zone.intensity },
-        geometry: { type: 'Polygon', coordinates: [closeRing(zone.coords)] },
+        geometry: { type: 'Polygon', coordinates: [ensureClosedRing(zone.coords)] },
       });
     }
 
-    return {
-      type: 'FeatureCollection',
-      features,
-    };
+    this.conflictZoneGeoJson = { type: 'FeatureCollection', features };
+    return this.conflictZoneGeoJson;
   }
 
   private createConflictZonesLayer(): GeoJsonLayer {
@@ -4896,6 +4888,7 @@ export class DeckGLMap {
       .then((geojson) => {
         if (!this.maplibreMap || !geojson) return;
         this.countriesGeoJsonData = geojson;
+        this.conflictZoneGeoJson = null;
         this.maplibreMap.addSource('country-boundaries', {
           type: 'geojson',
           data: geojson,

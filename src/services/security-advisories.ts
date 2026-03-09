@@ -1,13 +1,9 @@
-import { isDesktopRuntime } from '@/services/runtime';
-import { proxyUrl } from '@/utils';
+import { rssProxyUrl } from '@/utils';
 import { getPersistentCache, setPersistentCache } from './persistent-cache';
 import { dataFreshness } from './data-freshness';
 import { nameToCountryCode, matchCountryNamesInText } from './country-geometry';
 
-function advisoryFeedUrl(feedUrl: string): string {
-  if (isDesktopRuntime()) return proxyUrl(feedUrl);
-  return `/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`;
-}
+const advisoryFeedUrl = rssProxyUrl;
 
 export interface SecurityAdvisory {
   title: string;
@@ -62,27 +58,6 @@ const ADVISORY_FEEDS: AdvisoryFeed[] = [
     sourceCountry: 'US',
     url: 'https://travel.state.gov/_res/rss/TAsTWs.xml',
     parseLevel: parseUsLevel,
-  },
-  // Australia (DFAT Smartraveller) — all destinations
-  {
-    name: 'AU Smartraveller',
-    sourceCountry: 'AU',
-    url: 'https://www.smartraveller.gov.au/countries/documents/index.rss',
-    parseLevel: parseAuLevel,
-  },
-  // Australia — Do Not Travel specifically
-  {
-    name: 'AU DNT',
-    sourceCountry: 'AU',
-    url: 'https://www.smartraveller.gov.au/countries/documents/do-not-travel.rss',
-    parseLevel: () => 'do-not-travel',
-  },
-  // Australia — Reconsider
-  {
-    name: 'AU Reconsider',
-    sourceCountry: 'AU',
-    url: 'https://www.smartraveller.gov.au/countries/documents/reconsider-your-need-to-travel.rss',
-    parseLevel: () => 'reconsider',
   },
   // New Zealand MFAT
   {

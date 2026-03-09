@@ -8,11 +8,12 @@ import {
   STORAGE_KEYS,
   SITE_VARIANT,
 } from '@/config';
+import { sanitizeLayersForVariant } from '@/config/map-layer-definitions';
+import type { MapVariant } from '@/config/map-layer-definitions';
 import { initDB, cleanOldSnapshots, isAisConfigured, initAisStream, isOutagesConfigured, disconnectAisStream } from '@/services';
 import { mlWorker } from '@/services/ml-worker';
 import { getAiFlowSettings, subscribeAiFlowChange, isHeadlineMemoryEnabled } from '@/services/ai-flow-settings';
 import { startLearning } from '@/services/country-instability';
-import { dataFreshness } from '@/services/data-freshness';
 import { loadFromStorage, parseMapUrlState, saveToStorage, isMobileDevice } from '@/utils';
 import type { ParsedMapUrlState } from '@/utils';
 import { SignalModal, IntelligenceGapBadge, BreakingNewsBanner } from '@/components';
@@ -23,7 +24,8 @@ import type { ETFFlowsPanel } from '@/components/ETFFlowsPanel';
 import type { MacroSignalsPanel } from '@/components/MacroSignalsPanel';
 import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
 import type { StrategicRiskPanel } from '@/components/StrategicRiskPanel';
-import { isDesktopRuntime } from '@/services/runtime';
+import { isDesktopRuntime, waitForSidecarReady } from '@/services/runtime';
+import { getSecretState } from '@/services/runtime-config';
 import { BETA_MODE } from '@/config/beta';
 import { trackEvent, trackDeeplinkOpened } from '@/services/analytics';
 import { preloadCountryGeometry, getCountryNameByCode } from '@/services/country-geometry';
@@ -38,7 +40,8 @@ import { RefreshScheduler } from '@/app/refresh-scheduler';
 import { PanelLayoutManager } from '@/app/panel-layout';
 import { DataLoaderManager } from '@/app/data-loader';
 import { EventHandlerManager } from '@/app/event-handlers';
-import { resolveUserRegion } from '@/utils/user-location';
+import { resolveUserRegion, resolvePreciseUserCoordinates, type PreciseCoordinates } from '@/utils/user-location';
+import { showProBanner } from '@/components/ProBanner';
 
 const CYBER_LAYER_ENABLED = import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true';
 
@@ -89,16 +92,16 @@ export class App {
       localStorage.removeItem(STORAGE_KEYS.mapLayers);
       localStorage.removeItem(STORAGE_KEYS.panels);
       localStorage.removeItem(PANEL_ORDER_KEY);
+      localStorage.removeItem(PANEL_ORDER_KEY + '-bottom');
+      localStorage.removeItem(PANEL_ORDER_KEY + '-bottom-set');
       localStorage.removeItem(PANEL_SPANS_KEY);
-      mapLayers = { ...defaultLayers };
+      mapLayers = sanitizeLayersForVariant({ ...defaultLayers }, currentVariant as MapVariant);
       panelSettings = { ...DEFAULT_PANELS };
     } else {
-      mapLayers = loadFromStorage<MapLayers>(STORAGE_KEYS.mapLayers, defaultLayers);
-      // Happy variant: force non-happy layers off even if localStorage has stale true values
-      if (currentVariant === 'happy') {
-        const unhappyLayers: (keyof MapLayers)[] = ['conflicts', 'bases', 'hotspots', 'nuclear', 'irradiators', 'sanctions', 'military', 'protests', 'pipelines', 'waterways', 'ais', 'flights', 'spaceports', 'minerals', 'natural', 'fires', 'outages', 'cyberThreats', 'weather', 'economic', 'cables', 'datacenters', 'ucdpEvents', 'displacement', 'climate', 'iranAttacks'];
-        unhappyLayers.forEach(layer => { mapLayers[layer] = false; });
-      }
+      mapLayers = sanitizeLayersForVariant(
+        loadFromStorage<MapLayers>(STORAGE_KEYS.mapLayers, defaultLayers),
+        currentVariant as MapVariant,
+      );
       panelSettings = loadFromStorage<Record<string, PanelConfig>>(
         STORAGE_KEYS.panels,
         DEFAULT_PANELS
@@ -125,7 +128,7 @@ export class App {
             newOrder.push(...priorityPanels.filter(p => order.includes(p)));
             newOrder.push(...filtered);
             localStorage.setItem(PANEL_ORDER_KEY, JSON.stringify(newOrder));
-            console.log('[App] Migrated panel order to v1.8 layout');
+            console.log('[App] Migrated panel order to v1.9 layout');
           } catch {
             // Invalid saved order, will use defaults
           }
@@ -164,6 +167,8 @@ export class App {
       const hadSavedSpans = !!localStorage.getItem(PANEL_SPANS_KEY);
       if (hadSavedOrder || hadSavedSpans) {
         localStorage.removeItem(PANEL_ORDER_KEY);
+        localStorage.removeItem(PANEL_ORDER_KEY + '-bottom');
+        localStorage.removeItem(PANEL_ORDER_KEY + '-bottom-set');
         localStorage.removeItem(PANEL_SPANS_KEY);
         console.log('[App] Applied layout reset migration (v2.5): cleared panel order/spans');
       }
@@ -172,34 +177,20 @@ export class App {
 
     // Desktop key management panel must always remain accessible in Tauri.
     if (isDesktopApp) {
-      const runtimePanel = panelSettings['runtime-config'] ?? {
-        name: 'Desktop Configuration',
-        enabled: true,
-        priority: 2,
-      };
-      runtimePanel.enabled = true;
-      panelSettings['runtime-config'] = runtimePanel;
-      saveToStorage(STORAGE_KEYS.panels, panelSettings);
+      if (!panelSettings['runtime-config']) {
+        panelSettings['runtime-config'] = {
+          name: 'Desktop Configuration',
+          enabled: true,
+          priority: 2,
+        };
+        saveToStorage(STORAGE_KEYS.panels, panelSettings);
+      }
     }
 
     let initialUrlState: ParsedMapUrlState | null = parseMapUrlState(window.location.search, mapLayers);
     if (initialUrlState.layers) {
-      if (currentVariant === 'tech') {
-        const geoLayers: (keyof MapLayers)[] = ['conflicts', 'bases', 'hotspots', 'nuclear', 'irradiators', 'sanctions', 'military', 'protests', 'pipelines', 'waterways', 'ais', 'flights', 'spaceports', 'minerals'];
-        const urlLayers = initialUrlState.layers;
-        geoLayers.forEach(layer => {
-          urlLayers[layer] = false;
-        });
-      }
-      // For happy variant, force off all non-happy layers (including natural events)
-      if (currentVariant === 'happy') {
-        const unhappyLayers: (keyof MapLayers)[] = ['conflicts', 'bases', 'hotspots', 'nuclear', 'irradiators', 'sanctions', 'military', 'protests', 'pipelines', 'waterways', 'ais', 'flights', 'spaceports', 'minerals', 'natural', 'fires', 'outages', 'cyberThreats', 'weather', 'economic', 'cables', 'datacenters', 'ucdpEvents', 'displacement', 'climate', 'iranAttacks'];
-        const urlLayers = initialUrlState.layers;
-        unhappyLayers.forEach(layer => {
-          urlLayers[layer] = false;
-        });
-      }
-      mapLayers = initialUrlState.layers;
+      mapLayers = sanitizeLayersForVariant(initialUrlState.layers, currentVariant as MapVariant);
+      initialUrlState.layers = mapLayers;
     }
     if (!CYBER_LAYER_ENABLED) {
       mapLayers.cyberThreats = false;
@@ -261,7 +252,6 @@ export class App {
       playbackControl: null,
       exportPanel: null,
       unifiedSettings: null,
-      mobileWarningModal: null,
       pizzintIndicator: null,
       countryBriefPage: null,
       countryTimeline: null,
@@ -292,6 +282,7 @@ export class App {
 
     this.dataLoader = new DataLoaderManager(this.state, {
       renderCriticalBanner: (postures) => this.panelLayout.renderCriticalBanner(postures),
+      refreshOpenCountryBrief: () => this.countryIntel.refreshOpenBrief(),
     });
 
     this.searchManager = new SearchManager(this.state, {
@@ -300,6 +291,10 @@ export class App {
 
     this.panelLayout = new PanelLayoutManager(this.state, {
       openCountryStory: (code, name) => this.countryIntel.openCountryStory(code, name),
+      openCountryBrief: (code) => {
+        const name = CountryIntelManager.resolveCountryName(code);
+        void this.countryIntel.openCountryBriefByCode(code, name);
+      },
       loadAllData: () => this.dataLoader.loadAllData(),
       updateMonitorResults: () => this.dataLoader.updateMonitorResults(),
       loadSecurityAdvisories: () => this.dataLoader.loadSecurityAdvisories(),
@@ -314,6 +309,8 @@ export class App {
       waitForAisData: () => this.dataLoader.waitForAisData(),
       syncDataFreshnessWithLayers: () => this.dataLoader.syncDataFreshnessWithLayers(),
       ensureCorrectZones: () => this.panelLayout.ensureCorrectZones(),
+      refreshOpenCountryBrief: () => this.countryIntel.refreshOpenBrief(),
+      stopLayerActivity: (layer) => this.dataLoader.stopLayerActivity(layer),
     });
 
     // Wire cross-module callback: DataLoader → SearchManager
@@ -378,14 +375,30 @@ export class App {
       initAisStream();
     }
 
+    // Wait for sidecar readiness on desktop so bootstrap hits a live server
+    if (isDesktopRuntime()) {
+      await waitForSidecarReady(3000);
+    }
+
     // Hydrate in-memory cache from bootstrap endpoint (before panels construct and fetch)
     await fetchBootstrapData();
+
+    const geoCoordsPromise: Promise<PreciseCoordinates | null> =
+      this.state.isMobile && this.state.initialUrlState?.lat === undefined && this.state.initialUrlState?.lon === undefined
+        ? resolvePreciseUserCoordinates(5000)
+        : Promise.resolve(null);
 
     const resolvedRegion = await resolveUserRegion();
     this.state.resolvedLocation = resolvedRegion;
 
     // Phase 1: Layout (creates map + panels — they'll find hydrated data)
     this.panelLayout.init();
+    showProBanner(this.state.container);
+
+    const mobileGeoCoords = await geoCoordsPromise;
+    if (mobileGeoCoords && this.state.map) {
+      this.state.map.setCenter(mobileGeoCoords.lat, mobileGeoCoords.lon, 6);
+    }
 
     // Happy variant: pre-populate panels from persistent cache for instant render
     if (SITE_VARIANT === 'happy') {
@@ -418,7 +431,6 @@ export class App {
 
     // Phase 3: UI setup methods
     this.eventHandlers.startHeaderClock();
-    this.eventHandlers.setupMobileWarning();
     this.eventHandlers.setupPlaybackControl();
     this.eventHandlers.setupStatusPanel();
     this.eventHandlers.setupPizzIntIndicator();
@@ -444,6 +456,10 @@ export class App {
       this.eventHandlers.syncUrlState();
     });
 
+    // Start deep link handling early — its retry loop polls hasSufficientData()
+    // independently, so it must not be gated behind loadAllData() which can hang.
+    this.handleDeepLinks();
+
     // Phase 6: Data loading
     this.dataLoader.syncDataFreshnessWithLayers();
     await preloadCountryGeometry();
@@ -467,8 +483,7 @@ export class App {
     this.eventHandlers.setupSnapshotSaving();
     cleanOldSnapshots().catch((e) => console.warn('[Storage] Snapshot cleanup failed:', e));
 
-    // Phase 8: Deep links + update checks
-    this.handleDeepLinks();
+    // Phase 8: Update checks
     this.desktopUpdater.init();
 
     // Analytics
@@ -497,9 +512,7 @@ export class App {
 
   private handleDeepLinks(): void {
     const url = new URL(window.location.href);
-    const MAX_DEEP_LINK_RETRIES = 60;
-    const DEEP_LINK_RETRY_INTERVAL_MS = 500;
-    const DEEP_LINK_INITIAL_DELAY_MS = 2000;
+    const DEEP_LINK_INITIAL_DELAY_MS = 1500;
 
     // Check for country brief deep link: ?c=IR (captured early before URL sync)
     const storyCode = this.pendingDeepLinkStoryCode ?? url.searchParams.get('c');
@@ -509,26 +522,12 @@ export class App {
       if (countryCode) {
         trackDeeplinkOpened('country', countryCode);
         const countryName = getCountryNameByCode(countryCode.toUpperCase()) || countryCode;
-
-        let attempts = 0;
-        const checkAndOpen = () => {
-          if (dataFreshness.hasSufficientData()) {
-            this.countryIntel.openCountryBriefByCode(countryCode.toUpperCase(), countryName, {
-              maximize: true,
-            });
-            this.eventHandlers.syncUrlState();
-            return;
-          }
-          attempts += 1;
-          if (attempts >= MAX_DEEP_LINK_RETRIES) {
-            this.eventHandlers.showToast('Data not available');
-            return;
-          } else {
-            setTimeout(checkAndOpen, DEEP_LINK_RETRY_INTERVAL_MS);
-          }
-        };
-        setTimeout(checkAndOpen, DEEP_LINK_INITIAL_DELAY_MS);
-
+        setTimeout(() => {
+          this.countryIntel.openCountryBriefByCode(countryCode.toUpperCase(), countryName, {
+            maximize: true,
+          });
+          this.eventHandlers.syncUrlState();
+        }, DEEP_LINK_INITIAL_DELAY_MS);
         return;
       }
     }
@@ -541,24 +540,12 @@ export class App {
     if (deepLinkCountry) {
       trackDeeplinkOpened('country', deepLinkCountry);
       const cName = CountryIntelManager.resolveCountryName(deepLinkCountry);
-      let attempts = 0;
-      const checkAndOpenBrief = () => {
-        if (dataFreshness.hasSufficientData()) {
-          this.countryIntel.openCountryBriefByCode(deepLinkCountry, cName, {
-            maximize: deepLinkExpanded,
-          });
-          this.eventHandlers.syncUrlState();
-          return;
-        }
-        attempts += 1;
-        if (attempts >= MAX_DEEP_LINK_RETRIES) {
-          this.eventHandlers.showToast('Data not available');
-          return;
-        } else {
-          setTimeout(checkAndOpenBrief, DEEP_LINK_RETRY_INTERVAL_MS);
-        }
-      };
-      setTimeout(checkAndOpenBrief, DEEP_LINK_INITIAL_DELAY_MS);
+      setTimeout(() => {
+        this.countryIntel.openCountryBriefByCode(deepLinkCountry, cName, {
+          maximize: deepLinkExpanded,
+        });
+        this.eventHandlers.syncUrlState();
+      }, DEEP_LINK_INITIAL_DELAY_MS);
     }
   }
 
@@ -590,6 +577,27 @@ export class App {
           }, intervalMs: 10 * 60 * 1000, condition: () => CYBER_LAYER_ENABLED && this.state.mapLayers.cyberThreats
         },
       ]);
+    }
+
+    if (SITE_VARIANT === 'finance') {
+      this.refreshScheduler.scheduleRefresh(
+        'stock-analysis',
+        () => this.dataLoader.loadStockAnalysis(),
+        15 * 60 * 1000,
+        () => getSecretState('WORLDMONITOR_API_KEY').present,
+      );
+      this.refreshScheduler.scheduleRefresh(
+        'daily-market-brief',
+        () => this.dataLoader.loadDailyMarketBrief(),
+        60 * 60 * 1000,
+        () => getSecretState('WORLDMONITOR_API_KEY').present,
+      );
+      this.refreshScheduler.scheduleRefresh(
+        'stock-backtest',
+        () => this.dataLoader.loadStockBacktest(),
+        4 * 60 * 60 * 1000,
+        () => getSecretState('WORLDMONITOR_API_KEY').present,
+      );
     }
 
     // Panel-level refreshes (moved from panel constructors into scheduler for hidden-tab awareness + jitter)
@@ -630,8 +638,13 @@ export class App {
       () => !!this.state.panels['strategic-risk']
     );
 
+    // Server-side temporal anomalies (news + satellite_fires)
+    if (SITE_VARIANT !== 'happy') {
+      this.refreshScheduler.scheduleRefresh('temporalBaseline', () => this.dataLoader.refreshTemporalBaseline(), 600_000);
+    }
+
     // WTO trade policy data — annual data, poll every 10 min to avoid hammering upstream
-    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
+    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance' || SITE_VARIANT === 'commodity') {
       this.refreshScheduler.scheduleRefresh('tradePolicy', () => this.dataLoader.loadTradePolicy(), 10 * 60 * 1000);
       this.refreshScheduler.scheduleRefresh('supplyChain', () => this.dataLoader.loadSupplyChain(), 10 * 60 * 1000);
     }

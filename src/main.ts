@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import * as Sentry from '@sentry/browser';
 import { inject } from '@vercel/analytics';
 import { App } from './App';
+import { installUtmInterceptor } from './utils/utm';
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN?.trim();
 
@@ -58,6 +59,12 @@ Sentry.init({
     /objectStoreNames/,
     /Unexpected identifier 'https'/,
     /Can't find variable: _0x/,
+    /Can't find variable: video/,
+    /hackLocationFailed is not defined/,
+    /userScripts is not defined/,
+    /NS_ERROR_ABORT/,
+    /DataCloneError.*could not be cloned/,
+    /cannot decode message/,
     /WKWebView was deallocated/,
     /Unexpected end of(?: JSON)? input/,
     /window\.android\.\w+ is not a function/,
@@ -138,7 +145,7 @@ Sentry.init({
     /The fetching process for the media resource was aborted/,
     /Invalid regular expression: missing/,
     /WeixinJSBridge/,
-    /evaluating 'e\.type'/,
+    /evaluating '\w+\.type'/,
     /Policy with name .* already exists/,
     /[sx]wbrowser is not defined/,
     /browser\.storage\.local/,
@@ -160,13 +167,62 @@ Sentry.init({
     /missing \) after argument list/,
     /Error invoking postMessage: Java exception/,
     /IndexSizeError/,
+    /Cannot add property \w+, object is not extensible/,
+    /Failed to construct 'Worker'.*cannot be accessed from origin/,
+    /undefined is not an object \(evaluating '(?:this\.)?media(?:Controller)?\.(?:duration|videoTracks|readyState|audioTracks|media)/,
+    /\$ is not defined/,
+    /Qt\(\) is not a function/,
+    /out of memory/,
+    /Could not connect to the server/,
+    /shaderSource must be an instance of WebGLShader/,
+    /Failed to initialize WebGL/,
+    /opacityVertexArray\.length/,
+    /Length of new data is \d+, which doesn't match current length of/,
+    /^AJAXError:.*(?:Load failed|Unauthorized|\(401\))/,
+    /^NetworkError: Load failed$/,
+    /^A network error occurred\.?$/,
+    /nmhCrx is not defined/,
+    /navigationPerformanceLoggerJavascriptInterface/,
+    /jQuery is not defined/,
+    /illegal UTF-16 sequence/,
+    /detectIncognito/,
+    /Cannot read properties of null \(reading '__uv'\)/,
+    /Can't find variable: p\d+/,
+    /^timeout$/,
+    /Can't find variable: caches/,
+    /crypto\.randomUUID is not a function/,
+    /ucapi is not defined/,
+    /Identifier '(?:script|reportPage)' has already been declared/,
+    /getAttribute is not a function.*getAttribute\("role"\)/,
+    /^TypeError: Internal error$/,
+    /SCDynimacBridge/,
+    /errTimes is not defined/,
+    /Failed to get ServiceWorkerRegistration/,
+    /^ReferenceError: Cannot access uninitialized variable\.?$/,
+    /Failed writing data to the file system/,
+    /Error invoking initializeCallbackHandler/,
+    /releasePointerCapture.*Invalid pointer/,
+    /Array buffer allocation failed/,
+    /Client can't handle this message/,
+    /Invalid LngLat object/,
+    /autoReset/,
+    /webkitExitFullScreen/,
+    /downProgCallback/,
+    /syncDownloadState/,
+    /^ReferenceError: HTMLOUT is not defined$/,
+    /^ReferenceError: xbrowser is not defined$/,
+    /LibraryDetectorTests_detect/,
+    /contentBoxSize\[0\] is undefined/,
+    /Attempting to run\(\), but is already running/,
+    /Out of range source coordinates for DEM data/,
+    /Invalid character: '\\0'/,
   ],
   beforeSend(event) {
     const msg = event.exception?.values?.[0]?.value ?? '';
     if (msg.length <= 3 && /^[a-zA-Z_$]+$/.test(msg)) return null;
     const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? [];
     // Suppress maplibre internal null-access crashes (light, placement) only when stack is in map chunk
-    if (/this\.style\._layers|reading '_layers'|this\.(light|sky) is null|can't access property "(id|type|setFilter)", \w+ is (null|undefined)|Cannot read properties of null \(reading '(id|type|setFilter|_layers)'\)|null is not an object \(evaluating '\w{1,3}\.(id|style)|^\w{1,2} is null$/.test(msg)) {
+    if (/this\.style\._layers|reading '_layers'|this\.(light|sky) is null|can't access property "(id|type|setFilter)"[,] ?\w+ is (null|undefined)|can't access property "(id|type)" of null|Cannot read properties of null \(reading '(id|type|setFilter|_layers)'\)|null is not an object \(evaluating '\w{1,3}\.(id|style)|^\w{1,2} is null$/.test(msg)) {
       if (frames.some(f => /\/(map|maplibre|deck-stack)-[A-Za-z0-9_-]+\.js/.test(f.filename ?? ''))) return null;
     }
     // Suppress any TypeError that happens entirely within maplibre or deck.gl internals
@@ -174,12 +230,28 @@ Sentry.init({
       const nonSentryFrames = frames.filter(f => f.filename && f.filename !== '<anonymous>' && !/\/sentry-[A-Za-z0-9_-]+\.js/.test(f.filename));
       if (nonSentryFrames.length > 0 && nonSentryFrames.every(f => /\/(map|maplibre|deck-stack)-[A-Za-z0-9_-]+\.js/.test(f.filename ?? ''))) return null;
     }
+    // Suppress Three.js/globe.gl TypeError crashes in main bundle (reading 'type'/'pathType'/'count'/'__globeObjType' on undefined during WebGL traversal/raycast)
+    if (/reading '(?:type|pathType|count|__globeObjType)'|can't access property "(?:type|pathType|count|__globeObjType)",? \w+ is (?:undefined|null)|undefined is not an object \(evaluating '\w+\.(?:pathType|count|__globeObjType)'\)|null is not an object \(evaluating '\w+\.__globeObjType'\)/.test(msg)) {
+      const nonSentryFrames = frames.filter(f => f.filename && f.filename !== '<anonymous>' && !/\/sentry-[A-Za-z0-9_-]+\.js/.test(f.filename));
+      const hasSourceMapped = nonSentryFrames.some(f => /\.(ts|tsx)$/.test(f.filename ?? '') || /^src\//.test(f.filename ?? ''));
+      if (!hasSourceMapped) return null;
+    }
+    // Suppress Three.js OrbitControls touch crashes (finger lifted during pinch-zoom)
+    if (/undefined is not an object \(evaluating 't\.x'\)|Cannot read properties of undefined \(reading 'x'\)/.test(msg)) {
+      const nonSentryFrames = frames.filter(f => f.filename && f.filename !== '<anonymous>' && !/\/sentry-[A-Za-z0-9_-]+\.js/.test(f.filename));
+      const hasSourceMapped = nonSentryFrames.some(f => /\.(ts|tsx)$/.test(f.filename ?? '') || /^src\//.test(f.filename ?? ''));
+      if (!hasSourceMapped) return null;
+    }
     // Suppress deck.gl/maplibre null-access crashes with no usable stack trace (requestAnimationFrame wrapping)
     if (/null is not an object \(evaluating '\w{1,3}\.(id|type|style)'\)/.test(msg) && frames.length === 0) return null;
     // Suppress TypeErrors from anonymous/injected scripts (no real source files)
     if (/^TypeError:/.test(msg) && frames.length > 0 && frames.every(f => !f.filename || f.filename === '<anonymous>' || /^blob:/.test(f.filename))) return null;
+    // Suppress parentNode.insertBefore from injected scripts only (iOS WKWebView)
+    if (/parentNode\.insertBefore/.test(msg) && frames.every(f => !f.filename || f.filename === '<anonymous>' || /^blob:/.test(f.filename))) return null;
     // Suppress errors originating entirely from blob: URLs (browser extensions)
     if (frames.length > 0 && frames.every(f => /^blob:/.test(f.filename ?? ''))) return null;
+    // Suppress errors originating from UV proxy (Ultraviolet service worker)
+    if (frames.some(f => /\/uv\/service\//.test(f.filename ?? '') || /uv\.handler/.test(f.filename ?? ''))) return null;
     // Suppress YouTube IFrame widget API internal errors
     if (frames.some(f => /www-widgetapi\.js/.test(f.filename ?? ''))) return null;
     return event;
@@ -255,6 +327,7 @@ if (urlParams.get('settings') === '1') {
     }
   );
 } else {
+  installUtmInterceptor();
   const app = new App('app');
   app
     .init()
@@ -295,17 +368,40 @@ if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
 }
 
 if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window) && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js', { scope: '/' })
-    .then((registration) => {
-      console.log('[PWA] Service worker registered');
-      const swUpdateInterval = setInterval(async () => {
-        if (!navigator.onLine) return;
-        try { await registration.update(); } catch {}
-      }, 60 * 60 * 1000);
-      // Expose interval ID for cleanup/debugging
-      (window as unknown as Record<string, unknown>).__swUpdateInterval = swUpdateInterval;
-    })
-    .catch((err) => {
-      console.warn('[PWA] Service worker registration failed:', err);
+  // One-time nuke: clear stale SWs and caches from old deploys, then re-register fresh.
+  // Safe to remove after 2026-03-20 when all users have cycled through.
+  const nukeKey = 'wm-sw-nuked-v2';
+  let alreadyNuked = false;
+  try { alreadyNuked = !!localStorage.getItem(nukeKey); } catch { /* private browsing */ }
+  if (!alreadyNuked) {
+    try { localStorage.setItem(nukeKey, '1'); } catch { /* best effort */ }
+    navigator.serviceWorker.getRegistrations().then(async (regs) => {
+      await Promise.all(regs.map(r => r.unregister()));
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+      console.log('[PWA] Nuked stale service workers and caches');
+      window.location.reload();
     });
+  } else {
+    // Auto-reload when a new SW takes control (fixes stale HTML after deploys)
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then((registration) => {
+        console.log('[PWA] Service worker registered');
+        const swUpdateInterval = setInterval(async () => {
+          if (!navigator.onLine) return;
+          try { await registration.update(); } catch {}
+        }, 5 * 60 * 1000);
+        (window as unknown as Record<string, unknown>).__swUpdateInterval = swUpdateInterval;
+      })
+      .catch((err) => {
+        console.warn('[PWA] Service worker registration failed:', err);
+      });
+  }
 }

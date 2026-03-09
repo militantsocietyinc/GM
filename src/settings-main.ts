@@ -1,6 +1,7 @@
 import './styles/main.css';
 import './styles/settings-window.css';
 import { SettingsManager } from '@/services/settings-manager';
+import { exportSettings, importSettings, type ImportResult } from '@/utils/settings-persistence';
 import {
   SETTINGS_CATEGORIES,
   HUMAN_LABELS,
@@ -25,7 +26,7 @@ import {
   type RuntimeFeatureId,
   type RuntimeSecretKey,
 } from '@/services/runtime-config';
-import { getApiBaseUrl, getRemoteApiBaseUrl, isDesktopRuntime, resolveLocalApiPort } from '@/services/runtime';
+import { getApiBaseUrl, isDesktopRuntime, resolveLocalApiPort, startSmartPollLoop, type SmartPollLoopHandle } from '@/services/runtime';
 import { tryInvokeTauri, invokeTauri } from '@/services/tauri-bridge';
 import { escapeHtml } from '@/utils/sanitize';
 import { initI18n, t } from '@/services/i18n';
@@ -287,8 +288,7 @@ function initOverviewListeners(area: HTMLElement): void {
     btn.textContent = t('modals.settingsWindow.worldMonitor.register.submitting');
 
     try {
-      const base = isDesktopRuntime() ? getRemoteApiBaseUrl() : '';
-      const res = await fetch(`${base}/api/register-interest`, {
+      const res = await diagFetch('/api/register-interest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, source: 'desktop-settings' }),
@@ -630,6 +630,18 @@ function renderDebug(area: HTMLElement): void {
       <button id="openLogsBtn" type="button">Open Logs Folder</button>
       <button id="openSidecarLogBtn" type="button">Open API Log</button>
     </div>
+    <section class="debug-data-section">
+      <h3>Data Management</h3>
+      <div class="debug-data-actions">
+        <button type="button" class="settings-btn settings-btn-secondary" id="exportSettingsBtn">
+          ${t('components.settings.exportSettings')}
+        </button>
+        <button type="button" class="settings-btn settings-btn-secondary" id="importSettingsBtn">
+          ${t('components.settings.importSettings')}
+        </button>
+        <input type="file" id="importSettingsInput" accept=".json" style="display: none;" />
+      </div>
+    </section>
     <section class="settings-diagnostics" id="diagnosticsSection">
       <header class="diag-header">
         <h2>Diagnostics</h2>
@@ -656,6 +668,39 @@ function renderDebug(area: HTMLElement): void {
 
   area.querySelector('#openSidecarLogBtn')?.addEventListener('click', () => {
     void invokeDesktopAction('open_sidecar_log_file', t('modals.settingsWindow.openApiLog'));
+  });
+
+  area.querySelector('#exportSettingsBtn')?.addEventListener('click', () => {
+    exportSettings();
+  });
+
+  const importInput = area.querySelector<HTMLInputElement>('#importSettingsInput');
+  area.querySelector('#importSettingsBtn')?.addEventListener('click', () => {
+    importInput?.click();
+  });
+
+  importInput?.addEventListener('change', async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      const result: ImportResult = await importSettings(file);
+      setActionStatus(t('components.settings.importSuccess', { count: String(result.keysImported) }), 'ok');
+    } catch (err: unknown) {
+      if (err instanceof DOMException) {
+        if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+          setActionStatus(t('components.settings.importFailed') + ': storage limit reached', 'error');
+        } else if (err.name === 'SecurityError') {
+          setActionStatus(t('components.settings.importFailed') + ': storage blocked', 'error');
+        } else {
+          setActionStatus(`${t('components.settings.importFailed')}: ${err.message || err.name}`, 'error');
+        }
+      } else if (err instanceof Error && err.message) {
+        setActionStatus(`${t('components.settings.importFailed')}: ${err.message}`, 'error');
+      } else {
+        setActionStatus(t('components.settings.importFailed'), 'error');
+      }
+    }
+    importInput.value = '';
   });
 
   initDiagnostics();
@@ -732,22 +777,27 @@ function initDiagnostics(): void {
     if (trafficCount) trafficCount.textContent = '(0)';
   });
 
-  let refreshInterval: ReturnType<typeof setInterval> | null = null;
+  let refreshPollLoop: SmartPollLoopHandle | null = null;
 
   function startAutoRefresh(): void {
     stopAutoRefresh();
-    refreshInterval = setInterval(() => void refreshTrafficLog(), 3000);
+    refreshPollLoop = startSmartPollLoop(() => refreshTrafficLog(), {
+      intervalMs: 3000,
+      pauseWhenHidden: true,
+      refreshOnVisible: true,
+      runImmediately: true,
+      jitterFraction: 0,
+    });
   }
 
   function stopAutoRefresh(): void {
-    if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+    if (refreshPollLoop) { refreshPollLoop.stop(); refreshPollLoop = null; }
   }
 
   autoRefreshToggle?.addEventListener('change', () => {
     if (autoRefreshToggle.checked) startAutoRefresh(); else stopAutoRefresh();
   });
 
-  void refreshTrafficLog();
   startAutoRefresh();
 
   _diagCleanup = stopAutoRefresh;

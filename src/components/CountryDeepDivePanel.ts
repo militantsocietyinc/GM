@@ -71,6 +71,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private marketsBody: HTMLElement | null = null;
   private briefBody: HTMLElement | null = null;
   private timelineBody: HTMLElement | null = null;
+  private scoreCard: HTMLElement | null = null;
 
   private readonly handleGlobalKeydown = (event: KeyboardEvent): void => {
     if (!this.panel.classList.contains('active')) return;
@@ -145,6 +146,32 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.currentName = null;
     this.renderLoading();
     this.open();
+  }
+
+  public showGeoError(onRetry: () => void): void {
+    this.currentCode = '__error__';
+    this.currentName = null;
+    this.content.replaceChildren();
+
+    const wrapper = this.el('div', 'cdp-geo-error');
+    wrapper.append(
+      this.el('div', 'cdp-geo-error-icon', '\u26A0\uFE0F'),
+      this.el('div', 'cdp-geo-error-msg', t('countryBrief.geocodeFailed')),
+    );
+
+    const actions = this.el('div', 'cdp-geo-error-actions');
+
+    const retryBtn = this.el('button', 'cdp-geo-error-retry', t('countryBrief.retryBtn')) as HTMLButtonElement;
+    retryBtn.type = 'button';
+    retryBtn.addEventListener('click', () => onRetry(), { once: true });
+
+    const closeBtn = this.el('button', 'cdp-geo-error-close', t('countryBrief.closeBtn')) as HTMLButtonElement;
+    closeBtn.type = 'button';
+    closeBtn.addEventListener('click', () => this.hide(), { once: true });
+
+    actions.append(retryBtn, closeBtn);
+    wrapper.append(actions);
+    this.content.append(wrapper);
   }
 
   public show(country: string, code: string, score: CountryScore | null, signals: CountryBriefSignals): void {
@@ -233,7 +260,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
         if (sb !== sa) return sb - sa;
         return this.toTimestamp(b.pubDate) - this.toTimestamp(a.pubDate);
       })
-      .slice(0, 15);
+      .slice(0, 10);
 
     this.currentHeadlineCount = items.length;
 
@@ -403,6 +430,30 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.renderEconomicIndicators();
   }
 
+  public updateScore(score: CountryScore | null, _signals: CountryBriefSignals): void {
+    if (!this.scoreCard) return;
+    // Partial DOM update: score number, level color, trend, component bars only
+    const top = this.scoreCard.firstElementChild as HTMLElement | null;
+    while (this.scoreCard.childElementCount > 1) {
+      this.scoreCard.lastElementChild?.remove();
+    }
+    if (top) {
+      const updatedEl = top.querySelector('.cdp-updated');
+      if (updatedEl) updatedEl.textContent = `Updated ${this.shortDate(score?.lastUpdated ?? new Date())}`;
+    }
+    if (score) {
+      const band = this.ciiBand(score.score);
+      const scoreRow = this.el('div', 'cdp-score-row');
+      const value = this.el('div', `cdp-score-value cii-${band}`, `${score.score}/100`);
+      const trend = this.el('div', 'cdp-trend', `${this.trendArrow(score.trend)} ${score.trend}`);
+      scoreRow.append(value, trend);
+      this.scoreCard.append(scoreRow);
+      this.scoreCard.append(this.renderComponentBars(score.components));
+    } else {
+      this.scoreCard.append(this.makeEmpty(t('countryBrief.ciiUnavailable')));
+    }
+  }
+
   public updateStock(data: StockIndexData): void {
     if (!data.available) {
       this.renderEconomicIndicators();
@@ -481,8 +532,9 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       return;
     }
 
-    const summary = this.summarizeBrief(data.brief);
-    const text = this.el('p', 'cdp-assessment-text', summary);
+    const summaryHtml = this.formatBrief(this.summarizeBrief(data.brief), 0);
+    const text = this.el('div', 'cdp-assessment-text cdp-summary-only');
+    text.innerHTML = summaryHtml;
 
     const metaTokens: string[] = [];
     if (data.cached) metaTokens.push('Cached');
@@ -499,6 +551,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   }
 
   private renderLoading(): void {
+    this.scoreCard = null;
     this.content.replaceChildren();
     const loading = this.el('div', 'cdp-loading');
     loading.append(
@@ -566,6 +619,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     header.append(left, right);
 
     const scoreCard = this.el('section', 'cdp-card cdp-score-card');
+    this.scoreCard = scoreCard;
     const top = this.el('div', 'cdp-score-top');
     const label = this.el('span', 'cdp-score-label', t('countryBrief.instabilityIndex'));
     const updated = this.el('span', 'cdp-updated', `Updated ${this.shortDate(score?.lastUpdated ?? new Date())}`);
@@ -878,7 +932,12 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   }
 
   private summarizeBrief(brief: string): string {
-    const normalized = brief.replace(/\s+/g, ' ').trim();
+    const stripped = brief.replace(/\*\*(.*?)\*\*/g, '$1');
+    const lines = stripped.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+    if (lines.length >= 3) {
+      return lines.slice(0, 3).join('\n');
+    }
+    const normalized = stripped.replace(/\s+/g, ' ').trim();
     const sentences = normalized.split(/(?<=[.!?])\s+/).filter((part) => part.length > 0);
     return sentences.slice(0, 3).join(' ') || normalized;
   }

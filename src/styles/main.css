@@ -13962,19 +13962,34 @@ a.prediction-link:hover {
 
 /* deck.gl Tooltip */
 .deckgl-tooltip {
-  background: var(--bg);
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 11px;
-  color: var(--text);
-  max-width: 250px;
+  background: rgba(13, 17, 23, 0.8) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  color: #e6edf3 !important;
   pointer-events: none;
+  z-index: 1000000 !important;
 }
 
 .deckgl-tooltip strong {
-  color: var(--accent);
+  display: block;
+  margin-bottom: 4px;
+  color: #79c0ff;
   font-weight: 600;
+}
+
+.deckgl-tooltip small {
+  display: block;
+  margin-top: 4px;
+  color: #8b949e;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* MapLibre GL overrides for dark theme */

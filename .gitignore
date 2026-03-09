@@ -9,6 +9,7 @@ dist/
 .vercel
 api/\[domain\]/v1/\[rpc\].js
 api/\[\[...path\]\].js
+api/*/*/*.js
 .claude/
 .cursor/
 CLAUDE.md

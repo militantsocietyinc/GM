@@ -665,7 +665,7 @@ export class DeckGLMap {
       layers: this.buildLayers(),
       getTooltip: (info: PickingInfo) => this.getTooltip(info),
       onClick: (info: PickingInfo) => this.handleClick(info),
-      pickingRadius: 10,
+      pickingRadius: 25,
       useDevicePixels: window.devicePixelRatio > 2 ? 2 : true,
       onError: (error: Error) => console.warn('[DeckGLMap] Render error (non-fatal):', error.message),
     });
@@ -3073,7 +3073,7 @@ export class DeckGLMap {
           const item = obj.items?.[0];
           return { html: `<div class="deckgl-tooltip"><strong>${text(item?.title || t('components.deckgl.tooltip.protest'))}</strong><br/>${text(item?.city || item?.country || '')}</div>` };
         }
-        return { html: `<div class="deckgl-tooltip"><strong>${t('components.deckgl.tooltip.protestsCount', { count: String(obj.count) })}</strong><br/>${text(obj.country)}</div>` };
+        return { html: `<div class="deckgl-tooltip"><strong>${t('components.deckgl.tooltip.protestsCount', { count: String(obj.count) })}</strong><br/>${text(obj.country)}<br/><small>${t('components.deckgl.layers.protests')}</small></div>` };
       case 'tech-hq-clusters-layer':
         if (obj.count === 1) {
           const hq = obj.items?.[0];
@@ -3115,7 +3115,7 @@ export class DeckGLMap {
       }
       case 'conflict-zones-layer': {
         const props = obj.properties || obj;
-        return { html: `<div class="deckgl-tooltip"><strong>${text(props.name)}</strong><br/>${t('components.deckgl.tooltip.conflictZone')}</div>` };
+        return { html: `<div class="deckgl-tooltip"><strong>${text(props.name)}</strong><br/>${t('components.deckgl.tooltip.conflictZone')}${props.type ? ` · ${text(props.type)}` : ''}</div>` };
       }
 
       case 'natural-events-layer':

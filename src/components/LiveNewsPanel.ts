@@ -279,7 +279,7 @@ export function loadChannelsFromStorage(): LiveChannel[] {
   for (const c of TECH_LIVE_CHANNELS) channelMap.set(c.id, { ...c });
   for (const c of OPTIONAL_LIVE_CHANNELS) channelMap.set(c.id, { ...c });
   for (const c of stored.custom ?? []) {
-    if (c.id && c.handle) channelMap.set(c.id, { ...c });
+    if (c.id && (c.handle || c.hlsUrl)) channelMap.set(c.id, { ...c });
   }
   const overrides = stored.displayNameOverrides ?? {};
   for (const [id, name] of Object.entries(overrides)) {
@@ -1008,8 +1008,8 @@ export class LiveNewsPanel extends Panel {
     const watchUrl = channel.videoId
       ? `https://www.youtube.com/watch?v=${encodeURIComponent(channel.videoId)}`
       : channel.handle
-      ? `https://www.youtube.com/${encodeURIComponent(channel.handle)}`
-      : 'https://www.youtube.com';
+        ? `https://www.youtube.com/${encodeURIComponent(channel.handle)}`
+        : 'https://www.youtube.com';
     const safeName = escapeHtml(channel.name);
 
     this.content.innerHTML = `
@@ -1192,7 +1192,7 @@ export class LiveNewsPanel extends Panel {
         if (wantUnmute && this.nativeVideoElement === video) {
           video.muted = false;
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }
 
@@ -1200,7 +1200,7 @@ export class LiveNewsPanel extends Panel {
     if (!this.nativeVideoElement) return;
     this.nativeVideoElement.muted = this.isMuted;
     if (this.isPlaying) {
-      this.nativeVideoElement.play()?.catch(() => {});
+      this.nativeVideoElement.play()?.catch(() => { });
     } else {
       this.nativeVideoElement.pause();
     }
@@ -1366,8 +1366,8 @@ export class LiveNewsPanel extends Panel {
     const watchUrl = channel.videoId
       ? `https://www.youtube.com/watch?v=${encodeURIComponent(channel.videoId)}`
       : channel.handle
-      ? `https://www.youtube.com/${encodeURIComponent(channel.handle)}`
-      : 'https://www.youtube.com';
+        ? `https://www.youtube.com/${encodeURIComponent(channel.handle)}`
+        : 'https://www.youtube.com';
 
     this.destroyPlayer();
     this.content.innerHTML = '';

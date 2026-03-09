@@ -67,9 +67,14 @@ export async function fetchAcledCached(opts: FetchAcledOptions): Promise<AcledRa
       signal: AbortSignal.timeout(ACLED_TIMEOUT_MS),
     });
 
-    if (!resp.ok) throw new Error(`ACLED API error: ${resp.status}`);
+    if (!resp.ok) {
+      const errorText = await resp.text().catch(() => 'No detail');
+      throw new Error(`ACLED API error: ${resp.status} - ${errorText}`);
+    }
     const data = (await resp.json()) as { data?: AcledRawEvent[]; message?: string; error?: string };
-    if (data.message || data.error) throw new Error(data.message || data.error || 'ACLED API error');
+    if (data.message || data.error) {
+      throw new Error(`ACLED API business error: ${data.message || data.error}`);
+    }
 
     const events = data.data || [];
     return events.length > 0 ? events : null;

@@ -427,7 +427,7 @@ Example with a custom API backend:
 docker run -d -p 3000:80 -e API_UPSTREAM=http://my-api:3001 ghcr.io/koala73/worldmonitor:latest
 ```
 
-Build-time options (optional, for custom builds): `VITE_VARIANT`, `VITE_WS_API_URL` — pass via `docker build --build-arg VITE_VARIANT=full --build-arg VITE_WS_API_URL=https://api.worldmonitor.app .`
+Build-time options (optional, for custom builds): pass `VITE_VARIANT` and `VITE_WS_API_URL` via `--build-arg`. Other `VITE_*` vars the app uses (e.g. `VITE_PMTILES_URL`, `VITE_WS_RELAY_URL`) can be added the same way; see `.env.example` for the full list.
 
 ### Railway Relay (Optional)
 

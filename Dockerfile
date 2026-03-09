@@ -14,7 +14,8 @@ RUN npm ci --include=dev
 # Copy source and build.
 COPY . .
 
-# Build-time configuration
+# Build-time configuration. Pass via --build-arg. Other VITE_* vars (e.g. VITE_PMTILES_URL)
+# can be added here or via --build-arg for custom builds; see .env.example for the full list.
 ARG VITE_VARIANT=full
 ARG VITE_WS_API_URL=https://api.worldmonitor.app
 

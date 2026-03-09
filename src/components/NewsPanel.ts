@@ -7,9 +7,9 @@ import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { analysisWorker, enrichWithVelocityML, getClusterAssetContext, MAX_DISTANCE_KM, activityTracker, generateSummary, translateText } from '@/services';
 import { getSourcePropagandaRisk, getSourceTier, getSourceType } from '@/config/feeds';
 import { SITE_VARIANT } from '@/config';
+import { t, getCurrentLanguage } from '@/services/i18n';
 
 type SortMode = 'relevance' | 'newest';
-import { t, getCurrentLanguage } from '@/services/i18n';
 
 /** Threshold for enabling virtual scrolling */
 const VIRTUAL_SCROLL_THRESHOLD = 15;
@@ -164,7 +164,10 @@ export class NewsPanel extends Panel {
 
   private updateSortButtonLabel(): void {
     if (!this.sortBtn) return;
-    const icon = this.sortMode === 'newest' ? '🕐' : '🔥';
+    // SVG icons for cross-platform consistency (recommended by reviewer)
+    const icon = this.sortMode === 'newest'
+      ? '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><polyline points="8,4 8,8 11,10"/></svg>'
+      : '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M4 7l4 4 4-4"/><line x1="3" y1="14" x2="13" y2="14"/></svg>';
     const label = this.sortMode === 'newest'
       ? t('components.newsPanel.sortNewest') || 'Newest'
       : t('components.newsPanel.sortRelevance') || 'Relevance';
@@ -408,10 +411,15 @@ export class NewsPanel extends Panel {
   private renderFlat(items: NewsItem[]): void {
     this.lastRawItems = items;
 
-    // Sort items based on user preference
-    const sorted = this.sortMode === 'newest'
-      ? [...items].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
-      : items; // default feed order
+    // Sort items based on user preference (pre-compute timestamps for perf)
+    let sorted: NewsItem[];
+    if (this.sortMode === 'newest') {
+      const withTime = items.map(i => ({ item: i, ts: new Date(i.pubDate).getTime() }));
+      withTime.sort((a, b) => b.ts - a.ts);
+      sorted = withTime.map(x => x.item);
+    } else {
+      sorted = items; // default feed order
+    }
 
     this.setCount(sorted.length);
     this.currentHeadlines = sorted

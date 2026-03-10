@@ -45,6 +45,9 @@ export class PredictionPanel extends Panel {
           }
         }
 
+        const sourceLabel = p.source === 'kalshi' ? 'Kalshi' : 'Polymarket';
+        const sourceBadge = `<span class="prediction-source" data-source="${p.source || 'polymarket'}">${sourceLabel}</span>`;
+
         const metaHtml = (volumeStr || expiryHtml)
           ? `<div class="prediction-meta">${volumeStr ? `<span class="prediction-volume">${t('components.predictions.vol')}: ${volumeStr}</span>` : ''}${expiryHtml}</div>`
           : '';
@@ -52,6 +55,7 @@ export class PredictionPanel extends Panel {
         return `
       <div class="prediction-item">
         ${titleHtml}
+        ${sourceBadge}
         ${metaHtml}
         <div class="prediction-bar">
           <div class="prediction-yes" style="width: ${yesPercent}%">

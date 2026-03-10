@@ -8,6 +8,7 @@ const CANONICAL_KEY = 'prediction:markets-bootstrap:v1';
 const CACHE_TTL = 900; // 15 min — matches client poll interval
 
 const GAMMA_BASE = 'https://gamma-api.polymarket.com';
+const KALSHI_BASE = 'https://api.elections.kalshi.com/trade-api/v2';
 const FETCH_TIMEOUT = 10_000;
 const TAG_DELAY_MS = 300;
 
@@ -20,6 +21,11 @@ const GEOPOLITICAL_TAGS = [
 const TECH_TAGS = [
   'ai', 'tech', 'crypto', 'science',
   'elon-musk', 'business', 'economy',
+];
+
+const FINANCE_TAGS = [
+  'economy', 'fed', 'inflation', 'crypto',
+  'business', 'markets',
 ];
 
 const EXCLUDE_KEYWORDS = [
@@ -77,10 +83,74 @@ async function fetchEventsByTag(tag, limit = 20) {
   return Array.isArray(data) ? data : [];
 }
 
+async function fetchKalshiEvents() {
+  try {
+    const params = new URLSearchParams({
+      status: 'open',
+      with_nested_markets: 'true',
+      limit: '100',
+    });
+    const resp = await fetch(`${KALSHI_BASE}/events?${params}`, {
+      headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    });
+    if (!resp.ok) {
+      console.warn(`  [kalshi] HTTP ${resp.status}`);
+      return [];
+    }
+    const data = await resp.json();
+    return Array.isArray(data?.events) ? data.events : [];
+  } catch (err) {
+    console.warn(`  [kalshi] error fetching events: ${err.message}`);
+    return [];
+  }
+}
+
+async function fetchKalshiMarkets() {
+  const events = await fetchKalshiEvents();
+  const results = [];
+
+  for (const event of events) {
+    if (!Array.isArray(event.markets) || event.markets.length === 0) continue;
+    if (isExcluded(event.title)) continue;
+
+    const binaryActive = event.markets.filter(
+      m => m.market_type === 'binary' && m.status === 'active',
+    );
+    if (binaryActive.length === 0) continue;
+
+    const topMarket = binaryActive.reduce((best, m) => {
+      const vol = parseFloat(m.volume_fp) || 0;
+      const bestVol = parseFloat(best.volume_fp) || 0;
+      return vol > bestVol ? m : best;
+    });
+
+    const volume = parseFloat(topMarket.volume_fp) || 0;
+    if (volume <= 1000) continue;
+
+    const yesPrice = +(parseFloat(topMarket.last_price_dollars) * 100).toFixed(1) || 50;
+
+    results.push({
+      title: topMarket.title || event.title,
+      yesPrice,
+      volume,
+      url: `https://kalshi.com/markets/${topMarket.ticker}`,
+      endDate: topMarket.close_time ?? undefined,
+      tags: [],
+      source: 'kalshi',
+    });
+  }
+
+  return results;
+}
+
 async function fetchAllPredictions() {
   const allTags = [...new Set([...GEOPOLITICAL_TAGS, ...TECH_TAGS])];
   const seen = new Set();
   const markets = [];
+
+  // Start Kalshi fetch early so it overlaps with Polymarket tag iterations
+  const kalshiPromise = fetchKalshiMarkets();
 
   for (const tag of allTags) {
     try {
@@ -112,6 +182,7 @@ async function fetchAllPredictions() {
             url: `https://polymarket.com/event/${event.slug}`,
             endDate: topMarket.endDate ?? event.endDate ?? undefined,
             tags: (event.tags ?? []).map(t => t.slug),
+            source: 'polymarket',
           });
         } else {
           markets.push({
@@ -121,6 +192,7 @@ async function fetchAllPredictions() {
             url: `https://polymarket.com/event/${event.slug}`,
             endDate: event.endDate ?? undefined,
             tags: (event.tags ?? []).map(t => t.slug),
+            source: 'polymarket',
           });
         }
       }
@@ -129,6 +201,11 @@ async function fetchAllPredictions() {
     }
     await sleep(TAG_DELAY_MS);
   }
+
+  // Await the Kalshi fetch that was started in parallel with tag iterations
+  const kalshiMarkets = await kalshiPromise;
+  console.log(`  [kalshi] ${kalshiMarkets.length} markets`);
+  markets.push(...kalshiMarkets);
 
   const geopolitical = markets
     .filter(m => !isExpired(m.endDate))
@@ -149,9 +226,21 @@ async function fetchAllPredictions() {
     .sort((a, b) => b.volume - a.volume)
     .slice(0, 25);
 
+  // Finance variant: Kalshi markets + economy/finance-tagged Polymarket markets
+  const finance = markets
+    .filter(m => !isExpired(m.endDate))
+    .filter(m => m.source === 'kalshi' || m.tags?.some(t => FINANCE_TAGS.includes(t)))
+    .filter(m => {
+      const discrepancy = Math.abs(m.yesPrice - 50);
+      return discrepancy > 5 || (m.volume > 50000);
+    })
+    .sort((a, b) => b.volume - a.volume)
+    .slice(0, 25);
+
   return {
     geopolitical,
     tech,
+    finance,
     fetchedAt: Date.now(),
   };
 }
@@ -159,5 +248,5 @@ async function fetchAllPredictions() {
 await runSeed('prediction', 'markets', CANONICAL_KEY, fetchAllPredictions, {
   ttlSeconds: CACHE_TTL,
   lockTtlMs: 60_000,
-  validateFn: (data) => (data?.geopolitical?.length > 0 || data?.tech?.length > 0),
+  validateFn: (data) => (data?.geopolitical?.length > 0 || data?.tech?.length > 0 || data?.finance?.length > 0),
 });

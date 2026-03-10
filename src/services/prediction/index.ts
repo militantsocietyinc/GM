@@ -1,4 +1,4 @@
-import { PredictionServiceClient } from '@/generated/client/worldmonitor/prediction/v1/service_client';
+import { PredictionServiceClient, MarketSource } from '@/generated/client/worldmonitor/prediction/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { SITE_VARIANT } from '@/config';
 import { getHydratedData } from '@/services/bootstrap';
@@ -9,6 +9,7 @@ export interface PredictionMarket {
   volume?: number;
   url?: string;
   endDate?: string;
+  source?: 'polymarket' | 'kalshi';
 }
 
 function isExpired(endDate?: string): boolean {
@@ -32,19 +33,26 @@ const TECH_TAGS = [
   'elon-musk', 'business', 'economy',
 ];
 
+const FINANCE_TAGS = [
+  'economy', 'fed', 'inflation', 'crypto',
+  'business', 'markets',
+];
+
 interface BootstrapPredictionData {
   geopolitical: PredictionMarket[];
   tech: PredictionMarket[];
+  finance: PredictionMarket[];
   fetchedAt: number;
 }
 
-function protoToMarket(m: { title: string; yesPrice: number; volume: number; url: string; closesAt: number; category: string }): PredictionMarket {
+function protoToMarket(m: { title: string; yesPrice: number; volume: number; url: string; closesAt: number; category: string; source?: string }): PredictionMarket {
   return {
     title: m.title,
     yesPrice: m.yesPrice * 100,
     volume: m.volume,
     url: m.url || undefined,
     endDate: m.closesAt ? new Date(m.closesAt).toISOString() : undefined,
+    source: m.source === MarketSource.MARKET_SOURCE_KALSHI ? 'kalshi' : 'polymarket',
   };
 }
 
@@ -53,14 +61,21 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
     // Strategy 1: Bootstrap hydration (zero network cost — data arrived with page load)
     const hydrated = getHydratedData('predictions') as BootstrapPredictionData | undefined;
     if (hydrated && hydrated.fetchedAt && Date.now() - hydrated.fetchedAt < 20 * 60 * 1000) {
-      const variant = SITE_VARIANT === 'tech' ? hydrated.tech : hydrated.geopolitical;
+      const variant = SITE_VARIANT === 'tech' ? hydrated.tech
+        : SITE_VARIANT === 'finance' ? (hydrated.finance || hydrated.geopolitical)
+        : hydrated.geopolitical;
       if (variant && variant.length > 0) {
-        return variant.filter(m => !isExpired(m.endDate)).slice(0, 15);
+        return variant
+          .filter(m => !isExpired(m.endDate))
+          .slice(0, 15)
+          .map(m => m.source ? m : { ...m, source: 'polymarket' as const });
       }
     }
 
     // Strategy 2: Sebuf RPC (Vercel → Redis / Gamma API server-side)
-    const tags = SITE_VARIANT === 'tech' ? TECH_TAGS : GEOPOLITICAL_TAGS;
+    const tags = SITE_VARIANT === 'tech' ? TECH_TAGS
+      : SITE_VARIANT === 'finance' ? FINANCE_TAGS
+      : GEOPOLITICAL_TAGS;
     const rpcResults = await client.listPredictionMarkets({
       category: tags[0] ?? '',
       query: '',

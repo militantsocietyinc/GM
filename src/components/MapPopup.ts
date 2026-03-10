@@ -2456,32 +2456,32 @@ export class MapPopup {
     };
     const cat = event.stormCategory ?? 0;
     const color = TC_COLORS[cat] || TC_COLORS[0];
-    const catLabel = event.classification || (cat > 0 ? `Category ${cat}` : 'Tropical System');
+    const catLabel = event.classification || (cat > 0 ? `Category ${cat}` : t('popups.naturalEvent.tropicalSystem'));
 
     return `
       <div class="popup-stats">
         ${event.stormName ? `
         <div class="popup-stat" style="grid-column: 1 / -1">
-          <span class="stat-label">Storm</span>
+          <span class="stat-label">${t('popups.naturalEvent.storm')}</span>
           <span class="stat-value">${escapeHtml(event.stormName)}</span>
         </div>` : ''}
         <div class="popup-stat">
-          <span class="stat-label">Classification</span>
+          <span class="stat-label">${t('popups.naturalEvent.classification')}</span>
           <span class="stat-value" style="color: ${color}">${escapeHtml(catLabel)}</span>
         </div>
         ${event.windKt != null ? `
         <div class="popup-stat">
-          <span class="stat-label">Max Wind</span>
+          <span class="stat-label">${t('popups.naturalEvent.maxWind')}</span>
           <span class="stat-value">${event.windKt} kt (${Math.round(event.windKt * 1.15078)} mph)</span>
         </div>` : ''}
         ${event.pressureMb != null ? `
         <div class="popup-stat">
-          <span class="stat-label">Pressure</span>
+          <span class="stat-label">${t('popups.naturalEvent.pressure')}</span>
           <span class="stat-value">${event.pressureMb} mb</span>
         </div>` : ''}
         ${event.movementSpeedKt != null ? `
         <div class="popup-stat">
-          <span class="stat-label">Movement</span>
+          <span class="stat-label">${t('popups.naturalEvent.movement')}</span>
           <span class="stat-value">${event.movementDir != null ? event.movementDir + '° at ' : ''}${event.movementSpeedKt} kt</span>
         </div>` : ''}
       </div>

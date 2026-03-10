@@ -297,7 +297,7 @@ async function fetchNhc(): Promise<NaturalEvent[]> {
     const advisNum = p.advisnum || '';
     const stormNum = p.stormnum || 0;
     const stormId = `nhc-${slot.basin}${String(stormNum).padStart(2, '0')}-${advisNum}`;
-    const { classification } = classifyWind(windKt);
+    const classification = NHC_STORM_TYPES[stormType] || classifyWind(windKt).classification;
     const typeLabel = NHC_STORM_TYPES[stormType] || stormType;
     const title = `${typeLabel} ${stormName}`;
 
@@ -433,7 +433,9 @@ export const listNaturalEvents: NaturalServiceHandler['listNaturalEvents'] = asy
         if (gdacsResult.status === 'rejected') console.error('[GDACS]', gdacsResult.reason?.message);
         if (nhcResult.status === 'rejected') console.error('[NHC]', nhcResult.reason?.message);
 
-        const nhcStormNames = new Set(nhcEvents.map(e => (e.stormName || '').toLowerCase()).filter(Boolean));
+        const nhcStorms = nhcEvents
+          .filter(e => e.stormName)
+          .map(e => ({ name: (e.stormName || '').toLowerCase(), lat: e.lat, lon: e.lon }));
         const seenLocations = new Set<string>();
         const merged: NaturalEvent[] = [];
 
@@ -444,7 +446,11 @@ export const listNaturalEvents: NaturalServiceHandler['listNaturalEvents'] = asy
         }
         for (const event of gdacsEvents) {
           if (event.category === 'severeStorms' && event.stormName) {
-            if (nhcStormNames.has(event.stormName.toLowerCase())) continue;
+            const gName = event.stormName.toLowerCase();
+            const isDupe = nhcStorms.some(n =>
+              n.name === gName && Math.abs(n.lat - event.lat) < 10 && Math.abs(n.lon - event.lon) < 30
+            );
+            if (isDupe) continue;
           }
           const k = `${event.lat.toFixed(1)}-${event.lon.toFixed(1)}-${event.category}`;
           if (!seenLocations.has(k)) {

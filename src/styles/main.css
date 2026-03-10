@@ -1287,13 +1287,17 @@ body.panel-resize-active iframe {
   color: var(--text);
 }
 
+/* Push the first element after header-left to the right; subsequent siblings flow via gap */
+.panel-header > .panel-header-left + * {
+  margin-left: auto;
+}
+
 .panel-count {
   font-size: 10px;
   color: var(--text-dim);
   background: var(--border);
   padding: 2px 6px;
   border-radius: 2px;
-  margin-left: auto;
   transition: color 0.3s ease, background 0.3s ease;
 }
 
@@ -1324,7 +1328,6 @@ body.panel-resize-active iframe {
 
 /* ---- Icon buttons in panel headers ---- */
 .panel-header .icon-btn {
-  margin-left: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1349,7 +1352,6 @@ body.panel-resize-active iframe {
 
 /* ---- Close (X) button on panels (extends .icon-btn) ---- */
 .panel-header .panel-close-btn {
-  margin-left: 0;
   font-size: 14px;
   opacity: 0;
   transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
@@ -1362,8 +1364,8 @@ body.panel-resize-active iframe {
 }
 
 .panel-header .panel-close-btn:hover {
-  background: rgba(255, 60, 60, 0.15);
-  color: var(--semantic-critical, #ff4444);
+  background: color-mix(in srgb, var(--semantic-critical) 15%, transparent);
+  color: var(--semantic-critical);
 }
 
 /* On touch devices, always show the close button */
@@ -1416,7 +1418,6 @@ body.panel-resize-active iframe {
   border-radius: 10px;
   border: 1px solid transparent;
   color: var(--text);
-  margin-left: auto;
 }
 
 .panel-data-badge.live {
@@ -1445,7 +1446,6 @@ body.panel-resize-active iframe {
   cursor: pointer;
   font-size: 11px;
   padding: 2px 6px;
-  margin-left: auto;
   opacity: 0.85;
   transition: opacity 0.15s, transform 0.15s, background 0.15s;
 }
@@ -1737,9 +1737,6 @@ body.panel-resize-active iframe {
   color: var(--text);
 }
 
-.panel-header .live-news-settings-btn {
-  margin-left: auto;
-}
 
 /* Channel management list: same layout as LIVE panel channel switcher */
 .live-news-manage-list {

@@ -652,7 +652,7 @@ export class Panel {
       className: 'icon-btn panel-close-btn',
       'aria-label': t('components.panel.closePanel'),
       title: t('components.panel.closePanel'),
-    }, '\u00d7');
+    }, '\u2715');
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.element.dispatchEvent(new CustomEvent('wm:panel-close', {

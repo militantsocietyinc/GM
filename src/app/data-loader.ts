@@ -531,8 +531,17 @@ export class DataLoaderManager implements AppModule {
         case 'satellites':
           await this.loadSatellites();
           break;
-        case 'satelliteImagery':
+        case 'satelliteImagery': {
+          const bbox = this.ctx.map?.getBbox();
+          if (bbox) {
+            const { fetchImageryScenes } = await import('@/services/imagery');
+            const scenes = await fetchImageryScenes({ bbox, limit: 20 });
+            this.ctx.map?.setImageryScenes(scenes);
+            const panel = this.ctx.panels['satellite-imagery'] as import('@/components/SatelliteImageryPanel').SatelliteImageryPanel | undefined;
+            panel?.update(scenes);
+          }
           break;
+        }
         case 'ucdpEvents':
         case 'displacement':
         case 'climate':

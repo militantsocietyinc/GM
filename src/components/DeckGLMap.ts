@@ -330,6 +330,7 @@ export class DeckGLMap {
   private kindnessPoints: KindnessPoint[] = [];
   private imageryScenes: ImageryScene[] = [];
   private imagerySearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private imagerySearchVersion = 0;
 
   // Phase 8 overlay data
   private happinessScores: Map<string, number> = new Map();
@@ -356,6 +357,7 @@ export class DeckGLMap {
   private onLayerChange?: (layer: keyof MapLayers, enabled: boolean, source: 'user' | 'programmatic') => void;
   private onStateChange?: (state: DeckMapState) => void;
   private onAircraftPositionsUpdate?: (positions: PositionSample[]) => void;
+  private onImageryUpdate?: (scenes: ImageryScene[]) => void;
 
   // Highlighted assets
   private highlightedAssets: Record<AssetType, Set<string>> = {
@@ -3101,11 +3103,18 @@ export class DeckGLMap {
     if (!map) return;
     const bounds = map.getBounds();
     const bbox = `${bounds.getWest().toFixed(4)},${bounds.getSouth().toFixed(4)},${bounds.getEast().toFixed(4)},${bounds.getNorth().toFixed(4)}`;
+    const version = ++this.imagerySearchVersion;
     try {
       const scenes = await fetchImageryScenes({ bbox, limit: 20 });
+      if (version !== this.imagerySearchVersion) return;
       this.imageryScenes = scenes;
+      this.onImageryUpdate?.(scenes);
       this.render();
     } catch { /* viewport fetch failed silently */ }
+  }
+
+  public setOnImageryUpdate(callback: (scenes: ImageryScene[]) => void): void {
+    this.onImageryUpdate = callback;
   }
 
   private getTooltip(info: PickingInfo): { html: string } | null {
@@ -4091,6 +4100,12 @@ export class DeckGLMap {
       return { lat: center.lat, lon: center.lng };
     }
     return null;
+  }
+
+  public getBbox(): string | null {
+    if (!this.maplibreMap) return null;
+    const b = this.maplibreMap.getBounds();
+    return `${b.getWest().toFixed(4)},${b.getSouth().toFixed(4)},${b.getEast().toFixed(4)},${b.getNorth().toFixed(4)}`;
   }
 
   public setTimeRange(range: TimeRange): void {

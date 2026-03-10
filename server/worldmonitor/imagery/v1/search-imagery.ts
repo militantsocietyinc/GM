@@ -184,6 +184,13 @@ export async function searchImagery(
 
                 const item = (await itemResp.json()) as StacItem;
                 if (item.bbox && !bboxIntersects(item.bbox, parsedBbox)) continue;
+                if (req.datetime && item.properties.datetime) {
+                  const itemDate = new Date(item.properties.datetime);
+                  const parts = req.datetime.split('/');
+                  const start = new Date(parts[0]!);
+                  const end = parts[1] ? new Date(parts[1]) : start;
+                  if (itemDate < start || itemDate > end) continue;
+                }
 
                 allScenes.push(mapStacItem(item));
               } catch {

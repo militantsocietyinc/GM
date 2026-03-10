@@ -589,7 +589,23 @@ export class PanelLayoutManager implements AppModule {
 
     this.createPanel('cascade', () => new CascadePanel());
     this.createPanel('satellite-fires', () => new SatelliteFiresPanel());
-    this.createPanel('satellite-imagery', () => new SatelliteImageryPanel());
+    const imageryPanel = this.createPanel('satellite-imagery', () => new SatelliteImageryPanel());
+    if (imageryPanel) {
+      this.ctx.map?.setOnImageryUpdate((scenes) => {
+        imageryPanel.update(scenes);
+        this.ctx.map?.setImageryScenes(scenes);
+      });
+      imageryPanel.setOnSearchArea(async () => {
+        const bbox = this.ctx.map?.getBbox();
+        if (!bbox) return;
+        try {
+          const { fetchImageryScenes } = await import('@/services/imagery');
+          const scenes = await fetchImageryScenes({ bbox, limit: 20 });
+          imageryPanel.update(scenes);
+          this.ctx.map?.setImageryScenes(scenes);
+        } catch { /* search failed */ }
+      });
+    }
 
     if (this.shouldCreatePanel('strategic-risk')) {
       const strategicRiskPanel = new StrategicRiskPanel();

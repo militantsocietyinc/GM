@@ -75,6 +75,7 @@ import { getCurrentTheme } from '@/utils';
 import { trackCriticalBannerAction } from '@/services/analytics';
 import { initMode, setMode, alertFamily, getMode, toggleGhostMode, type AppMode } from '@/services/mode-manager';
 import { isLowPowerMode, setLowPowerMode } from '@/services/low-power';
+import { tryInvokeTauri } from '@/services/tauri-bridge';
 
 export interface PanelLayoutCallbacks {
   openCountryStory: (code: string, name: string) => void;
@@ -309,12 +310,12 @@ export class PanelLayoutManager implements AppModule {
 
         <!-- Main content: toolbar + map/panels -->
         <main class="mac-content">
-          <!-- Draggable toolbar (title bar area) -->
+          <!-- Draggable toolbar (title bar area) — drag via JS _setupToolbarDrag() -->
           <div class="mac-content-toolbar" data-tauri-drag-region>
             <span class="mac-toolbar-title" data-tauri-drag-region>
               ${SITE_VARIANT === 'tech' ? 'Tech Monitor' : SITE_VARIANT === 'finance' ? 'Finance Monitor' : SITE_VARIANT === 'happy' ? 'Good News' : 'World Monitor'}
             </span>
-            <div class="mac-toolbar-status" data-tauri-drag-region>
+            <div class="mac-toolbar-status">
               <span class="status-dot"></span>
               <span>${t('header.live')}</span>
             </div>
@@ -915,6 +916,9 @@ export class PanelLayoutManager implements AppModule {
       // Wire mode selector buttons
       this._initModeSelector();
 
+      // Set up JS-based window drag on the toolbar strip
+      this._setupToolbarDrag();
+
       // Wire Low Power Mode toggle
       const lpBtn = document.getElementById('lowPowerBtn');
       if (lpBtn) {
@@ -1033,6 +1037,37 @@ export class PanelLayoutManager implements AppModule {
     document.addEventListener('wm:mode-changed', ((e: CustomEvent) => {
       this._applyModePanelOrder((e.detail as { mode: AppMode }).mode);
     }) as EventListener);
+  }
+
+  /**
+   * Set up JS-based window dragging on the toolbar strip.
+   *
+   * Rationale: Tauri 2 on macOS + WKWebView has an interaction where
+   * `-webkit-app-region: drag` CSS intercepts mousedown events at the WebKit
+   * layer before JavaScript fires, which prevents `startDragging()` from being
+   * called reliably. Removing the CSS and using an explicit mousedown handler
+   * that calls `plugin:window|start_dragging` via IPC is the most reliable fix.
+   */
+  private _setupToolbarDrag(): void {
+    const toolbar = document.querySelector<HTMLElement>('.mac-content-toolbar');
+    if (!toolbar) return;
+
+    // Interactive selectors — mousedown on these should NOT start a window drag
+    const NO_DRAG_SELECTOR = 'button, select, input, a, label, [role="button"], [role="option"]';
+
+    toolbar.addEventListener('mousedown', (e: MouseEvent) => {
+      // Left button only
+      if (e.button !== 0) return;
+
+      const target = e.target as Element | null;
+      if (!target) return;
+
+      // Bail if the click landed on or inside an interactive element
+      if (target.closest(NO_DRAG_SELECTOR)) return;
+
+      // Start dragging — Tauri 2 IPC command (no label needed, uses current window)
+      tryInvokeTauri('plugin:window|start_dragging').catch(() => {/* silent */ });
+    });
   }
 
   /**

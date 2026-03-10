@@ -682,24 +682,11 @@ body.is-desktop-macos .mac-content {
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border-bottom: 1px solid var(--mac-separator);
   flex-shrink: 0;
-  -webkit-app-region: drag;
+  /* Note: no -webkit-app-region here — JS startDragging() handles drag (see _setupToolbarDrag) */
 }
 
 body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
   background: rgba(242, 242, 247, 0.85);
-}
-
-/* All direct children non-draggable so clicks work */
-.mac-content-toolbar > * {
-  -webkit-app-region: no-drag;
-}
-
-/* Non-interactive toolbar elements are drag handles */
-.mac-toolbar-title,
-.mac-toolbar-status,
-.mac-toolbar-spacer,
-.mac-content-toolbar .header-clock {
-  -webkit-app-region: drag;
 }
 
 .mac-toolbar-title {
@@ -733,7 +720,7 @@ body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
 
 .mac-toolbar-spacer {
   flex: 1;
-  -webkit-app-region: drag; /* spacer is the primary drag handle — override parent no-drag */
+  /* drag handled via JS _setupToolbarDrag() */
 }
 
 /* Region selector inside toolbar */
@@ -763,12 +750,18 @@ body.is-desktop-macos[data-theme="light"] .mac-content-toolbar {
   border-color: var(--mac-accent);
 }
 
-/* Clock in toolbar */
+/* Clock in toolbar — override main.css absolute positioning so it's a normal flex child */
 .mac-content-toolbar .header-clock {
+  position: static;      /* override main.css position: absolute */
+  left: auto;            /* override main.css left: 50% */
+  transform: none;       /* override main.css translateX(-50%) */
+  pointer-events: auto;  /* override main.css pointer-events: none so drag events reach it */
   font-family: var(--mac-font-mono);
   font-size: 12px;
   color: var(--mac-secondary-label);
   letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Toolbar search button */
@@ -1032,7 +1025,6 @@ body.is-desktop-macos #unifiedSettingsMount {
 .mac-content-toolbar .region-selector {
   display: flex;
   align-items: center;
-  -webkit-app-region: no-drag;
 }
 
 .mac-content-toolbar .region-select {

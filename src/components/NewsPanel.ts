@@ -164,7 +164,7 @@ export class NewsPanel extends Panel {
 
   private updateSortButtonLabel(): void {
     if (!this.sortBtn) return;
-    // SVG icons for cross-platform consistency (recommended by reviewer)
+    // SVG icons for cross-platform consistency
     const icon = this.sortMode === 'newest'
       ? '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><polyline points="8,4 8,8 11,10"/></svg>'
       : '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M4 7l4 4 4-4"/><line x1="3" y1="14" x2="13" y2="14"/></svg>';
@@ -367,6 +367,8 @@ export class NewsPanel extends Panel {
   public renderNews(items: NewsItem[]): void {
     if (items.length === 0) {
       this.renderRequestId += 1; // Cancel in-flight clustering from previous renders.
+      this.lastRawClusters = null;
+      this.lastRawItems = null;
       this.setDataBadge('unavailable');
       this.showError(t('common.noNewsAvailable'));
       return;
@@ -385,6 +387,8 @@ export class NewsPanel extends Panel {
 
   public renderFilteredEmpty(message: string): void {
     this.renderRequestId += 1; // Cancel in-flight clustering from previous renders.
+    this.lastRawClusters = null;
+    this.lastRawItems = null;
     this.setDataBadge('live');
     this.setCount(0);
     this.relatedAssetContext.clear();
@@ -411,14 +415,11 @@ export class NewsPanel extends Panel {
   private renderFlat(items: NewsItem[]): void {
     this.lastRawItems = items;
 
-    // Sort items based on user preference (pre-compute timestamps for perf)
     let sorted: NewsItem[];
     if (this.sortMode === 'newest') {
-      const withTime = items.map(i => ({ item: i, ts: new Date(i.pubDate).getTime() }));
-      withTime.sort((a, b) => b.ts - a.ts);
-      sorted = withTime.map(x => x.item);
+      sorted = [...items].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
     } else {
-      sorted = items; // default feed order
+      sorted = items;
     }
 
     this.setCount(sorted.length);
@@ -453,6 +454,7 @@ export class NewsPanel extends Panel {
 
   private renderClusters(clusters: ClusteredEvent[]): void {
     this.lastRawClusters = clusters;
+    this.lastRawItems = null;
 
     // Sort based on user preference (#107)
     const sorted = [...clusters].sort((a, b) => {

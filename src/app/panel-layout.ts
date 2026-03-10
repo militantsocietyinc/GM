@@ -265,8 +265,8 @@ export class PanelLayoutManager implements AppModule {
 
         <!-- Sidebar -->
         <aside class="mac-sidebar">
-          <!-- Drag region / traffic-lights safe area -->
-          <div class="mac-sidebar-drag"></div>
+          <!-- Drag region / traffic-lights safe area — JS drag via _setupWindowDragRegions() -->
+          <div class="mac-sidebar-drag" data-tauri-drag-region></div>
 
           <!-- Navigation: variant pills + live panel list -->
           <nav class="mac-sidebar-nav">
@@ -916,8 +916,8 @@ export class PanelLayoutManager implements AppModule {
       // Wire mode selector buttons
       this._initModeSelector();
 
-      // Set up JS-based window drag on the toolbar strip
-      this._setupToolbarDrag();
+      // Set up JS-based window drag on toolbar + sidebar drag zone
+      this._setupWindowDragRegions();
 
       // Wire Low Power Mode toggle
       const lpBtn = document.getElementById('lowPowerBtn');
@@ -1040,34 +1040,37 @@ export class PanelLayoutManager implements AppModule {
   }
 
   /**
-   * Set up JS-based window dragging on the toolbar strip.
+   * Set up JS-based window dragging for all drag zones.
    *
-   * Rationale: Tauri 2 on macOS + WKWebView has an interaction where
-   * `-webkit-app-region: drag` CSS intercepts mousedown events at the WebKit
-   * layer before JavaScript fires, which prevents `startDragging()` from being
-   * called reliably. Removing the CSS and using an explicit mousedown handler
-   * that calls `plugin:window|start_dragging` via IPC is the most reliable fix.
+   * Rationale: In Tauri 2 + WKWebView on macOS, `-webkit-app-region: drag`
+   * intercepts mousedown events at the WebKit layer *before* JS fires, so
+   * calling startDragging() from JS never gets a chance to run. The fix is to
+   * remove all `-webkit-app-region` CSS from drag zones and use an explicit
+   * mousedown → IPC approach instead. Also requires the
+   * `core:window:allow-start-dragging` capability (not included in core:default).
    */
-  private _setupToolbarDrag(): void {
-    const toolbar = document.querySelector<HTMLElement>('.mac-content-toolbar');
-    if (!toolbar) return;
-
-    // Interactive selectors — mousedown on these should NOT start a window drag
+  private _setupWindowDragRegions(): void {
+    // Interactive selectors — clicks on these must NOT start a window drag
     const NO_DRAG_SELECTOR = 'button, select, input, a, label, [role="button"], [role="option"]';
 
-    toolbar.addEventListener('mousedown', (e: MouseEvent) => {
-      // Left button only
-      if (e.button !== 0) return;
+    const attachDrag = (el: Element | null, allowInteractive = false) => {
+      if (!el) return;
+      el.addEventListener('mousedown', (ev: Event) => {
+        const e = ev as MouseEvent;
+        if (e.button !== 0) return; // left button only
+        if (!allowInteractive) {
+          const target = e.target as Element | null;
+          if (target?.closest(NO_DRAG_SELECTOR)) return;
+        }
+        tryInvokeTauri('plugin:window|start_dragging').catch(() => {/* silent */});
+      });
+    };
 
-      const target = e.target as Element | null;
-      if (!target) return;
+    // Content toolbar — skip interactive children (region select, search btn)
+    attachDrag(document.querySelector('.mac-content-toolbar'));
 
-      // Bail if the click landed on or inside an interactive element
-      if (target.closest(NO_DRAG_SELECTOR)) return;
-
-      // Start dragging — Tauri 2 IPC command (no label needed, uses current window)
-      tryInvokeTauri('plugin:window|start_dragging').catch(() => {/* silent */ });
-    });
+    // Sidebar drag zone — empty div, all clicks are drag
+    attachDrag(document.querySelector('.mac-sidebar-drag'), true);
   }
 
   /**

@@ -102,11 +102,11 @@ body.is-desktop-macos .mac-sidebar {
   user-select: none;
 }
 
-/* Traffic-lights safe zone — allows window dragging from sidebar top */
+/* Traffic-lights safe zone — drag handled via JS _setupWindowDragRegions() */
 .mac-sidebar-drag {
   height: var(--mac-traffic-lights-height);
-  -webkit-app-region: drag;
   flex-shrink: 0;
+  cursor: default;
 }
 
 /* Sidebar scrollable nav */

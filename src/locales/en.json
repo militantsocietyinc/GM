@@ -176,6 +176,8 @@
     "sourceRegionGulfMena": "Gulf & MENA",
     "filterPanels": "Filter panels...",
     "resetLayout": "Reset Layout",
+    "resetLayoutTooltip": "Restore default panel arrangement",
+    "unsavedChanges": "You have unsaved panel changes. Discard them?",
     "panelCatCore": "Core",
     "panelCatIntelligence": "Intelligence",
     "panelCatRegionalNews": "Regional News",
@@ -377,6 +379,8 @@
       "noResults": "No results",
       "commands": "Commands",
       "results": "Results",
+      "seeAllCommands": "See all commands",
+      "hideCommandList": "Back",
       "navigate": "navigate",
       "select": "select",
       "close": "close",
@@ -995,6 +999,7 @@
       "layerWarningDismiss": "Don't show this again",
       "layerWarningOk": "Got it",
       "layersTitle": "Layers",
+      "layerSearch": "Search layers...",
       "timeAll": "All",
       "views": {
         "global": "Global",
@@ -1024,6 +1029,7 @@
         "nuclearSites": "Nuclear Sites",
         "gammaIrradiators": "Gamma Irradiators",
         "spaceports": "Spaceports",
+        "satellites": "Orbital Surveillance",
         "pipelines": "Pipelines",
         "militaryActivity": "Military Activity",
         "shipTraffic": "Ship Traffic",
@@ -1462,7 +1468,10 @@
       "summaryError": "Could not generate summary",
       "summaryFailed": "Summary failed",
       "sources": "{{count}} sources",
-      "relatedAssetsNear": "Related assets near {{location}}"
+      "relatedAssetsNear": "Related assets near {{location}}",
+      "sortBy": "Sort by",
+      "sortNewest": "Newest",
+      "sortRelevance": "Relevance"
     },
     "export": {
       "exportData": "Export Data"
@@ -1610,7 +1619,9 @@
     "panel": {
       "showMethodologyInfo": "Show methodology info",
       "dragToResize": "Drag to resize (double-click to reset)",
-      "openSettings": "Open Settings"
+      "openSettings": "Open Settings",
+      "closePanel": "Close panel",
+      "addPanel": "Add Panel"
     },
     "languageSelector": {
       "selectLanguage": "Select Language",
@@ -1755,9 +1766,9 @@
     },
     "gpsJamming": {
       "title": "GPS/GNSS Interference",
-      "interference": "Interference",
-      "aircraftAffected": "Aircraft Affected",
-      "aircraftNormal": "Aircraft Normal",
+      "navPerformance": "Nav Performance",
+      "samples": "ADS-B Samples",
+      "aircraft": "Aircraft",
       "h3Hex": "H3 Hex"
     },
     "flight": {
@@ -1773,7 +1784,9 @@
       "sources": {
         "faa": "FAA ASWS",
         "eurocontrol": "Eurocontrol",
-        "computed": "Computed"
+        "computed": "Computed",
+        "aviationstack": "Flight Data",
+        "notam": "NOTAM"
       },
       "regions": {
         "americas": "Americas",
@@ -2104,7 +2117,13 @@
       "active": "ACTIVE",
       "reported": "REPORTED",
       "viewOnSource": "View on {{source}}",
-      "attribution": "Data: NASA EONET"
+      "attribution": "Data: NASA EONET",
+      "storm": "Storm",
+      "classification": "Classification",
+      "maxWind": "Max Wind",
+      "pressure": "Pressure",
+      "movement": "Movement",
+      "tropicalSystem": "Tropical System"
     },
     "port": {
       "types": {

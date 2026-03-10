@@ -173,6 +173,8 @@
     "sourceRegionGulfMena": "الخليج والشرق الأوسط",
     "filterPanels": "تصفية اللوحات...",
     "resetLayout": "إعادة تعيين التخطيط",
+    "resetLayoutTooltip": "استعادة ترتيب اللوحات الافتراضي",
+    "unsavedChanges": "لديك تغييرات غير محفوظة في اللوحات. هل تريد تجاهلها؟",
     "panelCatCore": "أساسي",
     "panelCatIntelligence": "استخبارات",
     "panelCatRegionalNews": "أخبار إقليمية",
@@ -375,6 +377,8 @@
       "noResults": "لا توجد نتائج",
       "commands": "أوامر",
       "results": "نتائج",
+      "seeAllCommands": "عرض جميع الأوامر",
+      "hideCommandList": "رجوع",
       "navigate": "تنقّل",
       "select": "اختيار",
       "close": "إغلاق",
@@ -952,6 +956,7 @@
       "layerWarningDismiss": "لا تظهر هذا مجددًا",
       "layerWarningOk": "فهمت",
       "layersTitle": "الطبقات",
+      "layerSearch": "بحث في الطبقات...",
       "timeAll": "الكل",
       "views": {
         "global": "عالمي",
@@ -981,6 +986,7 @@
         "nuclearSites": "مواقع نووية",
         "gammaIrradiators": "أجهزة تشعيع غاما",
         "spaceports": "مطارات فضائية",
+        "satellites": "مراقبة مدارية",
         "pipelines": "خطوط أنابيب",
         "militaryActivity": "نشاط عسكري",
         "shipTraffic": "حركة السفن",
@@ -1739,9 +1745,9 @@
     },
     "gpsJamming": {
       "title": "تداخل GPS/GNSS",
-      "interference": "التداخل",
-      "aircraftAffected": "الطائرات المتأثرة",
-      "aircraftNormal": "الطائرات السليمة",
+      "navPerformance": "Nav Performance",
+      "samples": "ADS-B Samples",
+      "aircraft": "Aircraft",
       "h3Hex": "H3 Hex"
     },
     "flight": {
@@ -1757,7 +1763,9 @@
       "sources": {
         "faa": "FAA ASWS",
         "eurocontrol": "Eurocontrol",
-        "computed": "محسوب"
+        "computed": "محسوب",
+        "aviationstack": "Flight Data",
+        "notam": "NOTAM"
       },
       "regions": {
         "americas": "الأمريكتان",

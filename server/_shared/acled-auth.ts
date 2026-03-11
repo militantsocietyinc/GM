@@ -5,7 +5,7 @@
  * This module handles the token lifecycle:
  *
  *   1. If ACLED_EMAIL + ACLED_PASSWORD are set → exchange for an OAuth
- *      access token (24 h) + refresh token (14 d), cache in memory,
+ *      access token (24 h) + refresh token (14 d), cache in Redis,
  *      and auto-refresh before expiry.
  *
  *   2. If only ACLED_ACCESS_TOKEN is set → use the static token as-is
@@ -17,11 +17,20 @@
  * Fixes: https://github.com/koala73/worldmonitor/issues/1283
  */
 
+import { CHROME_UA } from './constants';
+import { getCachedJson, setCachedJson } from './redis';
+
 const ACLED_TOKEN_URL = 'https://acleddata.com/oauth/token';
 const ACLED_CLIENT_ID = 'acled';
 
 /** Refresh 5 minutes before the token actually expires. */
 const EXPIRY_MARGIN_MS = 5 * 60 * 1000;
+
+/** Redis cache key for the ACLED OAuth token state. */
+const REDIS_CACHE_KEY = 'acled:oauth:token';
+
+/** Cache token in Redis for 23 hours (token lasts 24 h, minus margin). */
+const REDIS_TTL_SECONDS = 23 * 60 * 60;
 
 interface TokenState {
   accessToken: string;
@@ -30,7 +39,11 @@ interface TokenState {
   expiresAt: number;
 }
 
-let cached: TokenState | null = null;
+/**
+ * In-memory fast-path cache.
+ * Acts as L1 cache; Redis is L2 and survives Vercel Edge cold starts.
+ */
+let memCached: TokenState | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
 /**
@@ -49,7 +62,10 @@ async function exchangeCredentials(
 
   const resp = await fetch(ACLED_TOKEN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': CHROME_UA,
+    },
     body,
     signal: AbortSignal.timeout(15_000),
   });
@@ -90,7 +106,10 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenState> {
 
   const resp = await fetch(ACLED_TOKEN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': CHROME_UA,
+    },
     body,
     signal: AbortSignal.timeout(15_000),
   });
@@ -120,22 +139,69 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenState> {
 }
 
 /**
+ * Persist token state to Redis so it survives Vercel Edge cold starts.
+ */
+async function cacheToRedis(state: TokenState): Promise<void> {
+  try {
+    await setCachedJson(REDIS_CACHE_KEY, state, REDIS_TTL_SECONDS);
+  } catch (err) {
+    console.warn('[acled-auth] Failed to cache token in Redis', err);
+  }
+}
+
+/**
+ * Restore token state from Redis (L2 cache for cold starts).
+ */
+async function restoreFromRedis(): Promise<TokenState | null> {
+  try {
+    const data = await getCachedJson(REDIS_CACHE_KEY);
+    if (
+      data &&
+      typeof data === 'object' &&
+      'accessToken' in (data as Record<string, unknown>) &&
+      'refreshToken' in (data as Record<string, unknown>) &&
+      'expiresAt' in (data as Record<string, unknown>)
+    ) {
+      return data as TokenState;
+    }
+  } catch (err) {
+    console.warn('[acled-auth] Failed to restore token from Redis', err);
+  }
+  return null;
+}
+
+/**
  * Returns a valid ACLED access token, refreshing if necessary.
  *
  * Priority:
  *   1. ACLED_EMAIL + ACLED_PASSWORD → OAuth flow with auto-refresh
  *   2. ACLED_ACCESS_TOKEN          → static token (legacy)
  *   3. Neither                     → null
+ *
+ * Caching:
+ *   L1: In-memory `memCached` (fast-path within same isolate)
+ *   L2: Redis via `getCachedJson`/`setCachedJson` (survives cold starts)
  */
 export async function getAcledAccessToken(): Promise<string | null> {
   const email = process.env.ACLED_EMAIL?.trim();
   const password = process.env.ACLED_PASSWORD?.trim();
 
-  // ── OAuth flow ──────────────────────────────────────────────
+  // —— OAuth flow ————————————————————————————————————————
   if (email && password) {
-    // Return cached token if still fresh.
-    if (cached && Date.now() < cached.expiresAt - EXPIRY_MARGIN_MS) {
-      return cached.accessToken;
+    // L1: Return in-memory token if still fresh.
+    if (memCached && Date.now() < memCached.expiresAt - EXPIRY_MARGIN_MS) {
+      return memCached.accessToken;
+    }
+
+    // L2: Try Redis (survives Vercel Edge cold starts).
+    if (!memCached) {
+      const fromRedis = await restoreFromRedis();
+      if (fromRedis && Date.now() < fromRedis.expiresAt - EXPIRY_MARGIN_MS) {
+        memCached = fromRedis;
+        return memCached.accessToken;
+      }
+      // If Redis had a token but it's near-expiry, keep it for fallback.
+      if (fromRedis) memCached = fromRedis;
     }
 
     // Deduplicate concurrent refresh attempts.
@@ -144,22 +210,24 @@ export async function getAcledAccessToken(): Promise<string | null> {
     refreshPromise = (async () => {
       try {
         // Try refreshing with the existing refresh token first.
-        if (cached?.refreshToken) {
+        if (memCached?.refreshToken) {
           try {
-            cached = await refreshAccessToken(cached.refreshToken);
-            return cached.accessToken;
+            memCached = await refreshAccessToken(memCached.refreshToken);
+            await cacheToRedis(memCached);
+            return memCached.accessToken;
           } catch (refreshErr) {
             console.warn('[acled-auth] Refresh token expired, re-authenticating', refreshErr);
           }
         }
 
         // Full re-authentication with email/password.
-        cached = await exchangeCredentials(email, password);
-        return cached.accessToken;
+        memCached = await exchangeCredentials(email, password);
+        await cacheToRedis(memCached);
+        return memCached.accessToken;
       } catch (err) {
         console.error('[acled-auth] Failed to obtain ACLED access token', err);
         // If we still have a cached token (even if near-expiry), try using it.
-        return cached?.accessToken ?? null;
+        return memCached?.accessToken ?? null;
       } finally {
         refreshPromise = null;
       }
@@ -168,7 +236,7 @@ export async function getAcledAccessToken(): Promise<string | null> {
     return refreshPromise;
   }
 
-  // ── Static token fallback (legacy) ──────────────────────────
+  // —— Static token fallback (legacy) ————————————————————
   const staticToken = process.env.ACLED_ACCESS_TOKEN?.trim();
   return staticToken || null;
 }

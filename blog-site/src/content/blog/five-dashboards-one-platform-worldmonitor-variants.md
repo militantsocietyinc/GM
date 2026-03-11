@@ -20,6 +20,7 @@ WorldMonitor runs **five specialized dashboards** from a single codebase. Switch
 This is the flagship. World Monitor is built for OSINT analysts, defense researchers, journalists, and anyone who needs to understand global security dynamics.
 
 **Key features:**
+
 - Country Instability Index (CII) for real-time risk scoring across 23+ nations
 - Strategic Theater Posture for 9 operational theaters (Taiwan Strait, Persian Gulf, Baltic, Korean Peninsula, and more)
 - 210+ military bases from 9 operators mapped globally
@@ -42,6 +43,7 @@ This is the flagship. World Monitor is built for OSINT analysts, defense researc
 Tech Monitor maps the global technology landscape: where AI is being built, where startups are funded, where data centers are concentrated, and where the next unicorn might emerge.
 
 **Key features:**
+
 - 111 AI datacenters mapped globally with operator details
 - Startup hub and accelerator locations
 - AI lab and research center tracking
@@ -64,6 +66,7 @@ Tech Monitor maps the global technology landscape: where AI is being built, wher
 Finance Monitor is for traders and analysts who know that markets move on geopolitics. It combines traditional financial data with the intelligence layers that drive price action.
 
 **Key features:**
+
 - 92 global stock exchanges with trading hours and market caps
 - 7-signal macro radar with composite BUY/CASH verdict
 - 13 central bank policy trackers with BIS data
@@ -87,6 +90,7 @@ Finance Monitor is for traders and analysts who know that markets move on geopol
 Commodity Monitor tracks the physical resources that power the global economy: where they're extracted, how they're priced, and what threatens their supply.
 
 **Key features:**
+
 - Live commodity prices (energy, precious metals, critical minerals, agriculture)
 - 10 major commodity exchange hubs mapped
 - Mining company and extraction site locations
@@ -107,6 +111,7 @@ Commodity Monitor tracks the physical resources that power the global economy: w
 In a world of conflict feeds and crisis dashboards, Happy Monitor exists to track what's going right. It curates positive developments: scientific breakthroughs, conservation wins, renewable energy milestones, and human progress stories.
 
 **Key features:**
+
 - Good News Feed curated from verified positive news sources
 - Scientific breakthrough tracking
 - Conservation and wildlife wins
@@ -123,30 +128,39 @@ In a world of conflict feeds and crisis dashboards, Happy Monitor exists to trac
 Regardless of which variant you use, you get the full platform engine:
 
 ### Interactive 3D Globe + Flat Map
+
 Dual map engines (globe.gl/Three.js for 3D, deck.gl for flat WebGL) that switch at runtime. Both support all 45 data layers.
 
 ### AI Analysis
+
 The 4-tier LLM fallback chain (Ollama, Groq, OpenRouter, browser T5) works across all variants. Generate briefs, classify threats, and run analysis privately.
 
 ### 21 Languages
+
 Full internationalization with lazy-loaded language packs, locale-specific RSS feeds, and RTL support for Arabic.
 
 ### Command Palette (Cmd+K)
+
 Fuzzy search across 24 result types and 250+ country commands. Find anything instantly.
 
 ### 8 Regional Presets
+
 Jump between Global, Americas, Europe, MENA, Asia, Africa, Oceania, and Latin America views.
 
 ### URL State Sharing
+
 Every view state (map position, active layers, selected panels, time range) is encoded in a shareable URL.
 
 ### Story Sharing
+
 Export intelligence briefs to Twitter/X, LinkedIn, WhatsApp, Telegram, and Reddit with auto-generated Open Graph preview images.
 
 ### Desktop App
+
 The Tauri app for macOS, Windows, and Linux works with all variants, with OS keychain storage and offline capabilities.
 
 ### Progressive Web App
+
 Install on any device from the browser. Includes offline map caching (500 tiles).
 
 ## Switching Between Variants
@@ -174,6 +188,7 @@ Open source under AGPL-3.0. Deploy it yourself, contribute to it, or just use it
 ---
 
 **Pick your variant and start exploring:**
+
 - [worldmonitor.app](https://worldmonitor.app) for geopolitics
 - [tech.worldmonitor.app](https://tech.worldmonitor.app) for technology
 - [finance.worldmonitor.app](https://finance.worldmonitor.app) for markets

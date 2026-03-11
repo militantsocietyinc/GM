@@ -56,6 +56,7 @@ The CII is computed from four weighted components:
 - **Information velocity (20%):** News volume spikes that often precede or accompany crises
 
 Real-time boosters adjust the score based on:
+
 - Proximity to active hotspots
 - OREF rocket alert activity
 - GPS jamming detection in or near the country

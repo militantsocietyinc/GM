@@ -20,6 +20,7 @@ Let's be direct about what WorldMonitor is and isn't relative to established pla
 ### WorldMonitor vs. Bloomberg Terminal
 
 **Bloomberg wins at:**
+
 - Depth of financial data (tick-level, decades of history)
 - Trading execution and order management
 - Fixed income and derivatives pricing
@@ -27,6 +28,7 @@ Let's be direct about what WorldMonitor is and isn't relative to established pla
 - Terminal-to-terminal messaging
 
 **WorldMonitor wins at:**
+
 - Geopolitical intelligence integration with market data
 - Conflict and military monitoring (Bloomberg has zero)
 - Visual map-based interface with 45 data layers
@@ -39,6 +41,7 @@ Let's be direct about what WorldMonitor is and isn't relative to established pla
 ### WorldMonitor vs. Palantir Gotham/Foundry
 
 **Palantir wins at:**
+
 - Ingesting proprietary organizational data
 - Custom ontology building
 - Classified network deployment
@@ -46,6 +49,7 @@ Let's be direct about what WorldMonitor is and isn't relative to established pla
 - Dedicated engineering support
 
 **WorldMonitor wins at:**
+
 - Zero deployment time (open a browser)
 - No vendor lock-in (AGPL-3.0 source code)
 - Public OSINT aggregation out of the box
@@ -58,12 +62,14 @@ Let's be direct about what WorldMonitor is and isn't relative to established pla
 ### WorldMonitor vs. Dataminr
 
 **Dataminr wins at:**
+
 - Proprietary social media firehose access (Twitter/X partnership)
 - Purpose-built alerting and notification workflows
 - Dedicated analyst support
 - Enterprise SLA and compliance certifications
 
 **WorldMonitor wins at:**
+
 - Broader intelligence scope (Dataminr focuses on social; WorldMonitor covers military, maritime, aviation, markets, infrastructure)
 - 26 Telegram OSINT channels (Dataminr has limited Telegram coverage)
 - AI analysis with local LLM option
@@ -76,6 +82,7 @@ Let's be direct about what WorldMonitor is and isn't relative to established pla
 ### WorldMonitor vs. Recorded Future
 
 **Recorded Future wins at:**
+
 - Deep dark web and threat intelligence collection
 - Malware analysis and IOC correlation
 - Vulnerability intelligence
@@ -83,6 +90,7 @@ Let's be direct about what WorldMonitor is and isn't relative to established pla
 - Enterprise integration ecosystem (SIEM, SOAR)
 
 **WorldMonitor wins at:**
+
 - Geopolitical and military intelligence (Recorded Future focuses on cyber)
 - Financial market integration
 - Interactive visual map interface
@@ -125,6 +133,7 @@ Transparency matters. Here's what you won't get:
 ## When WorldMonitor Is the Right Choice
 
 **You should use WorldMonitor if:**
+
 - You need a multi-domain intelligence overview and your budget is limited
 - You want geopolitical context alongside market data
 - You need AI analysis that runs privately on your hardware
@@ -133,6 +142,7 @@ Transparency matters. Here's what you won't get:
 - You want to evaluate intelligence tooling before committing to enterprise contracts
 
 **You should look elsewhere if:**
+
 - You need tick-level financial data for high-frequency trading
 - You need dark web threat intelligence
 - You need enterprise compliance (SOC2, FedRAMP)

@@ -105,6 +105,7 @@ This data is invaluable for humanitarian organizations planning response operati
 ## Practical Workflows
 
 ### For Emergency Management
+
 1. Earthquake alert appears on map (USGS, magnitude 6.2)
 2. Check population exposure overlay for affected population estimate
 3. Review infrastructure cascade for damaged utilities and transport
@@ -114,6 +115,7 @@ This data is invaluable for humanitarian organizations planning response operati
 7. Share situation briefing via URL state to team
 
 ### For Insurance and Reinsurance
+
 1. Set custom keyword monitors for "earthquake," "wildfire," "flood"
 2. When triggered, review magnitude/intensity and location
 3. Overlay population density for exposure estimation
@@ -122,6 +124,7 @@ This data is invaluable for humanitarian organizations planning response operati
 6. Generate AI brief for initial loss assessment context
 
 ### For Humanitarian Response
+
 1. Monitor CII for countries with rising instability (pre-existing vulnerability)
 2. When disaster strikes vulnerable region, assess compounding risk
 3. Review displacement data for existing humanitarian burden
@@ -130,6 +133,7 @@ This data is invaluable for humanitarian organizations planning response operati
 6. Cross-reference with travel advisories for staff safety
 
 ### For Commodity Markets
+
 1. Satellite fire detection triggers in major agricultural region
 2. Check FRP intensity and affected area
 3. Overlay with crop/commodity production zones

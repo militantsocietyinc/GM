@@ -16,9 +16,11 @@ WorldMonitor answers these questions by putting cyber threat data on the same ma
 ## Integrated Threat Feeds
 
 ### Feodo Tracker (abuse.ch)
+
 The Feodo Tracker identifies active **botnet command-and-control (C2) servers** used by major banking trojans and malware families including Emotet, Dridex, TrickBot, and QakBot.
 
 WorldMonitor maps these C2 servers geographically, showing:
+
 - Active C2 server locations
 - Malware family association
 - Server hosting details
@@ -27,23 +29,29 @@ WorldMonitor maps these C2 servers geographically, showing:
 When C2 servers cluster in a country whose CII (Country Instability Index) is rising, it may indicate state tolerance or state sponsorship of cybercrime during periods of geopolitical tension.
 
 ### URLhaus (abuse.ch)
+
 URLhaus tracks **URLs distributing malware**. WorldMonitor integrates this feed to show:
+
 - Active malware distribution URLs by geography
 - Payload types being distributed
 - Hosting infrastructure patterns
 - Takedown status and timeline
 
 ### AlienVault OTX (Open Threat Exchange)
+
 The **Open Threat Exchange** is a community-driven threat intelligence platform. WorldMonitor pulls curated "pulses" (collections of indicators) to show:
+
 - Emerging attack campaigns
 - Geographic targeting patterns
 - Associated threat actor profiles
 - Related indicators of compromise
 
 ### AbuseIPDB
+
 IP reputation data showing addresses associated with brute force attacks, spam, and other malicious activity.
 
 ### C2IntelFeeds
+
 Additional command-and-control intelligence feeds providing broader coverage of active C2 infrastructure across malware families.
 
 ## Internet Outage Detection (Cloudflare Radar)
@@ -73,7 +81,9 @@ Zoom into a region and the density of threats becomes visible. Pan out and you s
 This is WorldMonitor's unique contribution to threat intelligence. Here's what the geopolitical layers add:
 
 ### Attribution Context
+
 When a new attack campaign targets NATO-aligned countries, WorldMonitor shows:
+
 - Which strategic theaters are currently elevated
 - Whether the targeted countries have rising CII scores
 - Active military exercises or deployments in the region
@@ -82,7 +92,9 @@ When a new attack campaign targets NATO-aligned countries, WorldMonitor shows:
 This doesn't prove attribution, but it provides the context that threat analysts need for informed assessment.
 
 ### Infrastructure Risk Assessment
+
 WorldMonitor maps the critical infrastructure that cyber attacks target:
+
 - **Undersea cables** carrying 95% of intercontinental internet traffic
 - **Pipelines** with SCADA systems vulnerable to cyber-physical attacks
 - **Nuclear facilities** with safety-critical control systems
@@ -92,7 +104,9 @@ WorldMonitor maps the critical infrastructure that cyber attacks target:
 When you overlay cyber threat data on infrastructure, you see the attack surface visually. A cluster of C2 servers in a country adjacent to undersea cable landing stations raises different concerns than the same cluster in an isolated interior region.
 
 ### Predictive Indicators
+
 Historically, cyber operations precede kinetic military action. The 2022 Ukraine conflict was preceded by months of cyber attacks against government and infrastructure targets. WorldMonitor's combined view lets you watch for:
+
 - Cyber threat spikes in countries with rising CII scores
 - New C2 infrastructure deployment near strategic theaters
 - Internet outage patterns that suggest preparation for information control
@@ -101,6 +115,7 @@ Historically, cyber operations precede kinetic military action. The 2022 Ukraine
 ## Practical Workflows for SOC Teams
 
 ### Daily Threat Briefing
+
 1. Open WorldMonitor and check the cyber threat layer
 2. Review new C2 servers and malware URLs from the past 24 hours
 3. Cross-reference geographic distribution with the CII heatmap
@@ -109,7 +124,9 @@ Historically, cyber operations precede kinetic military action. The 2022 Ukraine
 6. Set keyword monitors for specific threat actor names or malware families
 
 ### Incident Contextualization
+
 When responding to an attack:
+
 1. Map the attack infrastructure on WorldMonitor
 2. Check if the source country's CII has been rising
 3. Review if the target aligns with active strategic theaters
@@ -118,6 +135,7 @@ When responding to an attack:
 6. Generate an AI brief combining cyber and geopolitical indicators
 
 ### Threat Hunting
+
 1. Filter cyber threat layer by specific malware family
 2. Identify geographic patterns in C2 infrastructure
 3. Correlate with news panel for recent geopolitical events in those regions

@@ -14,6 +14,7 @@ Satellite imagery used to require government clearance or a Maxar contract. Toda
 WorldMonitor's orbital surveillance layer overlays satellite imagery onto both the 3D globe and flat map views. This isn't just a static basemap. It's searchable, time-filtered satellite data integrated with the same geopolitical intelligence layers you use for everything else.
 
 **What you get:**
+
 - Real satellite images of geopolitical hotspots
 - Time-range queries to compare before and after events
 - Cloud coverage percentage so you know if the image is useful
@@ -33,23 +34,29 @@ The system returns available satellite passes, ranked by relevance, with preview
 ## Intelligence Use Cases for Satellite Imagery
 
 ### Conflict Verification
+
 News reports claim a military buildup near a border. The conflict layer shows increased news activity. ADS-B shows military flight patterns. Now pull satellite imagery to see if there are new vehicle concentrations, field camps, or infrastructure construction.
 
 Satellite imagery provides the physical evidence that other intelligence signals suggest.
 
 ### Infrastructure Damage Assessment
+
 After a reported strike on a pipeline, port, or datacenter, satellite imagery shows the actual damage. Compare pre-event and post-event images using the time-range query to see what changed.
 
 ### Environmental Monitoring
+
 Track deforestation, mining expansion, flooding, and fire damage. The NASA FIRMS fire layer shows active hotspots; satellite imagery shows the aftermath and extent.
 
 ### Maritime Intelligence
+
 Combine AIS vessel tracking with satellite imagery to:
+
 - Verify ship positions in areas where vessels go "dark" (turn off transponders)
 - Monitor port congestion and new construction at strategic harbors
 - Track military naval base expansion over time
 
 ### Nuclear Facility Monitoring
+
 WorldMonitor maps nuclear facilities worldwide. Satellite imagery adds visual verification: is there new construction? Are cooling systems active? Are there vehicle patterns suggesting operational changes?
 
 ## Cross-Layer Integration

@@ -50,12 +50,15 @@ Each feed is classified by a **4-tier credibility system**, so you always know w
 Three of WorldMonitor's most powerful layers bring live tracking to your screen:
 
 ### ADS-B Aircraft Tracking
+
 Military and civilian aircraft positions update in real time via OpenSky and Wingbits enrichment. The system automatically identifies military aircraft and displays their callsigns, types, and flight paths on the map.
 
 ### AIS Maritime Monitoring
+
 Ship positions from AISStream.io are merged with **USNI Fleet Reports**, giving you both transponder data and editorial context from the U.S. Naval Institute. This combination reveals the complete order-of-battle for major naval deployments, something that usually requires a classified briefing.
 
 ### GPS/GNSS Jamming Detection
+
 ADS-B anomaly data is processed through an H3 hexagonal grid to identify zones where GPS signals are being jammed or spoofed. This is a critical indicator of electronic warfare activity, and WorldMonitor maps it automatically.
 
 ## 26 Telegram OSINT Channels

@@ -32,19 +32,23 @@ WorldMonitor fills that gap.
 The Commodity Monitor tracks real-time prices for:
 
 **Energy:**
+
 - Crude oil (WTI and Brent)
 - Natural gas (Henry Hub, TTF)
 - Coal and uranium
 
 **Precious Metals:**
+
 - Gold, silver, platinum, palladium
 
 **Critical Minerals:**
+
 - Lithium, cobalt, nickel
 - Rare earth elements
 - Copper, aluminum, zinc
 
 **Agricultural:**
+
 - Wheat, corn, soybeans
 - Coffee, cocoa, sugar
 - Cotton, lumber
@@ -95,11 +99,13 @@ The USNI merge adds editorial context: which naval task forces are deployed wher
 WorldMonitor maps the physical infrastructure that global trade depends on:
 
 **Pipelines:**
+
 - Major oil and gas pipelines worldwide
 - Route visualization through conflict zones
 - Proximity alerts when pipeline routes cross escalating hotspots
 
 **Undersea Cables:**
+
 - Fiber optic cables carrying 95% of intercontinental data
 - Landing stations and repair zone indicators
 - NGA (National Geospatial-Intelligence Agency) navigational warnings for cable repair operations
@@ -122,6 +128,7 @@ When a country's CII starts climbing, supply chain teams can proactively assess 
 This is where WorldMonitor's multi-domain approach provides unique value. The **Infrastructure Cascade panel** shows second-order effects of disruptions:
 
 A conflict escalation in Region X exposes:
+
 - 3 undersea cables within 600km
 - 2 pipeline routes through the area
 - 1 major port with reduced operational capacity
@@ -153,6 +160,7 @@ WorldMonitor maps these jamming zones using H3 hexagonal grid classification, up
 ## Practical Workflows for Supply Chain Teams
 
 **Daily Morning Check:**
+
 1. Open commodity.worldmonitor.app
 2. Review commodity price changes in the dashboard
 3. Check the CII heatmap for rising instability in sourcing countries
@@ -160,6 +168,7 @@ WorldMonitor maps these jamming zones using H3 hexagonal grid classification, up
 5. Review the AI-generated World Brief for overnight developments
 
 **Disruption Response:**
+
 1. Event detected (earthquake, conflict, port closure)
 2. Toggle relevant map layers (ports, shipping routes, infrastructure)
 3. Assess cascade effects via the Infrastructure Cascade panel
@@ -168,6 +177,7 @@ WorldMonitor maps these jamming zones using H3 hexagonal grid classification, up
 6. Share situation briefing via URL state sharing
 
 **Quarterly Risk Assessment:**
+
 1. Review CII trends for all sourcing countries
 2. Map critical mineral supply lines against conflict data
 3. Identify infrastructure chokepoints with escalation exposure

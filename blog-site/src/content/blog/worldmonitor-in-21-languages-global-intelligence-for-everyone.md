@@ -80,6 +80,7 @@ This is where multilingual support goes beyond interface translation. WorldMonit
 When you switch WorldMonitor to French, you don't just see English headlines translated. You see French-language sources: Le Monde, France 24, AFP. Switch to Arabic and you see Al Jazeera Arabic, Al Arabiya, local MENA outlets. Switch to Japanese and Japanese news sources appear.
 
 This matters because:
+
 - **Local sources cover local events first**, often hours before English wire services
 - **Nuance is lost in translation.** Reading a source in its original language captures tone, emphasis, and cultural context that translation strips away
 - **Regional perspectives differ.** A French source and a British source cover the same African event with different framing
@@ -116,18 +117,23 @@ You can manually switch languages at any time. The preference is saved to localS
 ## Use Cases for Multilingual Intelligence
 
 ### International Organizations (UN, NATO, EU)
+
 Staff from dozens of countries need a common intelligence picture in their working language. WorldMonitor's 21 languages cover the official languages of the UN (English, French, Spanish, Arabic, Chinese, Russian) and most NATO member languages.
 
 ### Multinational Corporations
+
 Security teams monitoring global operations need intelligence in the languages of their regional offices. A VP in Dubai sees the dashboard in Arabic. A manager in Tokyo sees it in Japanese. A director in Paris sees it in French. Same data, local language.
 
 ### Regional Analysts
+
 An analyst focusing on MENA works most effectively in Arabic, reading Arabic sources, with Arabic interface labels. Switching to WorldMonitor's English version for a cross-regional briefing takes one click.
 
 ### Academic Research
+
 Researchers studying geopolitics in non-English contexts benefit from seeing data presented in the language of the region they study. Terminology consistency with local academic literature improves when the tool speaks the researcher's language.
 
 ### Journalism
+
 Correspondents based in foreign bureaus can use WorldMonitor in the local language, making it easier to cross-reference dashboard intelligence with local source material.
 
 ## Technical Implementation

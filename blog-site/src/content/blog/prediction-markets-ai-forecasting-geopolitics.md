@@ -29,6 +29,7 @@ The predictions panel shows questions relevant to geopolitical events: elections
 News tells you what happened. Analysis tells you what it means. Prediction markets tell you what's likely to happen next, with a probability attached.
 
 **Example: Iran Nuclear Deal**
+
 - News: "Talks resume in Vienna"
 - Analysis: "Prospects remain uncertain"
 - Prediction Market: "Nuclear deal by December: 23% ($4.2M volume)"
@@ -36,6 +37,7 @@ News tells you what happened. Analysis tells you what it means. Prediction marke
 That 23% is more actionable than any editorial. And the $4.2M volume tells you this isn't idle speculation; it's informed money.
 
 **Example: Taiwan Strait**
+
 - News: "PLA conducts exercises near Taiwan"
 - Analysis: "Tensions elevated but unclear"
 - Prediction Market: "China military action against Taiwan in 2025: 8% ($12M volume)"
@@ -85,6 +87,7 @@ When all six point in the same direction, confidence is high. When they diverge,
 ## Practical Forecasting Workflows
 
 ### Geopolitical Risk Analyst
+
 1. Open the **Predictions panel** for current market odds on key scenarios
 2. Compare with **CII trends** for involved countries
 3. Check **Strategic Theater Posture** for relevant military theaters
@@ -93,6 +96,7 @@ When all six point in the same direction, confidence is high. When they diverge,
 6. Document assessment using **story sharing** for team distribution
 
 ### Macro Trader
+
 1. Review prediction market odds for upcoming elections and policy decisions
 2. Overlay with **macro radar** signals (BUY/CASH)
 3. Check **central bank tracker** for rate decision probabilities
@@ -100,6 +104,7 @@ When all six point in the same direction, confidence is high. When they diverge,
 5. Position based on where prediction market odds diverge from your intelligence assessment
 
 ### Policy Researcher
+
 1. Track prediction market evolution over time for a specific issue
 2. Compare market-implied probabilities with think tank forecasts
 3. Use **AI Deduction** to generate structured scenario trees
@@ -107,6 +112,7 @@ When all six point in the same direction, confidence is high. When they diverge,
 5. Build forward-looking briefs combining quantitative and qualitative forecasts
 
 ### Humanitarian Planner
+
 1. Monitor prediction markets for conflict escalation probabilities
 2. Combine with **CII scores** and **displacement data** for vulnerability mapping
 3. Use **AI Deduction** to assess potential population displacement scenarios

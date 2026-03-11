@@ -28,9 +28,11 @@ Even with enterprise API agreements, the data transits networks you don't contro
 WorldMonitor solves this with a **4-tier LLM fallback chain** that starts local and only reaches for the cloud if you explicitly allow it:
 
 ### Tier 1: Local LLMs (Ollama / LM Studio)
+
 Your first and most private option. Install Ollama or LM Studio on your machine, download a model (Llama 3.1, Mistral, Phi, etc.), and point WorldMonitor at your local instance.
 
 What runs locally:
+
 - **World Brief generation:** Daily intelligence summaries synthesized from current headlines
 - **Country dossier analysis:** AI-written assessments for any country's current situation
 - **Threat classification:** Categorizing news events by threat type and severity
@@ -39,12 +41,15 @@ What runs locally:
 The desktop app (Tauri) discovers your local Ollama instance automatically. No configuration needed. Just install Ollama, pull a model, and open WorldMonitor.
 
 ### Tier 2: Groq (Llama 3.1 8B)
+
 If you want cloud speed with open-source models, Groq runs Llama 3.1 at extremely fast inference speeds. You need a free Groq API key, which is stored in your OS keychain (macOS Keychain, Windows Credential Manager) via the desktop app.
 
 ### Tier 3: OpenRouter
+
 A fallback provider that gives you access to multiple models (Claude, GPT-4, Mixtral, etc.) through a single API key. Use this if your preferred model isn't available through Groq.
 
 ### Tier 4: Browser-Based T5 (Transformers.js)
+
 The ultimate fallback. A T5 model runs entirely in your browser via WebAssembly and Web Workers. No API key, no network request, no server. The model weights are cached locally after first download.
 
 This tier is limited (T5 is smaller than Llama 3.1), but it means WorldMonitor's AI features always work, even without internet access.
@@ -54,18 +59,23 @@ This tier is limited (T5 is smaller than Llama 3.1), but it means WorldMonitor's
 Beyond the LLM tiers, WorldMonitor runs several ML pipelines entirely in your browser:
 
 ### Named Entity Recognition (NER)
+
 Extracts people, organizations, locations, and dates from news headlines. Runs in a Web Worker using Transformers.js with ONNX models. Never touches a server.
 
 ### Sentiment Analysis
+
 Classifies headline sentiment to detect shifts in media tone about countries, leaders, or events. This feeds into the information velocity component of the CII (Country Instability Index).
 
 ### Semantic Search (RAG)
+
 WorldMonitor's **Headline Memory** feature builds a local semantic index of up to 5,000 headlines using ONNX embeddings stored in IndexedDB. When you ask the AI about a topic, it retrieves relevant headlines from your local index for grounded, cited responses.
 
 This is a full Retrieval-Augmented Generation pipeline running in your browser. No vector database subscription. No cloud embedding API.
 
 ### 3-Stage Threat Classification
+
 The threat pipeline processes every incoming headline through:
+
 1. **Keyword matcher** (instant, rule-based)
 2. **Browser ML classifier** (Transformers.js, runs locally)
 3. **LLM classifier** (your chosen tier)
@@ -86,18 +96,22 @@ With Ollama installed alongside the desktop app, you have a fully air-gapped int
 ## Practical Setup: From Zero to Private Intelligence
 
 ### Step 1: Install Ollama
+
 ```
 curl -fsSL https://ollama.ai/install.sh | sh
 ollama pull llama3.1
 ```
 
 ### Step 2: Open WorldMonitor
+
 Navigate to worldmonitor.app or install the desktop app from GitHub releases.
 
 ### Step 3: Configure AI
+
 WorldMonitor auto-detects your local Ollama instance. Open any country dossier or the World Brief panel and the AI analysis generates locally.
 
 ### Step 4: Enable Headline Memory (Optional)
+
 Opt in to the RAG feature. WorldMonitor will build a local vector index of headlines you've seen, giving the AI context for more grounded analysis.
 
 Total setup time: under 5 minutes. Total data sent to external servers for AI processing: zero.

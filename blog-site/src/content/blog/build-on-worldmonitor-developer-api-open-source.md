@@ -21,6 +21,7 @@ WorldMonitor uses **Protocol Buffers (protobuf)** as the single source of truth 
 - **Auto-generated OpenAPI** documentation for REST compatibility
 
 This means every API endpoint has:
+
 1. A proto definition that specifies exact request/response types
 2. An auto-generated TypeScript client with full type safety
 3. An OpenAPI spec for language-agnostic access
@@ -84,6 +85,7 @@ api.worldmonitor.app/api/{domain}/v1/{rpc}
 ```
 
 For example:
+
 - `api.worldmonitor.app/api/market/v1/quotes` for stock quotes
 - `api.worldmonitor.app/api/conflict/v1/events` for conflict data
 - `api.worldmonitor.app/api/intelligence/v1/cii` for Country Instability Index scores
@@ -91,6 +93,7 @@ For example:
 ## Building with WorldMonitor's API
 
 ### Custom Dashboards
+
 Build a domain-specific dashboard that pulls exactly the data you need. Use the typed TypeScript clients for a seamless development experience:
 
 ```typescript
@@ -100,22 +103,29 @@ const cii = await intelligenceClient.getCII({ countries: ['US', 'CN', 'RU'] });
 ```
 
 ### Data Pipelines
+
 Feed WorldMonitor data into your own analytics:
+
 - Pull conflict events into a data warehouse for historical analysis
 - Stream market data alongside geopolitical scores for correlation studies
 - Build custom alerting on CII threshold changes
 
 ### Research Applications
+
 Academic researchers can use the API programmatically:
+
 - Study the relationship between news velocity and conflict escalation
 - Analyze prediction market accuracy against actual outcomes
 - Build custom scoring models using WorldMonitor's raw data feeds
 
 ### Mobile Apps
+
 Build a mobile app that consumes WorldMonitor's API for a custom mobile intelligence experience. The OpenAPI spec makes it accessible from any language (Swift, Kotlin, Python, Go).
 
 ### Slack/Teams Bots
+
 Build alerting bots that post to your team channel when:
+
 - A country's CII crosses a threshold
 - A strategic theater posture changes
 - A prediction market probability shifts significantly
@@ -134,6 +144,7 @@ WorldMonitor is AGPL-3.0. You can self-host the entire platform:
 **Data Layer:** Redis for caching, with seed scripts that populate data from public sources.
 
 Self-hosting gives you:
+
 - Complete control over data flows
 - Custom domain deployment
 - Network isolation for sensitive environments

@@ -110,6 +110,7 @@ WorldMonitor maps the world's **19 major financial centers** ranked by the Globa
 ## How Traders Use WorldMonitor
 
 **Morning Routine:**
+
 1. Open Finance Monitor
 2. Check macro radar verdict (BUY/CASH)
 3. Scan central bank tracker for overnight decisions
@@ -117,12 +118,14 @@ WorldMonitor maps the world's **19 major financial centers** ranked by the Globa
 5. Check prediction markets for upcoming event probabilities
 
 **During Trading Hours:**
+
 - Keep the live news panel open for breaking headlines
 - Monitor stablecoin pegs for crypto liquidity signals
 - Watch the CII heatmap for country-level risk changes
 - Track ETF flows for institutional sentiment
 
 **Post-Market:**
+
 - Review the day's convergence events (co-occurring geopolitical signals)
 - Check AI-generated World Brief for overnight synthesis
 - Share notable findings via built-in story sharing

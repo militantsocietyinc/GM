@@ -16,16 +16,21 @@ In most dashboards, that's four separate navigation actions. In WorldMonitor, it
 WorldMonitor's command palette is a fuzzy-search interface that spans the entire platform. Hit Cmd+K and you can access:
 
 ### Countries (195)
+
 Type any country name and instantly pull up its full intelligence dossier: CII score, active signals, AI analysis, infrastructure exposure, and 7-day timeline. Country names are searchable in all 21 supported languages, so typing "Allemagne" finds Germany, "Japón" finds Japan.
 
 ### Navigation (8 regional presets)
+
 Jump to any region: Global, Americas, Europe, MENA, Asia-Pacific, Africa, Oceania, Latin America. The map pans, zooms, and adjusts layer visibility in one action.
 
 ### Layer Toggles (25+)
+
 Toggle any data layer by name: conflicts, military bases, AIS vessels, flights, undersea cables, pipelines, nuclear facilities, earthquakes, fires, cyber threats, GPS jamming, protests, displacement, datacenters, and more.
 
 ### Layer Presets
+
 Activate curated layer combinations with a single command:
+
 - **Military**: Bases, flights, vessels, GPS jamming
 - **Finance**: Exchanges, financial centers, commodity hubs
 - **Infrastructure**: Cables, pipelines, datacenters, ports, nuclear
@@ -34,9 +39,11 @@ Activate curated layer combinations with a single command:
 - **All / None**: Everything on or everything off
 
 ### Panel Shortcuts (50+)
+
 Open any panel: news feed, intelligence brief, CII rankings, markets, commodities, crypto, predictions, webcams, world brief, strategic posture, and dozens more.
 
 ### View Controls
+
 - Dark/light mode toggle
 - Fullscreen toggle
 - Data refresh
@@ -71,6 +78,7 @@ Monitoring a crisis across three countries? Your recent searches keep those thre
 ## Keyboard Navigation
 
 The entire palette is keyboard-driven:
+
 - **Arrow Up/Down**: Navigate results
 - **Enter**: Execute selected command
 - **Escape**: Close palette
@@ -96,6 +104,7 @@ The command palette is panel-aware. When you have specific panels open, related 
 ## Power User Workflows
 
 ### Morning Intelligence Sweep (60 seconds)
+
 1. Cmd+K → "world brief" → Enter (AI summary)
 2. Cmd+K → "cii" → Enter (instability rankings)
 3. Cmd+K → "hotspot" → Enter (escalation scores)
@@ -103,12 +112,14 @@ The command palette is panel-aware. When you have specific panels open, related 
 5. Cmd+K → country of interest → Enter (deep dive)
 
 ### Breaking Event Response (30 seconds)
+
 1. Cmd+K → country name → Enter (dossier)
 2. Cmd+K → "intelligence" preset → Enter (all OSINT layers)
 3. Cmd+K → "webcam" → Enter (live video)
 4. Cmd+K → "telegram" → Enter (OSINT channels)
 
 ### Market Open Preparation (45 seconds)
+
 1. Cmd+K → "finance" preset → Enter
 2. Cmd+K → "macro" → Enter (7-signal radar)
 3. Cmd+K → "prediction" → Enter (Polymarket)

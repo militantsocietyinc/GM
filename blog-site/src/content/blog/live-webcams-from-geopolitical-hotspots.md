@@ -22,27 +22,32 @@ WorldMonitor puts these feeds alongside your intelligence data so you can cross-
 ## 6 Regions, 31 Streams
 
 ### Iran & Conflict Zone
+
 - **Tehran** city views for monitoring civil activity and normalcy indicators
 - **Tel Aviv** and **Jerusalem** skylines integrated with OREF siren alerts
 - **Mecca** for pilgrimage and regional event monitoring
 - **Beirut** for Lebanon situation awareness
 
 ### Eastern Europe
+
 - **Kyiv** and **Odessa** for Ukraine conflict monitoring
 - **St. Petersburg** for Russian domestic activity indicators
 - **Paris** and **London** for Western European pulse
 
 ### Americas
+
 - **Washington DC** for government district activity
 - **New York** for financial district and UN area monitoring
 - **Los Angeles** and **Miami** for domestic situational awareness
 
 ### Asia-Pacific
+
 - **Taipei** for Taiwan Strait tension monitoring
 - **Shanghai** for Chinese economic activity indicators
 - **Tokyo**, **Seoul**, and **Sydney** for regional coverage
 
 ### Space
+
 - **ISS Earth View** for orbital perspective
 - **NASA TV** for space event coverage
 - **SpaceX** launch feeds
@@ -64,6 +69,7 @@ WorldMonitor doesn't just embed video. The webcam panel includes intelligence-or
 The real power isn't the webcams alone. It's combining them with WorldMonitor's other data:
 
 **Scenario: Unrest in Tehran**
+
 1. CII (Country Instability Index) for Iran spikes
 2. Telegram OSINT channels report protests
 3. Switch to webcam panel, filter to Iran region
@@ -74,6 +80,7 @@ The real power isn't the webcams alone. It's combining them with WorldMonitor's 
 Each data source validates the others. A spike in the CII without visible activity on the webcam might be a false alarm. Unusual webcam activity with no news coverage might be early-stage. When all signals align, you have high-confidence intelligence.
 
 **Scenario: Taiwan Strait Escalation**
+
 1. Strategic Theater Posture for Taiwan Strait elevates
 2. ADS-B shows increased military flight activity
 3. AIS shows PLA Navy vessel movements

@@ -776,31 +776,6 @@ async fn fetch_polymarket(webview: Webview, path: String, params: String) -> Res
         .map_err(|e| format!("Read body failed: {e}"))
 }
 
-fn open_settings_window(app: &AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.show();
-        window
-            .set_focus()
-            .map_err(|e| format!("Failed to focus settings window: {e}"))?;
-        return Ok(());
-    }
-
-    let _settings_window = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
-        .title("World Monitor Settings")
-        .inner_size(980.0, 760.0)
-        .min_inner_size(820.0, 620.0)
-        .resizable(true)
-        .background_color(tauri::webview::Color(26, 28, 30, 255))
-        .build()
-        .map_err(|e| format!("Failed to create settings window: {e}"))?;
-
-    // On Windows/Linux, menus are per-window. Remove the inherited app menu
-    // from the settings window (macOS uses a shared app-wide menu bar instead).
-    #[cfg(not(target_os = "macos"))]
-    let _ = _settings_window.remove_menu();
-
-    Ok(())
-}
 
 fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("live-channels") {

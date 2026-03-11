@@ -159,7 +159,6 @@
   --text-faint: #aaa;
   --text-ghost: #bbb;
   --accent: #111111;
-
   /* Overlays & shadows */
   --overlay-subtle: rgba(0, 0, 0, 0.02);
   --overlay-light: rgba(0, 0, 0, 0.04);
@@ -2465,16 +2464,6 @@ body.panel-resize-active iframe {
   margin: 0 !important;
 }
 
-/* Map fullscreen: pin all 4 edges to avoid any viewport gap/strip */
-body.live-news-fullscreen-active #mapSection.live-news-fullscreen {
-  inset: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  border: 0 !important;
-}
-
 .live-news-fullscreen .panel-content,
 .live-news-fullscreen .map-container {
   height: calc(100vh - 80px) !important;
@@ -2494,9 +2483,7 @@ body.live-news-fullscreen-active .time-slider,
 body.live-news-fullscreen-active .deckgl-layer-toggles,
 body.live-news-fullscreen-active .map-legend,
 body.live-news-fullscreen-active .map-controls,
-body.live-news-fullscreen-active .map-timestamp,
-body.live-news-fullscreen-active .map-bottom-grid,
-body.live-news-fullscreen-active .map-resize-handle {
+body.live-news-fullscreen-active .map-timestamp {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -2512,19 +2499,11 @@ body.live-news-fullscreen-active #mapSection.live-news-fullscreen .map-container
   min-height: 0;
 }
 
-/* Keep global footer visible above map while map is fullscreen */
-body.live-news-fullscreen-active .site-footer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10002;
-}
-
 body.live-news-fullscreen-active .community-widget {
   display: none;
 }
 
+/* Hide map overlays and sibling panels behind fullscreen panel (#829, #859) */
 body.live-news-fullscreen-active .layer-toggles,
 body.live-news-fullscreen-active .map-legend {
   display: none !important;

@@ -13,6 +13,7 @@ import {
   LAYER_TO_SOURCE,
   DEFAULT_PANELS,
 } from '@/config';
+import { INDIA_MARKET_SYMBOLS } from '@/config/india-markets';
 import { INTEL_HOTSPOTS, CONFLICT_ZONES } from '@/config/geo';
 import { tokenizeForMatch, matchKeyword } from '@/utils/keyword-match';
 import {
@@ -359,6 +360,7 @@ export class DataLoaderManager implements AppModule {
       if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance' || SITE_VARIANT === 'commodity') {
         tasks.push({ name: 'tradePolicy', task: runGuarded('tradePolicy', () => this.loadTradePolicy()) });
         tasks.push({ name: 'supplyChain', task: runGuarded('supplyChain', () => this.loadSupplyChain()) });
+        tasks.push({ name: 'indiaMarkets', task: runGuarded('indiaMarkets', () => this.loadIndiaMarkets()) });
       }
     }
 
@@ -2333,6 +2335,16 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['satellite-fires'] as SatelliteFiresPanel)?.update([], 0);
       this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
       dataFreshness.recordError('firms', String(e));
+    }
+  }
+
+  async loadIndiaMarkets(): Promise<void> {
+    try {
+      const indiaMarketsPanel = this.ctx.panels['india-markets'] as MarketPanel | undefined;
+      const result = await fetchMultipleStocks(INDIA_MARKET_SYMBOLS);
+      indiaMarketsPanel?.renderMarkets(result.data, result.rateLimited);
+    } catch (e) {
+      console.error('[DataLoader] loadIndiaMarkets failed:', e);
     }
   }
 

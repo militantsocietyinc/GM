@@ -40,6 +40,20 @@ import {
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage, loadFromStorage } from '@/utils';
+import {
+  getRowSpan,
+  setSpanClass,
+  getColSpan,
+  setColSpanClass,
+  getMaxColSpan,
+  clampColSpan,
+  persistPanelColSpan,
+  loadPanelSpans,
+  savePanelSpan,
+  loadPanelColSpans,
+  clearPanelColSpan,
+} from '@/utils/resize-utils';
+import { ResizeHandler } from '@/utils/resize-handler';
 import { escapeHtml } from '@/utils/sanitize';
 import {
   FEEDS,
@@ -70,6 +84,8 @@ export class PanelLayoutManager implements AppModule {
   private bottomSetMemory: Set<string> = new Set();
   private criticalBannerEl: HTMLElement | null = null;
   private aviationCommandBar: AviationCommandBar | null = null;
+  private mapResizeHandler: ResizeHandler | null = null;
+  private mapColResizeHandler: ResizeHandler | null = null;
   private readonly applyTimeRangeFilterDebounced: (() => void) & { cancel(): void };
 
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {
@@ -108,6 +124,9 @@ export class PanelLayoutManager implements AppModule {
     this.aviationCommandBar?.destroy();
     this.aviationCommandBar = null;
     this.ctx.panels['airline-intel']?.destroy();
+
+    this.mapResizeHandler?.destroy();
+    this.mapColResizeHandler?.destroy();
 
     window.removeEventListener('resize', this.ensureCorrectZones);
   }
@@ -478,6 +497,64 @@ export class PanelLayoutManager implements AppModule {
     const mapSection = document.getElementById('mapSection')!;
     this.makeDraggable(mapSection, 'map');
 
+    // Restoration of map spans
+    const savedSpans = loadPanelSpans();
+    const savedSpan = savedSpans['map'];
+    if (savedSpan && savedSpan > 1) {
+      setSpanClass(mapSection, savedSpan);
+    }
+
+    const savedColSpans = loadPanelColSpans();
+    const savedColSpan = savedColSpans['map'];
+    if (typeof savedColSpan === 'number' && savedColSpan >= 1) {
+      const maxSpan = getMaxColSpan(mapSection);
+      setColSpanClass(mapSection, clampColSpan(savedColSpan, maxSpan));
+    }
+
+    // Setup resizers for map
+    const mapRowHandle = document.getElementById('mapResizeHandle');
+    const mapColHandle = mapSection.querySelector('.panel-col-resize-handle') as HTMLElement;
+
+    if (mapRowHandle) {
+      this.mapResizeHandler = new ResizeHandler({
+        id: 'map',
+        element: mapSection,
+        handle: mapRowHandle,
+        type: 'row',
+        getStartSpan: () => getRowSpan(mapSection),
+        setSpanClass: (span) => setSpanClass(mapSection, span),
+        onResizeEnd: (span) => {
+          savePanelSpan('map', span);
+          import('@/services/analytics').then(({ trackPanelResized }) => trackPanelResized('map', span));
+        }
+      });
+      mapRowHandle.addEventListener('dblclick', () => {
+        mapSection.classList.remove('resized', 'span-1', 'span-2', 'span-3', 'span-4');
+        const spans = loadPanelSpans();
+        delete spans['map'];
+        localStorage.setItem('worldmonitor-panel-spans', JSON.stringify(spans));
+      });
+    }
+
+    if (mapColHandle) {
+      this.mapColResizeHandler = new ResizeHandler({
+        id: 'map',
+        element: mapSection,
+        handle: mapColHandle,
+        type: 'col',
+        getStartSpan: () => clampColSpan(getColSpan(mapSection), getMaxColSpan(mapSection)),
+        setSpanClass: (span) => setColSpanClass(mapSection, span),
+        maxSpan: 3,
+        onResizeEnd: () => {
+          persistPanelColSpan('map', mapSection);
+        }
+      });
+      mapColHandle.addEventListener('dblclick', () => {
+        mapSection.classList.remove('col-span-1', 'col-span-2', 'col-span-3');
+        clearPanelColSpan('map');
+      });
+    }
+
     this.ctx.map.initEscalationGetters();
     this.ctx.currentTimeRange = this.ctx.map.getTimeRange();
 
@@ -487,6 +564,7 @@ export class PanelLayoutManager implements AppModule {
 
     this.createPanel('heatmap', () => new HeatmapPanel());
     this.createPanel('markets', () => new MarketPanel());
+    this.createPanel('india-markets', () => new MarketPanel());
     const stockAnalysisPanel = this.createPanel('stock-analysis', () => new StockAnalysisPanel());
     if (stockAnalysisPanel && !getSecretState('WORLDMONITOR_API_KEY').present) {
       stockAnalysisPanel.showLocked([

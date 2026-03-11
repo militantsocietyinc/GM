@@ -7,11 +7,11 @@ import "sebuf/http/annotations.proto";
 // ListTelegramFeedRequest parameters for fetching Telegram OSINT feed.
 message ListTelegramFeedRequest {
   // Maximum number of messages to return.
-  int32 limit = 1 [(sebuf.http.query) = { name: "limit" }];
+  int32 limit = 1 [(sebuf.http.query) = {name: "limit"}];
   // Optional topic filter.
-  string topic = 2 [(sebuf.http.query) = { name: "topic" }];
+  string topic = 2 [(sebuf.http.query) = {name: "topic"}];
   // Optional channel filter.
-  string channel = 3 [(sebuf.http.query) = { name: "channel" }];
+  string channel = 3 [(sebuf.http.query) = {name: "channel"}];
 }
 
 // ListTelegramFeedResponse containing the OSINT messages.

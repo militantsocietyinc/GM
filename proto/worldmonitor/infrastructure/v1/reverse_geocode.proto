@@ -6,8 +6,8 @@ import "sebuf/http/annotations.proto";
 
 // ReverseGeocodeRequest parameters for coordinate-to-address lookups.
 message ReverseGeocodeRequest {
-  double lat = 1 [(sebuf.http.query) = { name: "lat" }];
-  double lon = 2 [(sebuf.http.query) = { name: "lon" }];
+  double lat = 1 [(sebuf.http.query) = {name: "lat"}];
+  double lon = 2 [(sebuf.http.query) = {name: "lon"}];
 }
 
 // ReverseGeocodeResponse containing the resolved location details.

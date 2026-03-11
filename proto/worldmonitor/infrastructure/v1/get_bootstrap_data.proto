@@ -7,8 +7,8 @@ import "sebuf/http/annotations.proto";
 // GetBootstrapDataRequest parameters for multi-key fetching.
 message GetBootstrapDataRequest {
   // Predefined tiers or specific keys.
-  string tier = 1 [(sebuf.http.query) = { name: "tier" }];
-  repeated string keys = 2 [(sebuf.http.query) = { name: "keys" }];
+  string tier = 1 [(sebuf.http.query) = {name: "tier"}];
+  repeated string keys = 2 [(sebuf.http.query) = {name: "keys"}];
 }
 
 // GetBootstrapDataResponse containing pooled data objects.

@@ -13,7 +13,7 @@ message ListOrefAlertsRequest {
     // History of alerts (recent waves).
     MODE_HISTORY = 1;
   }
-  Mode mode = 1 [(sebuf.http.query) = { name: "mode" }];
+  Mode mode = 1 [(sebuf.http.query) = {name: "mode"}];
 }
 
 // ListOrefAlertsResponse contains the alerts or history data.

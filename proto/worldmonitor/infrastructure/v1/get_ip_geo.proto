@@ -5,8 +5,7 @@ package worldmonitor.infrastructure.v1;
 import "sebuf/http/annotations.proto";
 
 // GetIpGeoRequest defined for future parameters (e.g., specific IP).
-message GetIpGeoRequest {
-}
+message GetIpGeoRequest {}
 
 // GetIpGeoResponse contains geographic information derived from the request IP.
 message GetIpGeoResponse {

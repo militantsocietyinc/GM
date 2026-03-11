@@ -16,9 +16,6 @@ export type RuntimeSecretKey =
   | 'ABUSEIPDB_API_KEY'
   | 'WINGBITS_API_KEY'
   | 'WS_RELAY_URL'
-  | 'VITE_OPENSKY_RELAY_URL'
-  | 'OPENSKY_CLIENT_ID'
-  | 'OPENSKY_CLIENT_SECRET'
   | 'AISSTREAM_API_KEY'
   | 'FINNHUB_API_KEY'
   | 'NASA_FIRMS_API_KEY'
@@ -45,7 +42,6 @@ export type RuntimeFeatureId =
   | 'abuseIpdbThreatIntel'
   | 'wingbitsEnrichment'
   | 'aisRelay'
-  | 'openskyRelay'
   | 'militaryFlights'
   | 'finnhubMarkets'
   | 'nasaFirms'
@@ -103,7 +99,6 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   abuseIpdbThreatIntel: true,
   wingbitsEnrichment: true,
   aisRelay: true,
-  openskyRelay: true,
   militaryFlights: true,
   finnhubMarkets: true,
   nasaFirms: true,
@@ -230,17 +225,9 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     fallback: 'AIS layer is disabled.',
   },
   {
-    id: 'openskyRelay',
-    name: 'OpenSky military flights (legacy)',
-    description: 'OpenSky OAuth credentials for military flight data (legacy direct proxy).',
-    requiredSecrets: ['VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET'],
-    desktopRequiredSecrets: ['OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET'],
-    fallback: 'Military flights fall back to limited/no data.',
-  },
-  {
     id: 'militaryFlights',
     name: 'Military flight tracking',
-    description: 'Military flight data via Redis-backed edge handler (no credentials needed).',
+    description: 'Military flight data via sebuf RPC service (no credentials needed).',
     requiredSecrets: [],
     fallback: 'Military flights panel is disabled.',
   },
@@ -313,7 +300,6 @@ function readStoredToggles(): Record<RuntimeFeatureId, boolean> {
 
 const URL_SECRET_KEYS = new Set<RuntimeSecretKey>([
   'WS_RELAY_URL',
-  'VITE_OPENSKY_RELAY_URL',
   'OLLAMA_API_URL',
 ]);
 

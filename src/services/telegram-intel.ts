@@ -11,6 +11,7 @@ export interface TelegramItem {
   topic: string;
   tags: string[];
   earlySignal: boolean;
+  mediaUrls: string[];
 }
 
 export interface TelegramFeedResponse {
@@ -53,6 +54,7 @@ export async function fetchTelegramFeed(limit = 50): Promise<TelegramFeedRespons
     topic: m.topic,
     tags: [],
     earlySignal: true,
+    mediaUrls: m.mediaUrls || [],
   }));
 
   const json: TelegramFeedResponse = {

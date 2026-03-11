@@ -7,9 +7,9 @@ import "sebuf/http/annotations.proto";
 // GetYoutubeLiveStreamInfoRequest parameters for detecting live status.
 message GetYoutubeLiveStreamInfoRequest {
   // YouTube channel handle or ID.
-  string channel = 1 [(sebuf.http.query) = { name: "channel" }];
+  string channel = 1 [(sebuf.http.query) = {name: "channel"}];
   // Specific video ID to check.
-  string video_id = 2 [(sebuf.http.query) = { name: "video_id" }];
+  string video_id = 2 [(sebuf.http.query) = {name: "video_id"}];
 }
 
 // GetYoutubeLiveStreamInfoResponse containing detection results.

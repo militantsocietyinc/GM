@@ -10,6 +10,8 @@ import { listSatellites } from './list-satellites';
 import { listGpsInterference } from './list-gps-interference';
 import { listOrefAlerts } from './list-oref-alerts';
 import { listTelegramFeed } from './list-telegram-feed';
+import { getCompanyEnrichment } from './get-company-enrichment';
+import { listCompanySignals } from './list-company-signals';
 
 export const intelligenceHandler: IntelligenceServiceHandler = {
   getRiskScores,
@@ -22,4 +24,6 @@ export const intelligenceHandler: IntelligenceServiceHandler = {
   listGpsInterference,
   listOrefAlerts,
   listTelegramFeed,
+  getCompanyEnrichment,
+  listCompanySignals,
 };

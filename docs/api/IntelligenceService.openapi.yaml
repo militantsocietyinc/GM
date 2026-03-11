@@ -419,6 +419,80 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
+    /api/intelligence/v1/get-company-enrichment:
+        get:
+            tags:
+                - IntelligenceService
+            summary: GetCompanyEnrichment
+            description: GetCompanyEnrichment aggregates company data from multiple public sources (GitHub, SEC, HN).
+            operationId: GetCompanyEnrichment
+            parameters:
+                - name: domain
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: name
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetCompanyEnrichmentResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/intelligence/v1/list-company-signals:
+        get:
+            tags:
+                - IntelligenceService
+            summary: ListCompanySignals
+            description: ListCompanySignals discovers activity signals for a company from public sources.
+            operationId: ListCompanySignals
+            parameters:
+                - name: company
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: domain
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListCompanySignalsResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
         Error:
@@ -1151,3 +1225,188 @@ components:
                 topic:
                     type: string
             description: TelegramMessage represents a single post from a monitored channel.
+        GetCompanyEnrichmentRequest:
+            type: object
+            properties:
+                domain:
+                    type: string
+                name:
+                    type: string
+        GetCompanyEnrichmentResponse:
+            type: object
+            properties:
+                company:
+                    $ref: '#/components/schemas/EnrichedCompany'
+                github:
+                    $ref: '#/components/schemas/EnrichedGithub'
+                techStack:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/TechStackItem'
+                secFilings:
+                    $ref: '#/components/schemas/SecFilings'
+                hackerNewsMentions:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/HNMention'
+                enrichedAt:
+                    type: string
+                sources:
+                    type: array
+                    items:
+                        type: string
+        EnrichedCompany:
+            type: object
+            properties:
+                name:
+                    type: string
+                domain:
+                    type: string
+                description:
+                    type: string
+                location:
+                    type: string
+                website:
+                    type: string
+                founded:
+                    type: integer
+                    format: int32
+        EnrichedGithub:
+            type: object
+            properties:
+                publicRepos:
+                    type: integer
+                    format: int32
+                followers:
+                    type: integer
+                    format: int32
+                avatarUrl:
+                    type: string
+        TechStackItem:
+            type: object
+            properties:
+                name:
+                    type: string
+                category:
+                    type: string
+                confidence:
+                    type: number
+                    format: float
+        SecFilings:
+            type: object
+            properties:
+                totalFilings:
+                    type: integer
+                    format: int32
+                recentFilings:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SecFiling'
+        SecFiling:
+            type: object
+            properties:
+                form:
+                    type: string
+                date:
+                    type: string
+                description:
+                    type: string
+        HNMention:
+            type: object
+            properties:
+                title:
+                    type: string
+                url:
+                    type: string
+                points:
+                    type: integer
+                    format: int32
+                comments:
+                    type: integer
+                    format: int32
+                date:
+                    type: string
+        ListCompanySignalsRequest:
+            type: object
+            properties:
+                company:
+                    type: string
+                domain:
+                    type: string
+        ListCompanySignalsResponse:
+            type: object
+            properties:
+                company:
+                    type: string
+                domain:
+                    type: string
+                signals:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/CompanySignal'
+                summary:
+                    $ref: '#/components/schemas/SignalSummary'
+                discoveredAt:
+                    type: string
+        CompanySignal:
+            type: object
+            properties:
+                type:
+                    type: string
+                title:
+                    type: string
+                url:
+                    type: string
+                source:
+                    type: string
+                sourceTier:
+                    type: integer
+                    format: int32
+                timestamp:
+                    type: string
+                strength:
+                    type: string
+                engagement:
+                    $ref: '#/components/schemas/SignalEngagement'
+        SignalEngagement:
+            type: object
+            properties:
+                points:
+                    type: integer
+                    format: int32
+                comments:
+                    type: integer
+                    format: int32
+                stars:
+                    type: integer
+                    format: int32
+                forks:
+                    type: integer
+                    format: int32
+                mentions:
+                    type: integer
+                    format: int32
+        SignalSummary:
+            type: object
+            properties:
+                totalSignals:
+                    type: integer
+                    format: int32
+                byType:
+                    type: object
+                    additionalProperties:
+                        type: integer
+                        format: int32
+                strongestSignal:
+                    $ref: '#/components/schemas/CompanySignal'
+                signalDiversity:
+                    type: integer
+                    format: int32
+        ByTypeEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type: integer
+                    format: int32

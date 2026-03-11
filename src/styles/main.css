@@ -897,23 +897,7 @@ canvas,
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.map-section.col-span-3 {
-  grid-column: span 3;
-}
 
-.map-section.col-span-2 {
-  grid-column: span 2;
-}
-
-.map-section.span-2 {
-  grid-row: span 2;
-  min-height: 600px;
-}
-
-.map-section.span-3 {
-  grid-row: span 3;
-  min-height: 800px;
-}
 
 .map-section.dragging {
   opacity: 0.5;
@@ -1041,36 +1025,36 @@ canvas,
 
 /* .panel.resized: Custom height set - use grid-row span for height */
 
-/* Row span classes for resizable panels */
-.panel.span-1 {
+/* Grid span classes for resizable tiles (Panels & Map) */
+.span-1 {
   grid-row: span 1 !important;
   min-height: 200px !important;
 }
 
-.panel.span-2 {
+.span-2 {
   grid-row: span 2 !important;
   min-height: 400px !important;
 }
 
-.panel.span-3 {
+.span-3 {
   grid-row: span 3 !important;
   min-height: 600px !important;
 }
 
-.panel.span-4 {
+.span-4 {
   grid-row: span 4 !important;
   min-height: 800px !important;
 }
 
-.panel.col-span-1 {
+.col-span-1 {
   grid-column: span 1 !important;
 }
 
-.panel.col-span-2 {
+.col-span-2 {
   grid-column: span 2 !important;
 }
 
-.panel.col-span-3 {
+.col-span-3 {
   grid-column: span 3 !important;
 }
 
@@ -6514,6 +6498,109 @@ a.prediction-link:hover {
 .popup-news-item .news-title:hover {
   color: var(--accent);
 }
+
+/* Vessel Popup Enhancements */
+.flag-icon {
+  font-size: 1.25em;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.usni-intel-section {
+  background: rgba(var(--semantic-high-rgb), 0.05);
+  border: 1px solid rgba(var(--semantic-high-rgb), 0.2);
+  border-radius: 6px;
+  padding: 10px;
+  margin: 12px 0;
+}
+
+.section-header.usni {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--semantic-high);
+}
+
+.section-header.usni .section-label {
+  font-weight: 700;
+  color: inherit;
+  margin-bottom: 0;
+  letter-spacing: 1px;
+}
+
+.usni-intel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.usni-field {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.usni-description {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  border-left: 2px solid rgba(var(--semantic-high-rgb), 0.3);
+  padding-left: 8px;
+  margin: 4px 0;
+}
+
+.usni-source-row {
+  margin-top: 4px;
+  font-size: 10px;
+}
+
+.usni-link {
+  color: var(--semantic-high);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.usni-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.vessel-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vessel-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.history-point {
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.history-tag {
+  background: var(--overlay-light);
+  color: var(--accent);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Specific badge colors for USNI status */
+.popup-badge.usni-deployed { background: var(--semantic-high); color: white; }
+.popup-badge.usni-underway { background: var(--semantic-elevated); color: white; }
+.popup-badge.usni-in-port { background: var(--semantic-normal); color: white; }
 
 .popup-link {
   display: inline-block;
@@ -17734,6 +17821,77 @@ body.has-breaking-alert .panels-grid {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.telegram-intel-time {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.telegram-intel-topic {
+  font-size: 9px;
+  color: var(--text-dim);
+  background: var(--overlay-subtle);
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.telegram-intel-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.telegram-intel-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.telegram-intel-image {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--overlay-subtle);
+  transition: opacity 0.2s;
+}
+
+.telegram-intel-image:hover {
+  opacity: 0.9;
+}
+
+.telegram-intel-video {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 4px;
+  background: #000;
+}
+
+.telegram-intel-item-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.telegram-follow-btn {
+  font-size: 10px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 4px 8px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.telegram-follow-btn:hover {
+  background: var(--accent-dim);
+  color: var(--bg);
 }
 
 .telegram-intel-topic {

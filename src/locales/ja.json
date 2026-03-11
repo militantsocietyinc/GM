@@ -122,6 +122,17 @@
       "stockIndex": "株価指数：{{value}}",
       "recentHeadlines": "**最近のヘッドライン：**",
       "activeStrikes": "{{count}}件の活発なストライキを検知"
+    },
+    "countryFacts": "Country Facts",
+    "loadingFacts": "Loading country facts...",
+    "noFacts": "Country facts unavailable.",
+    "facts": {
+      "headOfState": "Head of State",
+      "population": "Population",
+      "capital": "Capital",
+      "languages": "Languages",
+      "currencies": "Currencies",
+      "area": "Area"
     }
   },
   "header": {
@@ -2369,5 +2380,9 @@
     "mapThemeDesc": "マップタイルのビジュアルスタイル。",
     "globePreset": "ビジュアルプリセット",
     "globePresetDesc": "クラシックと拡張地球表示を切り替えます。"
+  },
+  "contextMenu": {
+    "openCountryBrief": "Open Country Brief",
+    "copyCoordinates": "Copy Coordinates"
   }
 }

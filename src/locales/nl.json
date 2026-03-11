@@ -2350,6 +2350,17 @@
       "sirens24h": "Sirenes / 24u",
       "aviationDisruptions": "Luchtvaartverstoringen",
       "gpsJammingZones": "GPS-storingszones"
+    },
+    "countryFacts": "Country Facts",
+    "loadingFacts": "Loading country facts...",
+    "noFacts": "Country facts unavailable.",
+    "facts": {
+      "headOfState": "Head of State",
+      "population": "Population",
+      "capital": "Capital",
+      "languages": "Languages",
+      "currencies": "Currencies",
+      "area": "Area"
     }
   },
   "preferences": {
@@ -2369,5 +2380,9 @@
     "mapThemeDesc": "Visuele stijl van de kaarttegels.",
     "globePreset": "Visuele voorinstelling",
     "globePresetDesc": "Schakel tussen klassieke en verbeterde globevisuals."
+  },
+  "contextMenu": {
+    "openCountryBrief": "Open Country Brief",
+    "copyCoordinates": "Copy Coordinates"
   }
 }

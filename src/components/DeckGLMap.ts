@@ -357,6 +357,7 @@ export class DeckGLMap {
   private onHotspotClick?: (hotspot: Hotspot) => void;
   private onTimeRangeChange?: (range: TimeRange) => void;
   private onCountryClick?: (country: CountryClickPayload) => void;
+  private onMapContextMenu?: (payload: { lat: number; lon: number; screenX: number; screenY: number }) => void;
   private onLayerChange?: (layer: keyof MapLayers, enabled: boolean, source: 'user' | 'programmatic') => void;
   private onStateChange?: (state: DeckMapState) => void;
   private onAircraftPositionsUpdate?: (positions: PositionSample[]) => void;
@@ -660,6 +661,17 @@ export class DeckGLMap {
         // Do NOT update savedTopLat — keep the original mousedown position
         // so every frame targets the exact same geographic anchor.
       }
+    });
+
+    this.container.addEventListener('contextmenu', (e: MouseEvent) => {
+      e.preventDefault();
+      if (!this.onMapContextMenu || !this.maplibreMap) return;
+      const rect = this.container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const lngLat = this.maplibreMap.unproject([x, y]);
+      if (!Number.isFinite(lngLat.lng)) return;
+      this.onMapContextMenu({ lat: lngLat.lat, lon: lngLat.lng, screenX: e.clientX, screenY: e.clientY });
     });
   }
 
@@ -5104,6 +5116,10 @@ export class DeckGLMap {
 
   public setOnCountryClick(cb: (country: CountryClickPayload) => void): void {
     this.onCountryClick = cb;
+  }
+
+  public setOnMapContextMenu(cb: (payload: { lat: number; lon: number; screenX: number; screenY: number }) => void): void {
+    this.onMapContextMenu = cb;
   }
 
   private resolveCountryFromCoordinate(lon: number, lat: number): { code: string; name: string } | null {

@@ -268,6 +268,62 @@ test.describe('circuit breaker persistent cache', () => {
     expect(result.afterClearValue).toBeNull();
   });
 
+  test('LRU eviction removes the evicted persistent entry from IndexedDB', async ({ page }) => {
+    await page.goto('/tests/runtime-harness.html');
+
+    const result = await page.evaluate(async () => {
+      const { CircuitBreaker } = await import('/src/utils/circuit-breaker');
+      const { getPersistentCache, deletePersistentCache } = await import('/src/services/persistent-cache');
+
+      const name = `test-lru-evict-${Date.now()}`;
+      const keyA = `breaker:${name}:A`;
+      const keyB = `breaker:${name}:B`;
+      const keyC = `breaker:${name}:C`;
+
+      const breaker = new CircuitBreaker<{ value: number }>({
+        name,
+        cacheTtlMs: 60_000,
+        persistCache: true,
+        maxCacheEntries: 2,
+      });
+
+      try {
+        await breaker.execute(async () => ({ value: 1 }), { value: 0 }, { cacheKey: 'A' });
+        await breaker.execute(async () => ({ value: 2 }), { value: 0 }, { cacheKey: 'B' });
+
+        // Let the initial async persistent writes settle before triggering eviction.
+        await new Promise((r) => setTimeout(r, 200));
+
+        await breaker.execute(async () => ({ value: 3 }), { value: 0 }, { cacheKey: 'C' });
+        await new Promise((r) => setTimeout(r, 200));
+
+        const [entryA, entryB, entryC] = await Promise.all([
+          getPersistentCache<{ value: number }>(keyA),
+          getPersistentCache<{ value: number }>(keyB),
+          getPersistentCache<{ value: number }>(keyC),
+        ]);
+
+        return {
+          memoryKeys: breaker.getKnownCacheKeys(),
+          entryA: entryA?.data?.value ?? null,
+          entryB: entryB?.data?.value ?? null,
+          entryC: entryC?.data?.value ?? null,
+        };
+      } finally {
+        await Promise.all([
+          deletePersistentCache(keyA),
+          deletePersistentCache(keyB),
+          deletePersistentCache(keyC),
+        ]);
+      }
+    });
+
+    expect(result.memoryKeys).toEqual(['B', 'C']);
+    expect(result.entryA).toBeNull();
+    expect(result.entryB).toBe(2);
+    expect(result.entryC).toBe(3);
+  });
+
   test('persistCache disabled when cacheTtlMs is 0', async ({ page }) => {
     await page.goto('/tests/runtime-harness.html');
 

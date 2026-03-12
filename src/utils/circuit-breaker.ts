@@ -73,12 +73,6 @@ export class CircuitBreaker<T> {
     return key && key.length > 0 ? key : DEFAULT_CACHE_KEY;
   }
 
-  /** Resolve a cache key without mutating breaker state. */
-  private lookupCacheKey(cacheKey?: string): string {
-    const key = cacheKey?.trim();
-    return key && key.length > 0 ? key : DEFAULT_CACHE_KEY;
-  }
-
   private isStateOnCooldown(): boolean {
     if (Date.now() < this.state.cooldownUntil) return true;
     if (this.state.cooldownUntil > 0) {
@@ -122,6 +116,9 @@ export class CircuitBreaker<T> {
     const oldest = this.cache.keys().next().value;
     if (oldest !== undefined) {
       this.evictCacheKey(oldest);
+      if (this.persistEnabled) {
+        this.deletePersistentCache(oldest);
+      }
     }
   }
 
@@ -220,7 +217,7 @@ export class CircuitBreaker<T> {
   }
 
   getCached(cacheKey?: string): T | null {
-    const resolvedKey = this.lookupCacheKey(cacheKey);
+    const resolvedKey = this.resolveCacheKey(cacheKey);
     const entry = this.getCacheEntry(resolvedKey);
     if (entry !== null && this.isCacheEntryFresh(entry)) {
       this.touchCacheKey(resolvedKey);
@@ -230,7 +227,7 @@ export class CircuitBreaker<T> {
   }
 
   getCachedOrDefault(defaultValue: T, cacheKey?: string): T {
-    const resolvedKey = this.lookupCacheKey(cacheKey);
+    const resolvedKey = this.resolveCacheKey(cacheKey);
     return this.getCacheEntry(resolvedKey)?.data ?? defaultValue;
   }
 
@@ -265,7 +262,7 @@ export class CircuitBreaker<T> {
 
   clearCache(cacheKey?: string): void {
     if (cacheKey !== undefined) {
-      const resolvedKey = this.lookupCacheKey(cacheKey);
+      const resolvedKey = this.resolveCacheKey(cacheKey);
       this.evictCacheKey(resolvedKey);
       if (this.persistEnabled) {
         this.deletePersistentCache(resolvedKey);

@@ -5,7 +5,7 @@ echo "Scanning repository for RSS feeds..."
 echo
 
 # find URLs but exclude large directories
-grep -rhoE "https?://[a-zA-Z0-9./:_?&=%+-]+" . \
+grep -rIhoE "https?://[a-zA-Z0-9./:_?&=%+-]+" . \
 --exclude-dir=node_modules \
 --exclude-dir=.git \
 --exclude-dir=dist \

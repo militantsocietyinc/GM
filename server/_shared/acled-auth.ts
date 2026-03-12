@@ -194,7 +194,8 @@ export async function getAcledAccessToken(): Promise<string | null> {
     }
 
     // L2: Try Redis (survives Vercel Edge cold starts).
-    if (!memCached) {
+    // Also check L2 when L1 is expired, in case another isolate wrote a fresher token.
+    if (!memCached || Date.now() >= memCached.expiresAt - EXPIRY_MARGIN_MS) {
       const fromRedis = await restoreFromRedis();
       if (fromRedis && Date.now() < fromRedis.expiresAt - EXPIRY_MARGIN_MS) {
         memCached = fromRedis;

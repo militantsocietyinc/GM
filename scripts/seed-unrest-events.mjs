@@ -10,7 +10,6 @@ const ACLED_API_URL = 'https://acleddata.com/api/acled/read';
 const CANONICAL_KEY = 'unrest:events:v1';
 const CACHE_TTL = 3600;
 
-
 // ---------- ACLED Event Type Mapping (from _shared.ts) ----------
 
 function mapAcledEventType(eventType, subEventType) {

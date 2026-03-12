@@ -812,19 +812,26 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
 
     case 'ACLED_PASSWORD': {
       // Validate ACLED credentials via OAuth token exchange.
+      // Uses the same /oauth/token endpoint as server/_shared/acled-auth.ts.
       // Requires ACLED_EMAIL to be set first (via local-env-update).
       const email = String(context.ACLED_EMAIL || process.env.ACLED_EMAIL || '').trim();
       if (!email) {
         return fail('Set ACLED_EMAIL before verifying the password');
       }
-      const loginResponse = await fetchWithTimeout('https://acleddata.com/api/acled/user/login', {
+      const oauthBody = new URLSearchParams({
+        username: email,
+        password: value,
+        grant_type: 'password',
+        client_id: 'acled',
+      });
+      const loginResponse = await fetchWithTimeout('https://acleddata.com/oauth/token', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           Accept: 'application/json',
           'User-Agent': CHROME_UA,
         },
-        body: JSON.stringify({ email, password: value }),
+        body: oauthBody.toString(),
       });
       const loginText = await loginResponse.text();
       if (isCloudflareChallenge403(loginResponse, loginText)) {
@@ -833,7 +840,7 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
       if (isAuthFailure(loginResponse.status, loginText)) {
         return fail('ACLED rejected these credentials');
       }
-      if (!loginResponse.ok) return fail(`ACLED login probe failed (${loginResponse.status})`);
+      if (!loginResponse.ok) return fail(`ACLED OAuth probe failed (${loginResponse.status})`);
       let loginPayload = null;
       try { loginPayload = JSON.parse(loginText); } catch { /* ignore */ }
       if (loginPayload?.access_token) {

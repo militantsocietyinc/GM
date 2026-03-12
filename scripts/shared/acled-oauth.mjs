@@ -6,7 +6,7 @@
  * can import it directly.
  */
 
-const ACLED_TOKEN_URL = 'https://acleddata.com/oauth/token'\;
+const ACLED_TOKEN_URL = 'https://acleddata.com/oauth/token';
 const ACLED_CLIENT_ID = 'acled';
 
 /**

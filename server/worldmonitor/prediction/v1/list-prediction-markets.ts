@@ -28,6 +28,10 @@ const KALSHI_BASE = 'https://trading-api.kalshi.com/trade-api/v2';
 const KALSHI_CACHE_KEY = 'prediction:kalshi:v1';
 const FETCH_TIMEOUT = 8000;
 
+const TECH_CATEGORY_TAGS = ['ai', 'tech', 'crypto', 'science'];
+const FINANCE_CATEGORY_TAGS = ['economy', 'fed', 'inflation', 'interest-rates', 'recession', 'trade', 'tariffs', 'debt-ceiling'];
+const KALSHI_CATEGORIES = [...FINANCE_CATEGORY_TAGS, 'markets', 'business'];
+
 // ---------- Internal Gamma API types ----------
 
 interface GammaMarket {
@@ -89,8 +93,6 @@ interface BootstrapData {
   tech?: BootstrapMarket[];
   finance?: BootstrapMarket[];
 }
-
-const KALSHI_CATEGORIES = ['economy', 'fed', 'inflation', 'markets', 'business'];
 
 const EXCLUDE_KEYWORDS = [
   'nba', 'nfl', 'mlb', 'nhl', 'fifa', 'world cup', 'super bowl', 'championship',
@@ -200,7 +202,6 @@ async function fetchKalshiMarkets(): Promise<PredictionMarket[] | null> {
         for (const event of data.events) {
           if (!event.markets) continue;
           if (isExcluded(event.title)) continue;
-          // Pick highest-volume active binary market from each event (single pass)
           let topMarket: KalshiMarket | null = null;
           let topVol = 0;
           for (const m of event.markets) {
@@ -228,18 +229,20 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
   req: ListPredictionMarketsRequest,
 ): Promise<ListPredictionMarketsResponse> => {
   try {
+    const category = (req.category || '').slice(0, 50);
+    const query = (req.query || '').slice(0, 100);
     const limit = clampInt(req.pageSize, 50, 1, 100);
-    const includeKalshi = !req.category || KALSHI_CATEGORIES.includes(req.category);
+    const includeKalshi = !category || KALSHI_CATEGORIES.includes(category);
 
     // Try Railway-seeded bootstrap data first (no Gamma API call needed)
-    if (!req.query) {
+    if (!query) {
       try {
         const bootstrap = await getCachedJson(BOOTSTRAP_KEY) as BootstrapData | null;
         if (bootstrap) {
-          const isTech = req.category && ['ai', 'tech', 'crypto', 'science'].includes(req.category);
-          const isFinance = req.category && KALSHI_CATEGORIES.includes(req.category);
+          const isTech = category && TECH_CATEGORY_TAGS.includes(category);
+          const isFinance = !isTech && category && FINANCE_CATEGORY_TAGS.includes(category);
           const variant = isTech ? bootstrap.tech
-            : isFinance ? bootstrap.finance
+            : isFinance ? (bootstrap.finance ?? bootstrap.geopolitical)
             : bootstrap.geopolitical;
           if (variant && variant.length > 0) {
             const markets: PredictionMarket[] = variant.slice(0, limit).map((m) => ({
@@ -249,7 +252,7 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
               volume: m.volume ?? 0,
               url: m.url || '',
               closesAt: m.endDate ? Date.parse(m.endDate) : 0,
-              category: req.category || '',
+              category: category || '',
               source: m.source === 'kalshi' ? MarketSource.MARKET_SOURCE_KALSHI : MarketSource.MARKET_SOURCE_POLYMARKET,
               openInterest: 0,
             }));
@@ -260,14 +263,13 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
     }
 
     // Fallback: fetch from Gamma API and Kalshi API in parallel
-    // Only start Kalshi fetch when the category warrants it
     const kalshiFetch = includeKalshi ? fetchKalshiMarkets() : Promise.resolve(null);
 
     const gammaFetch = cachedFetchJson<PredictionMarket[]>(
-      `${REDIS_CACHE_KEY}:${req.category || 'all'}:${req.query || ''}:${req.pageSize || 50}`,
+      `${REDIS_CACHE_KEY}:${category || 'all'}:${query || ''}:${req.pageSize || 50}`,
       REDIS_CACHE_TTL,
       async () => {
-        const useEvents = !!req.category;
+        const useEvents = !!category;
         const endpoint = useEvents ? 'events' : 'markets';
         const params = new URLSearchParams({
           closed: 'false',
@@ -279,7 +281,7 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
           limit: String(limit),
         });
         if (useEvents) {
-          params.set('tag_slug', req.category);
+          params.set('tag_slug', category);
         }
 
         const response = await fetch(
@@ -294,13 +296,13 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
         const data: unknown = await response.json();
         let markets: PredictionMarket[];
         if (useEvents) {
-          markets = (data as GammaEvent[]).map((e) => mapEvent(e, req.category));
+          markets = (data as GammaEvent[]).map((e) => mapEvent(e, category));
         } else {
           markets = (data as GammaMarket[]).map(mapMarket);
         }
 
-        if (req.query) {
-          const q = req.query.toLowerCase();
+        if (query) {
+          const q = query.toLowerCase();
           markets = markets.filter((m) => m.title.toLowerCase().includes(q));
         }
 
@@ -316,8 +318,8 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
     if (includeKalshi) {
       const kalshiMarkets = kalshiResult.status === 'fulfilled' && kalshiResult.value ? kalshiResult.value : [];
       filteredKalshi = kalshiMarkets;
-      if (req.query && kalshiMarkets.length > 0) {
-        const q = req.query.toLowerCase();
+      if (query && kalshiMarkets.length > 0) {
+        const q = query.toLowerCase();
         filteredKalshi = kalshiMarkets.filter((m) => m.title.toLowerCase().includes(q));
       }
     }

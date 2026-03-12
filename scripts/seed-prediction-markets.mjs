@@ -208,5 +208,5 @@ async function fetchAllPredictions() {
 await runSeed('prediction', 'markets', CANONICAL_KEY, fetchAllPredictions, {
   ttlSeconds: CACHE_TTL,
   lockTtlMs: 60_000,
-  validateFn: (data) => (data?.geopolitical?.length > 0 || data?.tech?.length > 0),
+  validateFn: (data) => (data?.geopolitical?.length > 0 || data?.tech?.length > 0) && data?.finance?.length > 0,
 });

@@ -81,7 +81,7 @@ export async function fetchPredictions(opts?: { region?: string }): Promise<Pred
         : SITE_VARIANT === 'finance' ? (hydrated.finance ?? hydrated.geopolitical)
         : hydrated.geopolitical;
       if (variant && variant.length > 0) {
-        return variant.filter(m => !isExpired(m.endDate)).slice(0, 15);
+        return variant.filter(m => !isExpired(m.endDate)).slice(0, 25);
       }
     }
 
@@ -98,7 +98,13 @@ export async function fetchPredictions(opts?: { region?: string }): Promise<Pred
       return rpcResults.markets
         .map(protoToMarket)
         .filter(m => !isExpired(m.endDate))
-        .slice(0, 15);
+        .filter(m => m.yesPrice >= 10 && m.yesPrice <= 90)
+        .sort((a, b) => {
+          const aUncertainty = 1 - (2 * Math.abs(a.yesPrice - 50) / 100);
+          const bUncertainty = 1 - (2 * Math.abs(b.yesPrice - 50) / 100);
+          return bUncertainty - aUncertainty;
+        })
+        .slice(0, 25);
     }
 
     throw new Error('No markets returned — upstream may be down');
@@ -111,9 +117,9 @@ export async function fetchPredictions(opts?: { region?: string }): Promise<Pred
       const bMatch = b.regions?.includes(opts.region!) ? 1 : 0;
       return bMatch - aMatch;
     });
-    return sorted;
+    return sorted.slice(0, 15);
   }
-  return markets;
+  return markets.slice(0, 15);
 }
 
 export async function fetchCountryMarkets(country: string): Promise<PredictionMarket[]> {

@@ -132,7 +132,7 @@ async function fetchKalshiMarkets() {
     const yesPrice = Number.isFinite(rawPrice) ? +(rawPrice * 100).toFixed(1) : 50;
 
     results.push({
-      title: topMarket.title || event.title,
+      title: topMarket.yes_sub_title || topMarket.title || event.title,
       yesPrice,
       volume,
       url: `https://kalshi.com/markets/${topMarket.ticker}`,

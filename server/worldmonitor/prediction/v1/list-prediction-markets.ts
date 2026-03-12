@@ -168,7 +168,7 @@ function mapKalshiMarket(market: KalshiMarket, category: string, eventTitle?: st
   const yesPrice = parseFloat(market.last_price_dollars || '0.5');
   return {
     id: market.ticker,
-    title: market.title || eventTitle || '',
+    title: market.yes_sub_title || market.title || eventTitle || '',
     yesPrice: Number.isFinite(yesPrice) ? yesPrice : 0.5,
     volume: parseFloat(market.volume_fp || '0'),
     url: `https://kalshi.com/markets/${market.ticker}`,

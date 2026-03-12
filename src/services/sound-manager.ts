@@ -4,10 +4,14 @@
  * Synthesizes distinct sounds for each monitoring mode using the Web Audio API.
  * No audio files required — all sounds are generated procedurally.
  *
- * War Mode:      deep bass thud + rapid 6-tone staccato klaxon
- * Finance Mode:  4-note ascending bell arpeggio with rich harmonics
- * Peace Mode:    A-major chord resolution (4 sine voices, long decay)
- * Disaster Mode: sub-bass slam + 3-pass descending frequency-sweep siren
+ * War Mode:      controlled military two-tone alert (440/880 Hz sine, 3 pulses)
+ *                — authoritative and urgent without being panicked
+ * Finance Mode:  clean two-note broadcast chime (523 → 783 Hz sine)
+ *                — like a Bloomberg terminal or newsroom notification
+ * Peace Mode:    soft resolved two-note tone (392 → 523 Hz sine)
+ *                — clear status-cleared confirmation
+ * Disaster Mode: EAS-style two-frequency attention signal (853/960 Hz sine, 3 pairs)
+ *                — modeled on the US Emergency Alert System attention tone
  *
  * Spatial drone: two detuned triangle oscillators at 40 Hz (sub-bass) with
  * a slow LFO tremolo — felt as a rumble, not heard as a hum.
@@ -94,178 +98,147 @@ function _playModeSound(mode: AppMode): void {
 }
 
 /**
- * War Mode alarm — deep bass thud followed by rapid 6-tone staccato klaxon.
- * Opens with a 55 Hz triangle slam (felt in the chest), then 6 alternating
- * sawtooth tones at 880/660 Hz — aggressive, no ambiguity.
+ * War Mode alarm — controlled military two-tone sine alert.
+ * Three pulse pairs of 440 Hz (low) then 880 Hz (high) — authoritative,
+ * urgent, clean. No harsh waveforms; modeled on operations-center tones.
  */
 function _playWarAlarm(): void {
   const ctx = _getCtx();
   if (!ctx) return;
 
-  // ── Opening bass thud ──────────────────────────────────────────────────────
-  const thudOsc  = ctx.createOscillator();
-  const thudGain = ctx.createGain();
-  thudOsc.type = 'triangle';
-  thudOsc.frequency.setValueAtTime(55, ctx.currentTime);
-  thudGain.gain.setValueAtTime(0, ctx.currentTime);
-  thudGain.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.005);
-  thudGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-  thudOsc.connect(thudGain);
-  thudGain.connect(ctx.destination);
-  thudOsc.start(ctx.currentTime);
-  thudOsc.stop(ctx.currentTime + 0.2);
+  const PULSE_MS    = 140;  // duration of each individual tone
+  const INNER_GAP   = 30;   // silence within a pair (between low and high)
+  const PAIR_GAP_MS = 90;   // silence between pulse pairs
+  const pairDurMs   = PULSE_MS * 2 + INNER_GAP + PAIR_GAP_MS;
 
-  // ── 6-tone staccato klaxon ─────────────────────────────────────────────────
-  // Alternating high/low — 880 Hz, 660 Hz, 880 Hz, 660 Hz, 880 Hz, 660 Hz
-  const klaxonFreqs = [880, 660, 880, 660, 880, 660];
-  const onMs  = 90;
-  const offMs = 45;
+  for (let i = 0; i < 3; i++) {
+    const pairStart = ctx.currentTime + i * (pairDurMs / 1000);
 
-  klaxonFreqs.forEach((freq, i) => {
-    const start = ctx.currentTime + 0.15 + i * ((onMs + offMs) / 1000);
-    const osc   = ctx.createOscillator();
-    const gain  = ctx.createGain();
+    // Low tone — 440 Hz
+    const t0   = pairStart;
+    const osc0 = ctx.createOscillator();
+    const g0   = ctx.createGain();
+    osc0.type = 'sine';
+    osc0.frequency.setValueAtTime(440, t0);
+    g0.gain.setValueAtTime(0, t0);
+    g0.gain.linearRampToValueAtTime(0.55, t0 + 0.006);
+    g0.gain.setValueAtTime(0.55, t0 + PULSE_MS / 1000 - 0.015);
+    g0.gain.linearRampToValueAtTime(0, t0 + PULSE_MS / 1000);
+    osc0.connect(g0);
+    g0.connect(ctx.destination);
+    osc0.start(t0);
+    osc0.stop(t0 + PULSE_MS / 1000 + 0.01);
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(freq, start);
-
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.65, start + 0.004);
-    gain.gain.setValueAtTime(0.65, start + onMs / 1000 - 0.008);
-    gain.gain.linearRampToValueAtTime(0, start + onMs / 1000);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(start);
-    osc.stop(start + onMs / 1000 + 0.01);
-  });
+    // High tone — 880 Hz
+    const t1   = pairStart + (PULSE_MS + INNER_GAP) / 1000;
+    const osc1 = ctx.createOscillator();
+    const g1   = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(880, t1);
+    g1.gain.setValueAtTime(0, t1);
+    g1.gain.linearRampToValueAtTime(0.55, t1 + 0.006);
+    g1.gain.setValueAtTime(0.55, t1 + PULSE_MS / 1000 - 0.015);
+    g1.gain.linearRampToValueAtTime(0, t1 + PULSE_MS / 1000);
+    osc1.connect(g1);
+    g1.connect(ctx.destination);
+    osc1.start(t1);
+    osc1.stop(t1 + PULSE_MS / 1000 + 0.01);
+  }
 }
 
 /**
- * Finance Mode chime — 4-note ascending bell arpeggio (C5 → E5 → G5 → C6).
- * Each tone is layered with its third harmonic for a richer bell timbre.
- * Higher peak gain and a long trailing decay on the final note.
+ * Finance Mode chime — clean two-note broadcast chime (C5 → G5).
+ * Short, precise sine tones with fast attack and natural decay.
+ * Modeled on Bloomberg / network-news notification tones.
  */
 function _playFinanceChime(): void {
   const ctx = _getCtx();
   if (!ctx) return;
 
-  // C5, E5, G5, C6
-  const notes   = [523.25, 659.25, 783.99, 1046.5];
-  const stepMs  = 130;
+  // C5 (523 Hz) then G5 (783 Hz) — a perfect fifth interval
+  const notes = [
+    { freq: 523.25, start: 0.00, peakGain: 0.42, decay: 0.55 },
+    { freq: 783.99, start: 0.22, peakGain: 0.38, decay: 1.30 },
+  ];
 
-  notes.forEach((freq, i) => {
-    const start    = ctx.currentTime + i * (stepMs / 1000);
-    const isFinal  = i === notes.length - 1;
-    const decayEnd = start + (isFinal ? 2.4 : 0.35);
-
-    // Fundamental
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
+  for (const { freq, start, peakGain, decay } of notes) {
+    const t   = ctx.currentTime + start;
+    const osc = ctx.createOscillator();
+    const g   = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, start);
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.45, start + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.001, decayEnd);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(start);
-    osc.stop(decayEnd + 0.05);
-
-    // Third harmonic — adds bell-like shimmer at 1/4 the gain
-    const osc3  = ctx.createOscillator();
-    const gain3 = ctx.createGain();
-    osc3.type = 'sine';
-    osc3.frequency.setValueAtTime(freq * 3, start);
-    gain3.gain.setValueAtTime(0, start);
-    gain3.gain.linearRampToValueAtTime(0.11, start + 0.006);
-    gain3.gain.exponentialRampToValueAtTime(0.001, start + (isFinal ? 0.8 : 0.18));
-    osc3.connect(gain3);
-    gain3.connect(ctx.destination);
-    osc3.start(start);
-    osc3.stop(start + (isFinal ? 0.85 : 0.22));
-  });
+    osc.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(peakGain, t + 0.007);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decay);
+    osc.connect(g);
+    g.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + decay + 0.05);
+  }
 }
 
 /**
- * Disaster Mode alert — sub-bass slam + 3-pass descending frequency-sweep siren.
- * Opens with a deep 45 Hz square-wave impact, then three rapid downward sweeps
- * from 700 → 220 Hz. Sounds like a civil-defense siren winding down under pressure.
+ * Disaster Mode alert — EAS-style two-frequency attention signal.
+ * Three bursts of 853 Hz + 960 Hz played simultaneously, modeled on the
+ * dual-tone that opens every US Emergency Alert System broadcast.
+ * Sine waves only — alarming but not abrasive.
  */
 function _playDisasterAlert(): void {
   const ctx = _getCtx();
   if (!ctx) return;
 
-  // ── Sub-bass slam ──────────────────────────────────────────────────────────
-  const slamOsc  = ctx.createOscillator();
-  const slamGain = ctx.createGain();
-  slamOsc.type = 'square';
-  slamOsc.frequency.setValueAtTime(45, ctx.currentTime);
-  slamGain.gain.setValueAtTime(0, ctx.currentTime);
-  slamGain.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 0.01);
-  slamGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-  slamOsc.connect(slamGain);
-  slamGain.connect(ctx.destination);
-  slamOsc.start(ctx.currentTime);
-  slamOsc.stop(ctx.currentTime + 0.5);
+  const BURST_MS = 380; // duration of each dual-tone burst
+  const GAP_MS   = 110; // silence between bursts
 
-  // ── 3-pass descending sweep siren ─────────────────────────────────────────
-  const sweepDur  = 0.32; // seconds per sweep
-  const sweepGap  = 0.06;
-  const numSweeps = 3;
+  for (let i = 0; i < 3; i++) {
+    const t = ctx.currentTime + i * ((BURST_MS + GAP_MS) / 1000);
 
-  for (let i = 0; i < numSweeps; i++) {
-    const start = ctx.currentTime + 0.35 + i * (sweepDur + sweepGap);
-    const end   = start + sweepDur;
-
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(700, start);
-    osc.frequency.exponentialRampToValueAtTime(220, end);
-
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.55, start + 0.015);
-    gain.gain.setValueAtTime(0.55, end - 0.03);
-    gain.gain.linearRampToValueAtTime(0, end);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(start);
-    osc.stop(end + 0.02);
+    for (const freq of [853, 960]) {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.30, t + 0.010);
+      g.gain.setValueAtTime(0.30, t + BURST_MS / 1000 - 0.020);
+      g.gain.linearRampToValueAtTime(0, t + BURST_MS / 1000);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + BURST_MS / 1000 + 0.02);
+    }
   }
 }
 
 /**
- * Peace Mode — A-major chord resolution (4 sine voices staggered 100ms apart).
- * A3 (220 Hz), C#4 (277 Hz), E4 (330 Hz), A4 (440 Hz) — warm, consonant, resolved.
- * Long 2.5-second decay on all voices.
+ * Peace Mode — soft two-note resolved tone (G4 → C5).
+ * A perfect fourth interval: G4 (392 Hz) followed by C5 (523 Hz).
+ * Gentle attack, long sine decay — a quiet, clear "status cleared" signal.
  */
 function _playPeaceTone(): void {
   const ctx = _getCtx();
   if (!ctx) return;
 
-  // A major chord: A3, C#4, E4, A4
-  const chord = [220, 277.18, 329.63, 440];
+  // G4 → C5: a rising perfect fourth, classic "all clear" interval
+  const notes = [
+    { freq: 392,    start: 0.00, peakGain: 0.22, decay: 1.8 },
+    { freq: 523.25, start: 0.20, peakGain: 0.22, decay: 2.2 },
+  ];
 
-  chord.forEach((freq, i) => {
-    const start = ctx.currentTime + i * 0.10;
-    const osc   = ctx.createOscillator();
-    const gain  = ctx.createGain();
-
+  for (const { freq, start, peakGain, decay } of notes) {
+    const t   = ctx.currentTime + start;
+    const osc = ctx.createOscillator();
+    const g   = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, start);
-
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.28, start + 0.025);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 2.5);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(start);
-    osc.stop(start + 2.6);
-  });
+    osc.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(peakGain, t + 0.020);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decay);
+    osc.connect(g);
+    g.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + decay + 0.05);
+  }
 }
 
 // ── Spatial Audio Layer ──────────────────────────────────────────────────────
@@ -523,8 +496,9 @@ function _playChatterClick(ctx: AudioContext): void {
 
 // ── Escalation pings ──────────────────────────────────────────────────────────
 //
-// Critical: three descending tones 1100 → 800 → 580 Hz at 0.38 gain.
-// High:     two descending tones   750 → 520 Hz at 0.24 gain.
+// Critical: three ascending tones 440 → 660 → 990 Hz at 0.40 gain.
+// High:     two ascending tones   440 → 660 Hz at 0.28 gain.
+// Ascending (not descending) — signals an event requiring attention, not a siren.
 
 function _playEscalationPing(level?: 'critical' | 'high'): void {
   const ctx = _getCtx();
@@ -533,22 +507,22 @@ function _playEscalationPing(level?: 'critical' | 'high'): void {
   if (!_masterGain) return;
 
   const isCritical = level === 'critical';
-  const freqs    = isCritical ? [1100, 800, 580] : [750, 520];
-  const peakGain = isCritical ? 0.38 : 0.24;
+  const freqs    = isCritical ? [440, 660, 990] : [440, 660];
+  const peakGain = isCritical ? 0.40 : 0.28;
 
-  (freqs as number[]).forEach((freq, i) => {
-    const t = ctx.currentTime + i * 0.15;
+  freqs.forEach((freq, i) => {
+    const t   = ctx.currentTime + i * 0.13;
     const osc = ctx.createOscillator();
     const g   = ctx.createGain();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(freq, t);
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(peakGain, t + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    g.gain.linearRampToValueAtTime(peakGain, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
     osc.connect(g);
     g.connect(_masterGain!);
     osc.start(t);
-    osc.stop(t + 0.30);
+    osc.stop(t + 0.37);
   });
 }
 

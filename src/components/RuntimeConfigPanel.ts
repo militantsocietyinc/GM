@@ -320,9 +320,28 @@ export class RuntimeConfigPanel extends Panel {
       `;
     }
 
-    const getKeyHtml = showGetKey
-      ? `<a href="#" data-signup-url="${signupUrl}" class="runtime-secret-link">Get key</a>`
-      : '';
+    // When no key is stored and a signup URL exists, render a prominent signup card
+    if (showGetKey) {
+      return `
+        <div class="runtime-secret-row">
+          <div class="runtime-secret-key"><code>${escapeHtml(key)}</code></div>
+          <span class="runtime-secret-status ${statusClass}">${escapeHtml(status)}</span>
+          <span class="runtime-secret-check ${checkClass}">&#x2713;</span>
+          ${helpText ? `<div class="runtime-secret-meta">${escapeHtml(helpText)}</div>` : ''}
+          <div class="runtime-signup-card">
+            <div class="runtime-signup-card-top">
+              <span class="runtime-signup-card-label">Get a free API key →</span>
+              <a href="#" data-signup-url="${escapeHtml(signupUrl)}" class="runtime-signup-btn">Open signup page</a>
+            </div>
+            <div class="runtime-signup-card-input-row">
+              <input type="${PLAINTEXT_KEYS.has(key) ? 'text' : 'password'}" data-secret="${key}" placeholder="Paste your API key here" autocomplete="off" ${isDesktopRuntime() ? '' : 'disabled'} class="runtime-signup-input ${inputClass}">
+              <button type="button" class="runtime-signup-save-btn" data-save-secret="${key}" ${isDesktopRuntime() ? '' : 'disabled'}>Save</button>
+            </div>
+            ${hintText ? `<span class="runtime-secret-hint">${escapeHtml(hintText)}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }
 
     return `
       <div class="runtime-secret-row">
@@ -330,9 +349,8 @@ export class RuntimeConfigPanel extends Panel {
         <span class="runtime-secret-status ${statusClass}">${escapeHtml(status)}</span>
         <span class="runtime-secret-check ${checkClass}">&#x2713;</span>
         ${helpText ? `<div class="runtime-secret-meta">${escapeHtml(helpText)}</div>` : ''}
-        <div class="runtime-input-wrapper${showGetKey ? ' has-suffix' : ''}">
+        <div class="runtime-input-wrapper">
           <input type="${PLAINTEXT_KEYS.has(key) ? 'text' : 'password'}" data-secret="${key}" placeholder="${pending ? t('modals.runtimeConfig.placeholder.staged') : t('modals.runtimeConfig.placeholder.setSecret')}" autocomplete="off" ${isDesktopRuntime() ? '' : 'disabled'} class="${inputClass}" ${pending ? `value="${PLAINTEXT_KEYS.has(key) ? escapeHtml(this.pendingSecrets.get(key) || '') : MASKED_SENTINEL}"` : (PLAINTEXT_KEYS.has(key) && state.present ? `value="${escapeHtml(getRuntimeConfigSnapshot().secrets[key]?.value || '')}"` : (state.present ? `value="${MASKED_SENTINEL}"` : ''))}>
-          ${getKeyHtml}
         </div>
         ${hintText ? `<span class="runtime-secret-hint">${escapeHtml(hintText)}</span>` : ''}
       </div>
@@ -354,6 +372,19 @@ export class RuntimeConfigPanel extends Panel {
     });
 
     if (!isDesktopRuntime()) return;
+
+    // Signup card Save buttons
+    this.content.querySelectorAll<HTMLButtonElement>('button[data-save-secret]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.saveSecret as RuntimeSecretKey | undefined;
+        if (!key) return;
+        const input = btn.closest('.runtime-signup-card-input-row')?.querySelector<HTMLInputElement>('input[data-secret]');
+        if (!input) return;
+        const raw = input.value.trim();
+        if (!raw || raw === MASKED_SENTINEL) return;
+        void setSecretValue(key, raw);
+      });
+    });
 
     if (this.mode === 'alert') {
       this.content.querySelector<HTMLButtonElement>('[data-open-settings]')?.addEventListener('click', () => {

@@ -15188,6 +15188,84 @@ body.has-breaking-alert .panels-grid {
   margin-bottom: 10px;
 }
 
+/* Signup card — shown when a key is missing and a signup URL exists */
+.runtime-signup-card {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  border: 1px solid var(--overlay-medium);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--darken-light);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.runtime-signup-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.runtime-signup-card-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.runtime-signup-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.runtime-signup-btn:hover { opacity: 0.75; }
+
+.runtime-signup-card-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.runtime-signup-input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--overlay-medium);
+  background: var(--bg, #0e1012);
+  color: var(--text, #e8eaed);
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.runtime-signup-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.runtime-signup-save-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.runtime-signup-save-btn:hover { opacity: 0.85; }
+.runtime-signup-save-btn:disabled { opacity: 0.4; cursor: default; }
+
 .runtime-category-header {
   font-size: 10px;
   font-weight: 700;

@@ -408,11 +408,53 @@ async function fetchTechEvents(req: ListTechEventsRequest): Promise<ListTechEven
   };
 }
 
-function applyLimit(res: ListTechEventsResponse, limit: number): ListTechEventsResponse {
-  const events = res.events.slice(0, limit);
-  const conferences = events.filter(e => e.type === 'conference');
+// ---------- Geocode + filter ----------
+
+function geocodeEvents(events: TechEvent[]): TechEvent[] {
+  return events.map(e => {
+    if (e.coords) return e;
+    const coords = normalizeLocation(e.location || null);
+    return coords ? { ...e, coords } : e;
+  });
+}
+
+function filterEvents(
+  events: TechEvent[],
+  req: ListTechEventsRequest,
+): ListTechEventsResponse {
+  const { type, mappable } = req;
+  const limit = clampInt(req.limit, 50, 1, 200);
+  const days = clampInt(req.days, 90, 1, 365);
+
+  let filtered = [...events];
+
+  if (type && type !== 'all') {
+    filtered = filtered.filter(e => e.type === type);
+  }
+  if (mappable) {
+    filtered = filtered.filter(e => e.coords && !e.coords.virtual);
+  }
+  if (days > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() + days);
+    filtered = filtered.filter(e => new Date(e.startDate) <= cutoff);
+  }
+  if (limit > 0) {
+    filtered = filtered.slice(0, limit);
+  }
+
+  const conferences = filtered.filter(e => e.type === 'conference');
   const mappableCount = conferences.filter(e => e.coords && !e.coords.virtual).length;
-  return { ...res, events, count: events.length, conferenceCount: conferences.length, mappableCount };
+
+  return {
+    success: true,
+    count: filtered.length,
+    conferenceCount: conferences.length,
+    mappableCount,
+    lastUpdated: new Date().toISOString(),
+    events: filtered,
+    error: '',
+  };
 }
 
 // ---------- Handler ----------
@@ -422,19 +464,20 @@ export async function listTechEvents(
   req: ListTechEventsRequest,
 ): Promise<ListTechEventsResponse> {
   try {
-    const cacheKey = `${REDIS_CACHE_KEY}:${req.type || 'all'}:${req.mappable ? 1 : 0}:${req.days || 0}`;
-    const result = await cachedFetchJson<ListTechEventsResponse>(cacheKey, REDIS_CACHE_TTL, async () => {
+    // Primary: read from seed-populated Redis key (Railway relay seeds this every 6h)
+    const result = await cachedFetchJson<ListTechEventsResponse>(REDIS_CACHE_KEY, REDIS_CACHE_TTL, async () => {
+      // Fallback fetcher: only runs on cold start when seed hasn't populated yet
       const fetched = await fetchTechEvents({ ...req, limit: 0 });
       return fetched.events.length > 0 ? fetched : null;
     });
-    if (!result) {
+
+    if (!result || result.events.length === 0) {
       return { success: true, count: 0, conferenceCount: 0, mappableCount: 0, lastUpdated: new Date().toISOString(), events: [], error: '' };
     }
-    const limit = clampInt(req.limit, 50, 1, 200);
-    if (result.events.length > limit) {
-      return applyLimit(result, limit);
-    }
-    return result;
+
+    // Apply geocoding (seed stores events without coords) and filter by request params
+    const geocoded = geocodeEvents(result.events);
+    return filterEvents(geocoded, req);
   } catch (error) {
     return {
       success: false,

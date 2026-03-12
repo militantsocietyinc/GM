@@ -172,6 +172,10 @@ export function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+export function toUniqueSortedLowercase(values: readonly string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.toLowerCase()))).sort();
+}
+
 export { proxyUrl, fetchWithProxy, rssProxyUrl } from './proxy';
 export { exportToJSON, exportToCSV, ExportPanel } from './export';
 export { buildMapUrl, parseMapUrlState } from './urlState';

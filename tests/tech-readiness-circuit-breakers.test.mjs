@@ -79,21 +79,20 @@ describe('economic/index.ts — per-indicator World Bank circuit breakers', () =
     );
   });
 
-  it('mirrors getFredBreaker pattern (consistency check)', () => {
-    // getFredBreaker already uses this pattern correctly — wbBreaker must follow suit
-    assert.match(src, /getFredBreaker\s*\(/, 'getFredBreaker pattern must still exist as reference');
-    assert.match(src, /getWbBreaker\s*\(/, 'getWbBreaker must mirror getFredBreaker');
+  it('has a WB breaker factory pattern and distinct WB cache keying', () => {
+    // WB breaker remains per-indicator via a factory; Fred breaker now uses a shared batch breaker.
+    assert.match(src, /getWbBreaker\s*\(/, 'getWbBreaker must exist');
 
-    // Both should use a Map
+    // Both WB and Fred cache state should remain in-memory breaker maps/instances.
     const fredBreakerSection = src.slice(
-      src.indexOf('fredBreakers'),
-      src.indexOf('fredBreakers') + 300,
+      src.indexOf('fredBatchBreaker'),
+      src.indexOf('fredBatchBreaker') + 220,
     );
     const wbBreakerSection = src.slice(
       src.indexOf('wbBreakers'),
       src.indexOf('wbBreakers') + 300,
     );
-    assert.match(fredBreakerSection, /new\s+Map/, 'fredBreakers uses Map');
+    assert.match(fredBreakerSection, /createCircuitBreaker/, 'fredBatchBreaker should be initialized via createCircuitBreaker');
     assert.match(wbBreakerSection, /new\s+Map/, 'wbBreakers uses Map');
   });
 });

@@ -77,15 +77,13 @@ async function deleteFromIndexedDbByPrefix(prefix: string): Promise<void> {
     tx.onerror = () => reject(tx.error);
 
     const store = tx.objectStore(CACHE_STORE);
-    const request = store.openKeyCursor();
+    const range = IDBKeyRange.bound(prefix, `${prefix}\uffff`);
+    const request = store.openKeyCursor(range);
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor) return;
 
-      const key = String(cursor.primaryKey);
-      if (key.startsWith(prefix)) {
-        store.delete(key);
-      }
+      store.delete(cursor.primaryKey);
       cursor.continue();
     };
     request.onerror = () => reject(request.error);

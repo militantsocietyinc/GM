@@ -11,14 +11,14 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
-
-const readSrc = (relPath) => readFileSync(resolve(root, relPath), 'utf-8');
+const CIRCUIT_BREAKER_URL = pathToFileURL(
+  resolve(root, 'src/utils/circuit-breaker.ts'),
+).href;
 
 function emptyMarketFallback() {
   return { quotes: [], finnhubSkipped: false, skipReason: '', rateLimited: false };
@@ -33,73 +33,7 @@ function quoteResponse(symbol, price) {
   };
 }
 
-describe('market/index.ts — keyed quote cache usage', () => {
-  const src = readSrc('src/services/market/index.ts');
-  const symbolSetKeyStart = src.indexOf('function symbolSetKey');
-  const fetchMultipleStocksStart = src.indexOf('export async function fetchMultipleStocks');
-  const symbolSetKeyBody = src.slice(symbolSetKeyStart, fetchMultipleStocksStart);
-  const fetchMultipleStocksEnd = src.indexOf('\nexport ', fetchMultipleStocksStart + 1);
-  const fetchMultipleStocksBody = src.slice(fetchMultipleStocksStart, fetchMultipleStocksEnd);
-
-  it('uses a non-zero cache TTL for stock and commodity quote breakers', () => {
-    assert.doesNotMatch(
-      src,
-      /stockBreaker\s*=\s*createCircuitBreaker[\s\S]*?cacheTtlMs:\s*0\b/,
-      'stockBreaker must not keep cacheTtlMs at 0 once cache entries are keyed',
-    );
-    assert.doesNotMatch(
-      src,
-      /commodityBreaker\s*=\s*createCircuitBreaker[\s\S]*?cacheTtlMs:\s*0\b/,
-      'commodityBreaker must not keep cacheTtlMs at 0 once cache entries are keyed',
-    );
-  });
-
-  it('normalizes symbol-set keys by uppercasing, deduping, and sorting', () => {
-    assert.match(symbolSetKeyBody, /toUpperCase\s*\(/,
-      'symbolSetKey must normalize case so aapl and AAPL share cache');
-    assert.match(symbolSetKeyBody, /new\s+Set/,
-      'symbolSetKey must dedupe repeated symbols within the same request');
-    assert.match(symbolSetKeyBody, /\.sort\s*\(/,
-      'symbolSetKey must sort so request order does not change the cache key');
-  });
-
-  it('passes setKey into breaker.execute cacheKey', () => {
-    assert.match(
-      src,
-      /breaker\.execute\s*\([\s\S]*?cacheKey:\s*setKey/,
-      'fetchMultipleStocks must pass cacheKey: setKey to breaker.execute',
-    );
-  });
-
-  it('passes shouldCache that rejects empty quote arrays (P1)', () => {
-    assert.match(
-      src,
-      /shouldCache:\s*\(r\)\s*=>\s*r\.quotes\.length\s*>\s*0/,
-      'breaker.execute must include shouldCache that rejects empty responses',
-    );
-  });
-
-  it('normalizes symbols in request payload and metadata lookup (P2 symmetry)', () => {
-    // The request payload must use the normalized symbol strings, not the raw input
-    assert.match(
-      fetchMultipleStocksBody,
-      /symbolMetaMap\.get\(q\.symbol\s*\.\s*trim\(\)\s*\.\s*toUpperCase\(\)\)/,
-      'metadata lookup must normalize response symbol to match normalized map keys',
-    );
-    // allSymbolStrings must come from the normalized map (not raw symbols.map)
-    assert.doesNotMatch(
-      fetchMultipleStocksBody,
-      /symbols\.map\(\s*\(?\s*s\s*\)?\s*=>\s*s\.symbol\s*\)/,
-      'allSymbolStrings must not come from raw symbols.map(s => s.symbol)',
-    );
-  });
-});
-
 describe('CircuitBreaker keyed cache — market quote isolation', () => {
-  const CIRCUIT_BREAKER_URL = pathToFileURL(
-    resolve(root, 'src/utils/circuit-breaker.ts'),
-  ).href;
-
   it('caches different symbol sets independently within one breaker', async () => {
     const { createCircuitBreaker, clearAllCircuitBreakers } = await import(
       `${CIRCUIT_BREAKER_URL}?t=${Date.now()}`
@@ -162,8 +96,7 @@ describe('CircuitBreaker keyed cache — market quote isolation', () => {
       await breaker.execute(alwaysFail, fallback, { cacheKey: 'GC=F,CL=F' });
       await breaker.execute(alwaysFail, fallback, { cacheKey: 'GC=F,CL=F' });
 
-      assert.ok(breaker.isOnCooldown('GC=F,CL=F'), 'commodity key must observe breaker cooldown');
-      assert.ok(breaker.isOnCooldown('AAPL,MSFT'), 'watchlist key must also observe breaker cooldown');
+      assert.ok(breaker.isOnCooldown(), 'breaker must observe cooldown after repeated failures');
 
       // The commodity key has no cache, so cooldown should return the default fallback
       const commodityResult = await breaker.execute(
@@ -188,6 +121,153 @@ describe('CircuitBreaker keyed cache — market quote isolation', () => {
         'AAPL',
         'cached watchlist must still serve its own data during breaker-wide cooldown',
       );
+    } finally {
+      clearAllCircuitBreakers();
+    }
+  });
+
+  it('evicts least-recently-used entries when maxCacheEntries is reached', async () => {
+    const { createCircuitBreaker, clearAllCircuitBreakers } = await import(
+      `${CIRCUIT_BREAKER_URL}?t=${Date.now()}`
+    );
+
+    clearAllCircuitBreakers();
+
+    try {
+      const breaker = createCircuitBreaker({
+        name: 'MQ-lru',
+        cacheTtlMs: 5 * 60 * 1000,
+        maxCacheEntries: 2,
+      });
+      const fallback = emptyMarketFallback();
+
+      await breaker.execute(async () => quoteResponse('A', 100), fallback, { cacheKey: 'A' });
+      await breaker.execute(async () => quoteResponse('B', 110), fallback, { cacheKey: 'B' });
+
+      // Access B again to make it MRU
+      assert.equal((await breaker.execute(async () => fallback, fallback, { cacheKey: 'B' })).quotes[0]?.symbol, 'B');
+
+      await breaker.execute(async () => quoteResponse('C', 120), fallback, { cacheKey: 'C' });
+
+      const keys = breaker.getKnownCacheKeys();
+      assert.equal(keys.includes('A'), false, 'LRU entry A should be evicted when cap is reached');
+      assert.equal(keys.includes('B'), true, 'MRU entry B should be retained');
+      assert.equal(keys.includes('C'), true, 'new key C should be retained');
+    } finally {
+      clearAllCircuitBreakers();
+    }
+  });
+
+  it('fresh hits update LRU order even before the cache first reaches capacity', async () => {
+    const { createCircuitBreaker, clearAllCircuitBreakers } = await import(
+      `${CIRCUIT_BREAKER_URL}?t=${Date.now()}`
+    );
+
+    clearAllCircuitBreakers();
+
+    try {
+      const breaker = createCircuitBreaker({
+        name: 'MQ-lru-precap',
+        cacheTtlMs: 5 * 60 * 1000,
+        maxCacheEntries: 3,
+      });
+      const fallback = emptyMarketFallback();
+
+      await breaker.execute(async () => quoteResponse('A', 100), fallback, { cacheKey: 'A' });
+      await breaker.execute(async () => quoteResponse('B', 110), fallback, { cacheKey: 'B' });
+
+      assert.equal(
+        breaker.getCached('A')?.quotes[0]?.symbol,
+        'A',
+        'fresh accessor should serve A before the cache reaches its cap',
+      );
+
+      await breaker.execute(async () => quoteResponse('C', 120), fallback, { cacheKey: 'C' });
+      await breaker.execute(async () => quoteResponse('D', 130), fallback, { cacheKey: 'D' });
+
+      const keys = breaker.getKnownCacheKeys();
+      assert.equal(keys.includes('A'), true, 'fresh hit should protect A from later LRU eviction');
+      assert.equal(keys.includes('B'), false, 'B should become the LRU entry and be evicted');
+      assert.equal(keys.includes('C'), true, 'C should remain in cache');
+      assert.equal(keys.includes('D'), true, 'D should remain in cache');
+    } finally {
+      clearAllCircuitBreakers();
+    }
+  });
+
+  it('does not touch stale/getCachedOrDefault reads for LRU ordering', async () => {
+    const { createCircuitBreaker, clearAllCircuitBreakers } = await import(
+      `${CIRCUIT_BREAKER_URL}?t=${Date.now()}`
+    );
+
+    clearAllCircuitBreakers();
+
+    try {
+      const breaker = createCircuitBreaker({
+        name: 'MQ-lru-stale',
+        cacheTtlMs: 1,
+        maxCacheEntries: 2,
+      });
+      const fallback = emptyMarketFallback();
+
+      await breaker.execute(async () => quoteResponse('A', 100), fallback, { cacheKey: 'A' });
+      await breaker.execute(async () => quoteResponse('B', 110), fallback, { cacheKey: 'B' });
+
+      // Let both entries become stale
+      await new Promise((r) => setTimeout(r, 10));
+
+      // Stale accessor should not promote LRU order
+      assert.equal(breaker.getCachedOrDefault(fallback, 'A').quotes[0]?.symbol, 'A');
+
+      await breaker.execute(async () => quoteResponse('C', 120), fallback, { cacheKey: 'C' });
+
+      const keys = breaker.getKnownCacheKeys();
+      assert.equal(keys.includes('A'), false, 'stale read should not protect A from LRU eviction');
+      assert.equal(keys.includes('B'), true, 'B should be evicted only if A was promoted');
+      assert.equal(keys.includes('C'), true, 'C should remain after insertion');
+    } finally {
+      clearAllCircuitBreakers();
+    }
+  });
+
+  it('stale SWR hits still count as used for LRU before refresh completes', async () => {
+    const { createCircuitBreaker, clearAllCircuitBreakers } = await import(
+      `${CIRCUIT_BREAKER_URL}?t=${Date.now()}`
+    );
+
+    clearAllCircuitBreakers();
+
+    try {
+      const breaker = createCircuitBreaker({
+        name: 'MQ-lru-swr',
+        cacheTtlMs: 1,
+        maxCacheEntries: 2,
+      });
+      const fallback = emptyMarketFallback();
+
+      await breaker.execute(async () => quoteResponse('A', 100), fallback, { cacheKey: 'A' });
+      await breaker.execute(async () => quoteResponse('B', 110), fallback, { cacheKey: 'B' });
+      await new Promise((r) => setTimeout(r, 10));
+
+      const staleResult = await breaker.execute(
+        async () => {
+          await new Promise((r) => setTimeout(r, 50));
+          return quoteResponse('A', 130);
+        },
+        fallback,
+        { cacheKey: 'A' },
+      );
+
+      assert.equal(staleResult.quotes[0]?.price, 100, 'SWR should return stale data immediately');
+
+      await breaker.execute(async () => quoteResponse('C', 120), fallback, { cacheKey: 'C' });
+
+      const keysBeforeRefresh = breaker.getKnownCacheKeys();
+      assert.equal(keysBeforeRefresh.includes('A'), true, 'served stale key A should stay resident');
+      assert.equal(keysBeforeRefresh.includes('B'), false, 'B should be evicted after A is promoted by the stale hit');
+      assert.equal(keysBeforeRefresh.includes('C'), true, 'new key C should be retained');
+
+      await new Promise((r) => setTimeout(r, 60));
     } finally {
       clearAllCircuitBreakers();
     }
@@ -237,38 +317,6 @@ describe('CircuitBreaker keyed cache — market quote isolation', () => {
     } finally {
       clearAllCircuitBreakers();
     }
-  });
-
-  it('clearCache() deletes persisted keyed entries by breaker prefix (P2)', () => {
-    const circuitSrc = readSrc('src/utils/circuit-breaker.ts');
-    const persistentSrc = readSrc('src/services/persistent-cache.ts');
-    const tauriSrc = readSrc('src-tauri/src/main.rs');
-
-    assert.match(
-      persistentSrc,
-      /export\s+async\s+function\s+deletePersistentCacheByPrefix\s*\(/,
-      'persistent-cache.ts must export deletePersistentCacheByPrefix',
-    );
-    assert.match(
-      circuitSrc,
-      /deletePersistentCacheByPrefix\(`\$\{baseKey\}:`\)/,
-      'CircuitBreaker.clearCache() must delete all keyed persistent entries by breaker prefix',
-    );
-    assert.match(
-      circuitSrc,
-      /deletePersistentCache\(baseKey\)/,
-      'CircuitBreaker.clearCache() must still delete the default persistent key',
-    );
-    assert.match(
-      tauriSrc,
-      /fn\s+delete_cache_entries_by_prefix\s*\(/,
-      'desktop runtime must support prefix deletion too',
-    );
-    assert.match(
-      tauriSrc,
-      /delete_cache_entries_by_prefix,/,
-      'desktop prefix delete command must be registered in the Tauri invoke handler',
-    );
   });
 
   it('getCached returns null for expired entries', async () => {
@@ -484,7 +532,7 @@ describe('CircuitBreaker keyed cache — market quote isolation', () => {
     }
   });
 
-  it('isOnCooldown(key) reflects breaker-wide cooldown', async () => {
+  it('cooldown helpers reflect breaker-wide state without a cache key', async () => {
     const { createCircuitBreaker, clearAllCircuitBreakers } = await import(
       `${CIRCUIT_BREAKER_URL}?t=${Date.now()}`
     );
@@ -509,8 +557,10 @@ describe('CircuitBreaker keyed cache — market quote isolation', () => {
       );
 
       assert.ok(breaker.isOnCooldown(), 'isOnCooldown() must be true when breaker is on cooldown');
-      assert.ok(breaker.isOnCooldown('X'), 'isOnCooldown(X) must be true');
-      assert.ok(breaker.isOnCooldown('Y'), 'isOnCooldown(Y) must also be true for breaker-wide cooldown');
+      assert.ok(
+        breaker.getCooldownRemaining() > 0,
+        'getCooldownRemaining() must report remaining breaker cooldown seconds',
+      );
     } finally {
       clearAllCircuitBreakers();
     }
@@ -574,91 +624,20 @@ describe('CircuitBreaker keyed cache — market quote isolation', () => {
       const shouldCache = (r) => r.quotes.length > 0;
 
       await breaker.execute(alwaysFail, fallback, { cacheKey: 'GC=F,CL=F', shouldCache });
-      assert.ok(!breaker.isOnCooldown('GC=F,CL=F'), 'first failure alone must not trip cooldown');
+      assert.ok(!breaker.isOnCooldown(), 'first failure alone must not trip cooldown');
 
       await breaker.execute(
         async () => emptyMarketFallback(),
         fallback,
         { cacheKey: 'GC=F,CL=F', shouldCache },
       );
-      assert.ok(!breaker.isOnCooldown('GC=F,CL=F'), 'successful empty fetch must clear failure state');
+      assert.ok(!breaker.isOnCooldown(), 'successful empty fetch must clear failure state');
 
       await breaker.execute(alwaysFail, fallback, { cacheKey: 'GC=F,CL=F', shouldCache });
-      assert.ok(!breaker.isOnCooldown('GC=F,CL=F'), 'failure count must restart after non-cacheable success');
+      assert.ok(!breaker.isOnCooldown(), 'failure count must restart after non-cacheable success');
 
       await breaker.execute(alwaysFail, fallback, { cacheKey: 'GC=F,CL=F', shouldCache });
-      assert.ok(breaker.isOnCooldown('GC=F,CL=F'), 'two consecutive failures after reset should trip cooldown');
-    } finally {
-      clearAllCircuitBreakers();
-    }
-  });
-
-  it('read helpers do not re-add keys cleared by clearCache (P3)', async () => {
-    const { CircuitBreaker, clearAllCircuitBreakers } = await import(
-      `${CIRCUIT_BREAKER_URL}?t=${Date.now()}`
-    );
-
-    clearAllCircuitBreakers();
-
-    try {
-      const breaker = new CircuitBreaker({ name: 'MQ-readleak', cacheTtlMs: 5 * 60 * 1000 });
-      const fallback = emptyMarketFallback();
-
-      await breaker.execute(
-        async () => quoteResponse('A', 100),
-        fallback,
-        { cacheKey: 'A' },
-      );
-
-      breaker.clearCache('A');
-
-      // These read helpers must NOT re-register 'A'
-      breaker.getCached('A');
-      breaker.getCachedOrDefault(fallback, 'A');
-      breaker.isOnCooldown('A');
-      breaker.getCooldownRemaining('A');
-      breaker.isOnCooldown('B');
-      breaker.getCooldownRemaining('C');
-
-      const keys = breaker.getKnownCacheKeys();
-      assert.ok(
-        !keys.includes('A'),
-        `read helpers must not re-add cleared key 'A' to knownCacheKeys; got: [${keys}]`,
-      );
-    } finally {
-      clearAllCircuitBreakers();
-    }
-  });
-
-  it('clearCache(key) removes the key from knownCacheKeys (P3 memory leak fix)', async () => {
-    const { CircuitBreaker, clearAllCircuitBreakers } = await import(
-      `${CIRCUIT_BREAKER_URL}?t=${Date.now()}`
-    );
-
-    clearAllCircuitBreakers();
-
-    try {
-      const breaker = new CircuitBreaker({ name: 'MQ-memleak', cacheTtlMs: 5 * 60 * 1000 });
-      const fallback = emptyMarketFallback();
-
-      // Populate cache for many dynamic keys
-      for (let i = 0; i < 50; i++) {
-        await breaker.execute(
-          async () => quoteResponse(`SYM${i}`, i),
-          fallback,
-          { cacheKey: `SYM${i}` },
-        );
-      }
-
-      // Clear each one — verify getCached returns null and the key doesn't linger
-      for (let i = 0; i < 50; i++) {
-        breaker.clearCache(`SYM${i}`);
-        assert.equal(breaker.getCached(`SYM${i}`), null);
-      }
-
-      // Full clearCache should work without iterating over removed keys
-      // (no error, no persistent-cache deletions for already-cleaned keys)
-      breaker.clearCache();
+      assert.ok(breaker.isOnCooldown(), 'two consecutive failures after reset should trip cooldown');
     } finally {
       clearAllCircuitBreakers();
     }

@@ -13,7 +13,7 @@ import {
   type CryptoQuote as ProtoCryptoQuote,
 } from '@/generated/client/worldmonitor/market/v1/service_client';
 import type { MarketData, CryptoData } from '@/types';
-import { createCircuitBreaker } from '@/utils';
+import { createCircuitBreaker } from '@/utils/circuit-breaker';
 import { getHydratedData } from '@/services/bootstrap';
 
 // ---- Client + Circuit Breakers ----
@@ -67,20 +67,33 @@ export interface MarketFetchResult {
 
 const lastSuccessfulByKey = new Map<string, MarketData[]>();
 
+function trimSymbol(symbol: string): string {
+  return symbol.trim();
+}
+
 function symbolSetKey(symbols: string[]): string {
-  return [...new Set(symbols.map((symbol) => symbol.trim().toUpperCase()))].sort().join(',');
+  return [...new Set(symbols.map(trimSymbol))].sort().join(',');
 }
 
 export async function fetchMultipleStocks(
   symbols: Array<{ symbol: string; name: string; display: string }>,
   options: { onBatch?: (results: MarketData[]) => void; useCommodityBreaker?: boolean } = {},
 ): Promise<MarketFetchResult> {
-  // Build normalized metadata — ensures request payload, metadata lookup,
-  // and cache key all use the same normalized symbol strings.
+  // Preserve exact requested symbols for cache keys and request payloads so
+  // case-distinct instruments do not collapse into one cache entry.
   const symbolMetaMap = new Map<string, { symbol: string; name: string; display: string }>();
+  const uppercaseMetaMap = new Map<string, { symbol: string; name: string; display: string } | null>();
   for (const s of symbols) {
-    const norm = s.symbol.trim().toUpperCase();
-    if (!symbolMetaMap.has(norm)) symbolMetaMap.set(norm, s);
+    const trimmed = trimSymbol(s.symbol);
+    if (!symbolMetaMap.has(trimmed)) symbolMetaMap.set(trimmed, s);
+
+    const upper = trimmed.toUpperCase();
+    const existingUpper = uppercaseMetaMap.get(upper);
+    if (existingUpper === undefined) {
+      uppercaseMetaMap.set(upper, s);
+    } else if (existingUpper !== null && existingUpper.symbol !== s.symbol) {
+      uppercaseMetaMap.set(upper, null);
+    }
   }
   const allSymbolStrings = [...symbolMetaMap.keys()];
   const setKey = symbolSetKey(allSymbolStrings);
@@ -94,7 +107,8 @@ export async function fetchMultipleStocks(
   });
 
   const results = resp.quotes.map((q) => {
-    const meta = symbolMetaMap.get(q.symbol.trim().toUpperCase());
+    const trimmed = trimSymbol(q.symbol);
+    const meta = symbolMetaMap.get(trimmed) ?? uppercaseMetaMap.get(trimmed.toUpperCase()) ?? undefined;
     return toMarketData(q, meta);
   });
 

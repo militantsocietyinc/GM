@@ -231,12 +231,22 @@ export class CorrelationEngine {
       const finalScore = Math.min(100, weightedSum + diversityBonus);
 
       // Compute centroid for geographic clusters
+      // Longitude uses circular mean (atan2 of unit-circle components) to
+      // handle the antimeridian correctly — arithmetic mean of 179° and -179°
+      // would give 0° instead of ±180°.
       let centroidLat: number | undefined;
       let centroidLon: number | undefined;
       const geoSignals = cluster.signals.filter(s => s.lat != null && s.lon != null);
       if (geoSignals.length > 0) {
         centroidLat = geoSignals.reduce((sum, s) => sum + s.lat!, 0) / geoSignals.length;
-        centroidLon = geoSignals.reduce((sum, s) => sum + s.lon!, 0) / geoSignals.length;
+        const toRad = Math.PI / 180;
+        const toDeg = 180 / Math.PI;
+        let sinSum = 0, cosSum = 0;
+        for (const s of geoSignals) {
+          sinSum += Math.sin(s.lon! * toRad);
+          cosSum += Math.cos(s.lon! * toRad);
+        }
+        centroidLon = Math.atan2(sinSum, cosSum) * toDeg;
       }
 
       // Collect unique countries

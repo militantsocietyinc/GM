@@ -22,6 +22,11 @@ const TECH_TAGS = [
   'elon-musk', 'business', 'economy',
 ];
 
+const FINANCE_TAGS = [
+  'economy', 'fed', 'inflation', 'interest-rates', 'recession',
+  'trade', 'tariffs', 'debt-ceiling',
+];
+
 const EXCLUDE_KEYWORDS = [
   'nba', 'nfl', 'mlb', 'nhl', 'fifa', 'world cup', 'super bowl', 'championship',
   'playoffs', 'oscar', 'grammy', 'emmy', 'box office', 'movie', 'album', 'song',
@@ -31,9 +36,35 @@ const EXCLUDE_KEYWORDS = [
   'documentary', 'feature film', 'tv series', 'season finale',
 ];
 
+const MEME_PATTERNS = [
+  /\b(lebron|kanye|oprah|swift|rogan|dwayne|kardashian|cardi\s*b)\b/i,
+  /\b(alien|ufo|zombie|flat earth)\b/i,
+];
+
+const REGION_PATTERNS = {
+  america: /\b(us|u\.s\.|united states|america|trump|biden|congress|federal reserve|canada|mexico|brazil)\b/i,
+  eu: /\b(europe|european|eu|nato|germany|france|uk|britain|macron|ecb)\b/i,
+  mena: /\b(middle east|iran|iraq|syria|israel|palestine|gaza|saudi|yemen|houthi|lebanon)\b/i,
+  asia: /\b(china|japan|korea|india|taiwan|xi jinping|asean)\b/i,
+  latam: /\b(latin america|brazil|argentina|venezuela|colombia|chile)\b/i,
+  africa: /\b(africa|nigeria|south africa|ethiopia|sahel|kenya)\b/i,
+  oceania: /\b(australia|new zealand)\b/i,
+};
+
 function isExcluded(title) {
   const lower = title.toLowerCase();
   return EXCLUDE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+function isMemeCandidate(title, yesPrice) {
+  if (yesPrice >= 15) return false;
+  return MEME_PATTERNS.some(p => p.test(title));
+}
+
+function tagRegions(title) {
+  return Object.entries(REGION_PATTERNS)
+    .filter(([, re]) => re.test(title))
+    .map(([region]) => region);
 }
 
 function parseYesPrice(market) {
@@ -41,10 +72,42 @@ function parseYesPrice(market) {
     const prices = JSON.parse(market.outcomePrices || '[]');
     if (prices.length >= 1) {
       const p = parseFloat(prices[0]);
-      if (!isNaN(p)) return +(p * 100).toFixed(1);
+      if (!isNaN(p) && p >= 0 && p <= 1) return +(p * 100).toFixed(1);
     }
   } catch {}
-  return 50;
+  return null;
+}
+
+function shouldInclude(m, relaxed = false) {
+  const minPrice = relaxed ? 5 : 10;
+  const maxPrice = relaxed ? 95 : 90;
+  if (m.yesPrice < minPrice || m.yesPrice > maxPrice) return false;
+  if (m.volume < 5000) return false;
+  if (isExcluded(m.title)) return false;
+  if (isMemeCandidate(m.title, m.yesPrice)) return false;
+  return true;
+}
+
+function scoreMarket(m) {
+  const uncertainty = 1 - (2 * Math.abs(m.yesPrice - 50) / 100);
+  const vol = Math.log10(Math.max(m.volume, 1)) / Math.log10(10_000_000);
+  return (uncertainty * 0.6) + (Math.min(vol, 1) * 0.4);
+}
+
+function filterAndScore(candidates, tagFilter, limit = 25) {
+  let filtered = candidates.filter(m => !isExpired(m.endDate));
+  if (tagFilter) filtered = filtered.filter(tagFilter);
+
+  let result = filtered.filter(m => shouldInclude(m));
+  if (result.length < 15) {
+    console.log(`  relaxing price bounds (${result.length} markets with strict filter)`);
+    result = filtered.filter(m => shouldInclude(m, true));
+  }
+
+  return result
+    .map(m => ({ ...m, regions: tagRegions(m.title) }))
+    .sort((a, b) => scoreMarket(b) - scoreMarket(a))
+    .slice(0, limit);
 }
 
 function isExpired(endDate) {
@@ -78,7 +141,7 @@ async function fetchEventsByTag(tag, limit = 20) {
 }
 
 async function fetchAllPredictions() {
-  const allTags = [...new Set([...GEOPOLITICAL_TAGS, ...TECH_TAGS])];
+  const allTags = [...new Set([...GEOPOLITICAL_TAGS, ...TECH_TAGS, ...FINANCE_TAGS])];
   const seen = new Set();
   const markets = [];
 
@@ -105,23 +168,19 @@ async function fetchAllPredictions() {
             return vol > bestVol ? m : best;
           });
 
+          const yesPrice = parseYesPrice(topMarket);
+          if (yesPrice === null) continue;
+
           markets.push({
             title: topMarket.question || event.title,
-            yesPrice: parseYesPrice(topMarket),
+            yesPrice,
             volume: eventVolume,
             url: `https://polymarket.com/event/${event.slug}`,
             endDate: topMarket.endDate ?? event.endDate ?? undefined,
             tags: (event.tags ?? []).map(t => t.slug),
           });
         } else {
-          markets.push({
-            title: event.title,
-            yesPrice: 50,
-            volume: eventVolume,
-            url: `https://polymarket.com/event/${event.slug}`,
-            endDate: event.endDate ?? undefined,
-            tags: (event.tags ?? []).map(t => t.slug),
-          });
+          continue; // no markets = no price signal, skip
         }
       }
     } catch (err) {
@@ -130,28 +189,18 @@ async function fetchAllPredictions() {
     await sleep(TAG_DELAY_MS);
   }
 
-  const geopolitical = markets
-    .filter(m => !isExpired(m.endDate))
-    .filter(m => {
-      const discrepancy = Math.abs(m.yesPrice - 50);
-      return discrepancy > 5 || (m.volume > 50000);
-    })
-    .sort((a, b) => b.volume - a.volume)
-    .slice(0, 25);
+  console.log(`  total raw markets: ${markets.length}`);
 
-  const tech = markets
-    .filter(m => !isExpired(m.endDate))
-    .filter(m => m.tags?.some(t => TECH_TAGS.includes(t)))
-    .filter(m => {
-      const discrepancy = Math.abs(m.yesPrice - 50);
-      return discrepancy > 5 || (m.volume > 50000);
-    })
-    .sort((a, b) => b.volume - a.volume)
-    .slice(0, 25);
+  const geopolitical = filterAndScore(markets, null);
+  const tech = filterAndScore(markets, m => m.tags?.some(t => TECH_TAGS.includes(t)));
+  const finance = filterAndScore(markets, m => m.tags?.some(t => FINANCE_TAGS.includes(t)));
+
+  console.log(`  geopolitical: ${geopolitical.length}, tech: ${tech.length}, finance: ${finance.length}`);
 
   return {
     geopolitical,
     tech,
+    finance,
     fetchedAt: Date.now(),
   };
 }

@@ -119,7 +119,7 @@ export class App {
       if (panel) primeTask('stablecoins', () => panel.fetchData());
     }
     if (shouldPrime('telegram-intel')) {
-      primeTask('telegram-intel', () => this.dataLoader.loadTelegramIntel());
+      primeTask('telegramIntel', () => this.dataLoader.loadTelegramIntel());
     }
     if (shouldPrime('gulf-economies')) {
       const panel = this.state.panels['gulf-economies'] as GulfEconomiesPanel | undefined;
@@ -451,12 +451,24 @@ export class App {
 
   public async init(): Promise<void> {
     const initStart = performance.now();
-    await initDB();
-    await initI18n();
+
+    // Parallel Setup: Core services that shouldn't block the UI structure
+    const coreTasks: Promise<unknown>[] = [
+      initDB().catch(e => console.error('[App] DB init failed:', e)),
+      initI18n().catch(e => console.error('[App] i18n init failed:', e)),
+    ];
+
+    if (isDesktopRuntime()) {
+      coreTasks.push(waitForSidecarReady(3000));
+    }
+
+    await Promise.allSettled(coreTasks);
+
     const aiFlow = getAiFlowSettings();
     if (aiFlow.browserModel || isDesktopRuntime()) {
-      await mlWorker.init();
-      if (BETA_MODE) mlWorker.loadModel('summarization-beta').catch(() => { });
+      mlWorker.init().then(() => {
+        if (BETA_MODE) mlWorker.loadModel('summarization-beta').catch(() => { });
+      }).catch(() => { });
     }
 
     if (aiFlow.headlineMemory) {
@@ -496,13 +508,11 @@ export class App {
       initAisStream();
     }
 
-    // Wait for sidecar readiness on desktop so bootstrap hits a live server
-    if (isDesktopRuntime()) {
-      await waitForSidecarReady(3000);
-    }
-
-    // Hydrate in-memory cache from bootstrap endpoint (before panels construct and fetch)
-    await fetchBootstrapData();
+    // Hydrate in-memory cache from bootstrap endpoint.
+    // Non-blocking but prioritized for panel re-renders.
+    const bootstrapPromise = fetchBootstrapData().catch(e => {
+      console.warn('[App] Bootstrap hydration failed:', e);
+    });
 
     const geoCoordsPromise: Promise<PreciseCoordinates | null> =
       this.state.isMobile && this.state.initialUrlState?.lat === undefined && this.state.initialUrlState?.lon === undefined
@@ -512,11 +522,15 @@ export class App {
     const resolvedRegion = await resolveUserRegion();
     this.state.resolvedLocation = resolvedRegion;
 
-    // Phase 1: Layout (creates map + panels — they'll find hydrated data)
+    await bootstrapPromise;
+
+    const mobileGeoCoords = await geoCoordsPromise;
+
+    // Instant Render: Replace skeleton with UI structure ASAP.
+    // Panels will show "Loading..." until bootstrap/fetches complete.
     this.panelLayout.init();
     showProBanner(this.state.container);
 
-    const mobileGeoCoords = await geoCoordsPromise;
     if (mobileGeoCoords && this.state.map) {
       this.state.map.setCenter(mobileGeoCoords.lat, mobileGeoCoords.lon, 6);
     }
@@ -584,16 +598,10 @@ export class App {
     // Phase 6: Data loading
     this.dataLoader.syncDataFreshnessWithLayers();
     await preloadCountryGeometry();
-    // Prime panel-specific data concurrently with bulk loading.
-    // primeVisiblePanelData owns ETF, Stablecoins, Gulf Economies, etc. that
-    // are NOT part of loadAllData. Running them in parallel prevents those
-    // panels from being blocked when a loadAllData batch is slow.
+    await this.dataLoader.loadAllData(true);
+    await this.primeVisiblePanelData(true);
     window.addEventListener('scroll', this.handleViewportPrime, { passive: true });
     window.addEventListener('resize', this.handleViewportPrime);
-    await Promise.all([
-      this.dataLoader.loadAllData(true),
-      this.primeVisiblePanelData(true),
-    ]);
 
     startLearning();
 

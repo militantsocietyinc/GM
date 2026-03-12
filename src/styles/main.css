@@ -7,19 +7,19 @@
 :root {
   /* Backgrounds - Johnny Ive Goth Theme */
   --bg: #000000;
-  --bg-secondary: #0a0a0a;
-  --surface: rgba(18, 18, 18, 0.7);
-  --surface-hover: rgba(30, 30, 30, 0.8);
-  --surface-active: rgba(40, 40, 40, 0.9);
+  --bg-secondary: #000000;
+  --surface: rgba(0, 0, 0, 0.6);
+  --surface-hover: rgba(10, 10, 10, 0.8);
+  --surface-active: rgba(20, 20, 20, 0.9);
 
-  /* Borders - Ultra thin, Apple-style */
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.15);
-  --border-subtle: rgba(255, 255, 255, 0.04);
+  /* Borders - Ultra thin, Apple-style (0.5px precision) */
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --border-subtle: rgba(255, 255, 255, 0.05);
 
-  /* Text - High contrast, minimalist */
+  /* Text - High contrast, minimalist Apple typography */
   --text: #ffffff;
-  --text-secondary: #a1a1a6;
+  --text-secondary: #f5f5f7;
   --text-dim: #86868b;
   --text-muted: #6e6e73;
   --text-faint: #424245;
@@ -201,11 +201,11 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 13px;
   line-height: 1.47059;
   font-weight: 400;
-  letter-spacing: -0.022em;
+  letter-spacing: -0.015em;
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
@@ -271,7 +271,7 @@ canvas,
   justify-content: space-between;
   padding: 8px 16px;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   height: 40px;
   flex-shrink: 0;
 }
@@ -282,7 +282,7 @@ canvas,
   background: var(--bg);
   flex-shrink: 0;
   -webkit-app-region: drag;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 0.5px solid var(--border-subtle);
 }
 
 .tauri-titlebar + .header {
@@ -310,7 +310,7 @@ canvas,
   align-items: center;
   gap: 2px;
   background: var(--overlay-subtle);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   padding: 2px 4px;
   margin-right: 6px;
@@ -425,7 +425,7 @@ canvas,
   gap: 12px;
   padding: 12px 14px;
   background: linear-gradient(135deg, #1a2332 0%, #0f1923 100%);
-  border: 1px solid rgba(68, 255, 136, 0.25);
+  border: 0.5px solid rgba(68, 255, 136, 0.25);
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(68, 255, 136, 0.08);
   z-index: 10003;
@@ -590,7 +590,7 @@ canvas,
 .region-select {
   padding: 4px 24px 4px 10px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 11px;
@@ -626,7 +626,7 @@ canvas,
 .focus-select {
   padding: 4px 24px 4px 10px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 11px;
@@ -661,7 +661,7 @@ canvas,
 .fullscreen-btn {
   padding: 4px 8px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 14px;
@@ -684,7 +684,7 @@ canvas,
   align-items: center;
   justify-content: center;
   background: none;
-  border: 1px solid transparent;
+  border: 0.5px solid transparent;
   border-radius: 4px;
   color: var(--text-dim);
   cursor: pointer;
@@ -721,7 +721,7 @@ canvas,
 .search-btn {
   padding: 4px 10px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 11px;
@@ -740,7 +740,7 @@ canvas,
 .copy-link-btn {
   padding: 4px 10px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 11px;
@@ -766,7 +766,7 @@ canvas,
 .download-btn {
   padding: 4px 10px;
   background: color-mix(in srgb, var(--green) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--green) 30%, transparent);
   color: var(--green);
   font-family: inherit;
   font-size: 11px;
@@ -789,7 +789,7 @@ canvas,
   right: 0;
   width: 280px;
   background: var(--border-subtle);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 8px 24px var(--shadow-color);
   z-index: 1000;
@@ -833,17 +833,17 @@ canvas,
 
 .dl-dd-btn.mac {
   background: #2d5a2d;
-  border: 1px solid #3a7a3a;
+  border: 0.5px solid #3a7a3a;
 }
 
 .dl-dd-btn.win {
   background: #2d4a5a;
-  border: 1px solid #3a6a8a;
+  border: 0.5px solid #3a6a8a;
 }
 
 .dl-dd-btn.linux {
   background: #5a4a2d;
-  border: 1px solid #8a7a3a;
+  border: 0.5px solid #8a7a3a;
 }
 
 .dl-dd-btn.primary {
@@ -903,7 +903,7 @@ canvas,
   min-height: 350px;
   max-height: 90vh;
   /* Allow resize up to 90% of viewport */
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   background: var(--surface);
   display: flex;
   flex-direction: column;
@@ -920,7 +920,7 @@ canvas,
   gap: 6px;
   padding: 8px 12px;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .map-section .map-container {
@@ -975,7 +975,7 @@ canvas,
 .map-dimension-toggle {
   display: flex;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
   margin-right: 2px;
@@ -1011,7 +1011,7 @@ canvas,
 
 .map-pin-btn {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   padding: 4px 8px;
   border-radius: 4px;
@@ -1065,7 +1065,7 @@ canvas,
   padding: 12px 20px;
   font-size: 11px;
   color: var(--text-dim);
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   flex-shrink: 0;
   background: var(--surface);
 }
@@ -1133,9 +1133,9 @@ canvas,
 
 .panel {
   background: var(--surface);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 0.5px solid var(--border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -1143,11 +1143,11 @@ canvas,
   height: 100%;
   min-height: 200px;
   min-width: 0;
-  cursor: grab;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s ease;
+  cursor: default;
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.3s cubic-bezier(0.2, 0, 0, 1), height 0.4s cubic-bezier(0.2, 0, 0, 1);
   position: relative;
   contain: content;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8);
 }
 
 .panel.collapsed {
@@ -1199,13 +1199,15 @@ canvas,
 .panel-resize-handle {
   position: absolute;
   bottom: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 10px;
   cursor: ns-resize;
-  background: linear-gradient(to top, rgba(68, 136, 255, 0.15), transparent);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px 5px 0 0;
   z-index: 100;
-  transition: background 0.2s;
+  transition: background 0.2s, height 0.2s;
   touch-action: none;
   pointer-events: auto !important;
   user-select: none;
@@ -1213,36 +1215,27 @@ canvas,
 
 .panel-resize-handle:hover,
 .panel-resize-handle.active {
-  background: linear-gradient(to top, rgba(68, 136, 255, 0.5), transparent);
+  background: var(--accent);
+  height: 12px;
 }
 
 .panel-resize-handle::after {
-  content: '⋯';
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 16px;
-  letter-spacing: 2px;
-  color: var(--text-dim);
-  transition: color 0.2s;
+  display: none;
 }
 
-.panel-resize-handle:hover::after {
-  color: var(--accent);
-}
-
-/* Right-edge handle - mirrors the bottom handle exactly */
+/* Right-edge handle */
 .panel-col-resize-handle {
   position: absolute;
-  top: 40px;
+  top: 50%;
   right: 0;
-  bottom: 0;
-  width: 20px;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 40px;
   cursor: ew-resize;
-  background: linear-gradient(to left, rgba(68, 136, 255, 0.15), transparent);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px 0 0 5px;
   z-index: 100;
-  transition: background 0.2s;
+  transition: background 0.2s, width 0.2s;
   touch-action: none;
   pointer-events: auto !important;
   user-select: none;
@@ -1250,23 +1243,12 @@ canvas,
 
 .panel-col-resize-handle:hover,
 .panel-col-resize-handle.active {
-  background: linear-gradient(to left, rgba(68, 136, 255, 0.5), transparent);
+  background: var(--accent);
+  width: 12px;
 }
 
 .panel-col-resize-handle::after {
-  content: '⋮';
-  position: absolute;
-  right: 3px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 16px;
-  letter-spacing: 2px;
-  color: var(--text-dim);
-  transition: color 0.2s;
-}
-
-.panel-col-resize-handle:hover::after {
-  color: var(--accent);
+  display: none;
 }
 
 body.panel-resize-active iframe {
@@ -1312,11 +1294,16 @@ body.panel-resize-active iframe {
   gap: 8px;
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   flex-shrink: 0;
   position: relative;
   transition: background-color 0.3s ease, border-color 0.3s ease;
   height: 40px;
+  cursor: grab;
+}
+
+.panel-header:active {
+  cursor: grabbing;
 }
 
 .panel-header-error {
@@ -1435,6 +1422,12 @@ body.panel-resize-active iframe {
   opacity: 1;
 }
 
+.panel-collapse-btn {
+  order: 998;
+  margin-left: 6px;
+  font-size: 11px;
+}
+
 .panel-header .panel-close-btn:hover {
   background: color-mix(in srgb, var(--semantic-critical) 15%, transparent);
   color: var(--semantic-critical);
@@ -1488,7 +1481,7 @@ body.panel-resize-active iframe {
   letter-spacing: 0.4px;
   padding: 2px 6px;
   border-radius: 10px;
-  border: 1px solid transparent;
+  border: 0.5px solid transparent;
   color: var(--text);
 }
 
@@ -1513,7 +1506,7 @@ body.panel-resize-active iframe {
 /* Panel Sort Toggle Button (#107) */
 .panel-sort-btn {
   background: var(--overlay-medium);
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   border-radius: 3px;
   cursor: pointer;
   font-size: 11px;
@@ -1542,7 +1535,7 @@ body.panel-resize-active iframe {
 /* Panel Summarize Button */
 .panel-summarize-btn {
   background: var(--overlay-medium);
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   border-radius: 3px;
   cursor: pointer;
   font-size: 11px;
@@ -1631,7 +1624,7 @@ body.panel-resize-active iframe {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 1px solid var(--text-dim);
+  border: 0.5px solid var(--text-dim);
   background: transparent;
   color: var(--text-dim);
   font-size: 9px;
@@ -1656,7 +1649,7 @@ body.panel-resize-active iframe {
   left: 50%;
   transform: translateX(-50%);
   background: var(--border-subtle);
-  border: 1px solid var(--border-strong);
+  border: 0.5px solid var(--border-strong);
   border-radius: 4px;
   padding: 10px 12px;
   font-size: 11px;
@@ -1748,7 +1741,7 @@ body.panel-resize-active iframe {
   gap: 4px;
   padding: 6px 8px;
   background: var(--darken-heavy);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -1770,7 +1763,7 @@ body.panel-resize-active iframe {
 .live-channel-btn {
   padding: 4px 8px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
@@ -1820,7 +1813,7 @@ body.panel-resize-active iframe {
 .live-news-settings-btn {
   padding: 4px 8px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
@@ -1854,7 +1847,7 @@ body.panel-resize-active iframe {
   gap: 4px;
   padding: 6px 12px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   font-family: inherit;
   font-size: 12px;
@@ -1885,7 +1878,7 @@ body.panel-resize-active iframe {
   min-height: auto;
   color: var(--red);
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   cursor: pointer;
   border-radius: 0;
   text-transform: uppercase;
@@ -1938,7 +1931,7 @@ body.panel-resize-active iframe {
   min-height: auto;
   color: var(--text-dim);
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   cursor: pointer;
   border-radius: 0;
   text-transform: uppercase;
@@ -1956,7 +1949,7 @@ body.panel-resize-active iframe {
   gap: 8px;
   padding: 8px 10px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   white-space: normal;
 }
 
@@ -1967,7 +1960,7 @@ body.panel-resize-active iframe {
   min-width: 160px;
   min-height: 40px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   border-radius: 4px;
 }
@@ -1977,7 +1970,7 @@ body.panel-resize-active iframe {
   padding: 8px 16px;
   font-size: 13px;
   min-height: 40px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   cursor: pointer;
   background: var(--bg);
   color: var(--text);
@@ -2034,7 +2027,7 @@ body.panel-resize-active iframe {
   width: 200px;
   max-width: 100%;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   border-radius: 4px;
 }
@@ -2049,7 +2042,7 @@ body.panel-resize-active iframe {
   font-size: 14px;
   min-height: 44px;
   background: var(--border);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   cursor: pointer;
   border-radius: 4px;
@@ -2074,7 +2067,7 @@ body.panel-resize-active iframe {
   justify-content: space-between;
   align-items: center;
   padding: 8px 14px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   background: var(--darken-heavy);
   flex-shrink: 0;
 }
@@ -2101,7 +2094,7 @@ body.panel-resize-active iframe {
   min-height: 40px;
   color: var(--text-dim);
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   cursor: pointer;
   border-radius: 4px;
 }
@@ -2161,7 +2154,7 @@ body.panel-resize-active iframe {
   max-height: 85vh;
   overflow-y: auto;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
@@ -2192,7 +2185,7 @@ body.panel-resize-active iframe {
 
 /* Available channels section */
 .live-news-manage-available-section {
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   padding-top: 8px;
   margin-top: 4px;
 }
@@ -2231,7 +2224,7 @@ body.panel-resize-active iframe {
   width: 100%;
   padding: 6px 12px 6px 32px;
   background: var(--darken-heavy);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   color: var(--text);
   font-size: 13px;
@@ -2254,7 +2247,7 @@ body.panel-resize-active iframe {
   color: var(--text-dim);
   font-size: 14px;
   background: var(--darken);
-  border: 1px dashed var(--border);
+  border: 0.5px dashed var(--border);
   border-radius: 6px;
   margin-top: 4px;
 }
@@ -2284,7 +2277,7 @@ body.panel-resize-active iframe {
   gap: 8px;
   padding: 10px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -2315,7 +2308,7 @@ body.panel-resize-active iframe {
   height: 28px;
   border-radius: 4px;
   background: var(--surface-hover);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2411,7 +2404,7 @@ body.panel-resize-active iframe {
   margin-top: 8px;
   padding: 6px 12px;
   background: var(--panel-bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-size: 11px;
   cursor: pointer;
@@ -2477,19 +2470,15 @@ body.panel-resize-active iframe {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  border: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
   z-index: 10000 !important;
   border-radius: 0 !important;
   margin: 0 !important;
 }
 
-.live-news-fullscreen .panel-content {
+.live-news-fullscreen .panel-content,
+.live-news-fullscreen .map-container {
   height: calc(100vh - 80px) !important;
 }
 
@@ -2507,20 +2496,11 @@ body.live-news-fullscreen-active .time-slider,
 body.live-news-fullscreen-active .deckgl-layer-toggles,
 body.live-news-fullscreen-active .map-legend,
 body.live-news-fullscreen-active .map-controls,
-body.live-news-fullscreen-active .map-timestamp {
+body.live-news-fullscreen-active .map-timestamp,
+body.live-news-fullscreen-active .map-bottom-grid,
+body.live-news-fullscreen-active .map-resize-handle {
   visibility: hidden !important;
   pointer-events: none !important;
-}
-
-body.live-news-fullscreen-active #mapSection.live-news-fullscreen .map-bottom-grid,
-body.live-news-fullscreen-active #mapSection.live-news-fullscreen .map-resize-handle {
-  display: none !important;
-}
-
-body.live-news-fullscreen-active #mapSection.live-news-fullscreen .map-container {
-  height: auto !important;
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
 }
 
 body.live-news-fullscreen-active .community-widget {
@@ -2625,7 +2605,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   gap: 4px;
   padding: 6px 8px;
   background: var(--darken-heavy);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -2638,7 +2618,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 .webcam-view-btn {
   padding: 4px 8px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
@@ -2715,7 +2695,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   pointer-events: auto;
   margin-left: auto;
   background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 0.5px solid rgba(255, 255, 255, 0.2);
   border-radius: 3px;
   color: #fff;
   padding: 2px 4px;
@@ -2804,7 +2784,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   gap: 4px;
   padding: 6px 8px;
   background: var(--darken-heavy);
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -2812,7 +2792,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 .webcam-feed-btn {
   padding: 4px 8px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
@@ -2925,7 +2905,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 /* News Items */
 .item {
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .item:last-child {
@@ -2967,7 +2947,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   font-size: 8px;
   font-weight: 500;
   margin-inline-start: 6px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   vertical-align: middle;
   line-height: normal;
 }
@@ -2987,7 +2967,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 /* CII Share button */
 .cii-share-btn {
   background: none;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-muted);
   font-size: 12px;
   cursor: pointer;
@@ -3012,7 +2992,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   color: var(--text-secondary);
   padding: 10px 20px;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   font-size: 13px;
   z-index: 10002;
   opacity: 0;
@@ -3120,7 +3100,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   background: var(--overlay-light);
   padding: 8px 12px;
   border-radius: 16px;
-  border: 1px solid var(--overlay-light);
+  border: 0.5px solid var(--overlay-light);
 }
 
 .story-share-btn {
@@ -3170,7 +3150,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 
 .country-intel-share-btn {
   background: none;
-  border: 1px solid #ff444440;
+  border: 0.5px solid #ff444440;
   color: var(--semantic-critical);
   font-size: 16px;
   cursor: pointer;
@@ -3189,7 +3169,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   padding: 1px 5px;
   border-radius: 3px;
   font-weight: 600;
-  border: 1px solid;
+  border: 0.5px solid;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -3272,13 +3252,13 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 .tier-badge.tier-1 {
   background: linear-gradient(135deg, rgba(0, 255, 136, 0.25), rgba(0, 200, 100, 0.15));
   color: var(--green);
-  border: 1px solid rgba(0, 255, 136, 0.4);
+  border: 0.5px solid rgba(0, 255, 136, 0.4);
 }
 
 .tier-badge.tier-2 {
   background: rgba(0, 170, 255, 0.15);
   color: var(--accent);
-  border: 1px solid rgba(0, 170, 255, 0.3);
+  border: 0.5px solid rgba(0, 170, 255, 0.3);
 }
 
 /* "Also reported by" label */
@@ -3292,11 +3272,11 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 /* Enhanced tier indicators for top sources */
 .top-source.tier-1 {
   font-weight: 500;
-  border: 1px solid rgba(0, 255, 136, 0.3);
+  border: 0.5px solid rgba(0, 255, 136, 0.3);
 }
 
 .top-source.tier-2 {
-  border: 1px solid rgba(0, 170, 255, 0.2);
+  border: 0.5px solid rgba(0, 170, 255, 0.2);
 }
 
 .item.clustered {
@@ -3319,7 +3299,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   padding: 8px;
   border-radius: 8px;
   background: var(--bg);
-  border: 1px solid rgba(0, 255, 170, 0.2);
+  border: 0.5px solid rgba(0, 255, 170, 0.2);
 }
 
 .related-assets-header {
@@ -3351,7 +3331,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   padding: 6px 8px;
   border-radius: 6px;
   background: var(--bg);
-  border: 1px solid rgba(0, 255, 170, 0.15);
+  border: 0.5px solid rgba(0, 255, 170, 0.15);
   color: var(--text);
   cursor: pointer;
   text-align: left;
@@ -3469,7 +3449,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 
 .signal-modal {
   background: var(--bg);
-  border: 1px solid var(--accent);
+  border: 0.5px solid var(--accent);
   border-radius: 4px;
   width: 90%;
   max-width: 500px;
@@ -3596,7 +3576,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 }
 
 .suppress-keyword-btn {
-  border: 1px solid rgba(255, 140, 66, 0.5);
+  border: 0.5px solid rgba(255, 140, 66, 0.5);
   background: rgba(255, 140, 66, 0.12);
   color: var(--semantic-high);
   font-size: 11px;
@@ -3640,7 +3620,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-top: 1px solid var(--panel-border);
+  border-top: 0.5px solid var(--panel-border);
 }
 
 .signal-audio-toggle {
@@ -3692,7 +3672,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 
 .playback-toggle {
   background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
+  border: 0.5px solid var(--panel-border);
   color: var(--text-dim);
   padding: 4px 8px;
   font-size: 12px;
@@ -3711,7 +3691,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   right: 0;
   margin-top: 8px;
   background: var(--panel-bg);
-  border: 1px solid var(--accent);
+  border: 0.5px solid var(--accent);
   border-radius: 4px;
   width: 280px;
   z-index: 100;
@@ -3727,7 +3707,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: 0.5px solid var(--panel-border);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -3927,7 +3907,7 @@ body.playback-mode .status-dot {
   width: 28px;
   height: 28px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-size: 14px;
   cursor: pointer;
@@ -3950,7 +3930,7 @@ body.playback-mode .status-dot {
   z-index: 100;
   background: var(--bg);
   padding: 6px 10px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
 }
 
@@ -3969,7 +3949,7 @@ body.playback-mode .status-dot {
 .time-btn {
   padding: 3px 6px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   font-family: inherit;
   font-size: 9px;
@@ -4003,7 +3983,7 @@ body.playback-mode .status-dot {
 .layer-toggles:not(.deckgl-layer-toggles) .layer-toggle {
   padding: 3px 8px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   font-family: inherit;
   font-size: 9px;
@@ -4057,7 +4037,7 @@ body.playback-mode .status-dot {
   height: 20px;
   padding: 0;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 50%;
   color: var(--text-dim);
   font-family: inherit;
@@ -4083,7 +4063,7 @@ body.playback-mode .status-dot {
   width: 360px;
   max-height: 70vh;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   z-index: 200;
   overflow: hidden;
@@ -4096,7 +4076,7 @@ body.playback-mode .status-dot {
   justify-content: space-between;
   padding: 10px 12px;
   background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   font-size: 11px;
   font-weight: bold;
   text-transform: uppercase;
@@ -4705,7 +4685,7 @@ body.playback-mode .status-dot {
 
 .popup-tag {
   background: var(--panel-bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 3px;
   padding: 2px 6px;
   font-size: 9px;
@@ -5389,7 +5369,7 @@ body.playback-mode .status-dot {
   box-shadow: 0 0 6px var(--status-live), 0 0 12px #00ffaa40;
   z-index: 51;
   cursor: pointer;
-  border: 1px solid var(--semantic-normal);
+  border: 0.5px solid var(--semantic-normal);
 }
 
 .irradiator-marker:hover {
@@ -5428,7 +5408,7 @@ body.playback-mode .status-dot {
   box-shadow: 0 0 8px #8844ff80, 0 0 16px #8844ff40;
   z-index: 52;
   cursor: pointer;
-  border: 1px solid var(--semantic-info);
+  border: 0.5px solid var(--semantic-info);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5442,7 +5422,7 @@ body.playback-mode .status-dot {
 
 .datacenter-marker.planned {
   background: transparent;
-  border: 1px dashed var(--semantic-info);
+  border: 0.5px dashed var(--semantic-info);
   box-shadow: 0 0 8px #8844ff40;
 }
 
@@ -5554,7 +5534,7 @@ body.playback-mode .status-dot {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .market-item:last-child {
@@ -5625,7 +5605,7 @@ body.playback-mode .status-dot {
   letter-spacing: 0.5px;
   color: var(--text-dim);
   padding: 6px 0 2px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   margin-bottom: 2px;
 }
 
@@ -5675,7 +5655,7 @@ body.playback-mode .status-dot {
 /* Predictions */
 .prediction-item {
   padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .prediction-item:last-child {
@@ -5752,14 +5732,14 @@ a.prediction-link:hover {
 .monitor-input-container {
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .monitor-input {
   width: 100%;
   padding: 8px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 11px;
@@ -5973,7 +5953,7 @@ a.prediction-link:hover {
   font-family: inherit;
   color: var(--accent);
   background: var(--overlay-light);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
@@ -6003,7 +5983,7 @@ a.prediction-link:hover {
   font-size: 9px;
   color: var(--semantic-elevated);
   background: rgba(255, 210, 124, 0.1);
-  border: 1px solid rgba(255, 210, 124, 0.3);
+  border: 0.5px solid rgba(255, 210, 124, 0.3);
   border-radius: 3px;
   cursor: pointer;
   font-family: inherit;
@@ -6033,7 +6013,7 @@ a.prediction-link:hover {
 
 .modal {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   padding: 20px;
   max-width: 500px;
   width: 90%;
@@ -6089,7 +6069,7 @@ a.prediction-link:hover {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   background: var(--darken-heavy);
   flex-shrink: 0;
 }
@@ -6134,7 +6114,7 @@ a.prediction-link:hover {
   gap: 8px;
   padding: 8px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   cursor: pointer;
 }
 
@@ -6154,7 +6134,7 @@ a.prediction-link:hover {
 .panel-toggle-checkbox {
   width: 14px;
   height: 14px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6195,7 +6175,7 @@ a.prediction-link:hover {
   width: 100%;
   padding: 8px 10px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 11px;
@@ -6222,7 +6202,7 @@ a.prediction-link:hover {
   gap: 6px;
   padding: 6px 8px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   cursor: pointer;
   font-size: 10px;
 }
@@ -6238,7 +6218,7 @@ a.prediction-link:hover {
 .source-toggle-checkbox {
   width: 12px;
   height: 12px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6282,7 +6262,7 @@ a.prediction-link:hover {
 .panels-reset-layout {
   padding: 6px 12px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 10px;
@@ -6321,7 +6301,7 @@ a.prediction-link:hover {
   flex: 1;
   padding: 6px 12px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 10px;
@@ -6345,7 +6325,7 @@ a.prediction-link:hover {
   width: 360px;
   max-height: 380px;
   background: var(--bg);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
   z-index: 1000;
   overflow-y: auto;
@@ -6409,7 +6389,7 @@ a.prediction-link:hover {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -6750,7 +6730,7 @@ a.prediction-link:hover {
 }
 
 .popup-news-item + .popup-news-item {
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.03);
 }
 
 .popup-news-item .news-source {
@@ -6905,7 +6885,7 @@ a.prediction-link:hover {
   color: var(--bg);
   background: var(--red);
   padding: 2px 6px;
-  border: 1px solid var(--red);
+  border: 0.5px solid var(--red);
   letter-spacing: 0.5px;
   animation: pulse-breaking 0.8s ease-in-out infinite;
   z-index: 55;
@@ -6935,7 +6915,7 @@ a.prediction-link:hover {
   gap: 16px;
   padding: 6px 16px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   font-size: 9px;
   color: var(--text-dim);
   letter-spacing: 0.5px;
@@ -7109,7 +7089,7 @@ a.prediction-link:hover {
 
 .us-status-footer {
   padding: 6px 12px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   font-size: 9px;
   color: var(--text-dim);
 }
@@ -7121,7 +7101,7 @@ a.prediction-link:hover {
 
 .export-btn {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   padding: 4px 8px;
   font-size: 11px;
@@ -7140,7 +7120,7 @@ a.prediction-link:hover {
   right: 0;
   margin-top: 4px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   z-index: 1000;
   box-shadow: 0 4px 12px var(--shadow-color);
@@ -7824,7 +7804,7 @@ a.prediction-link:hover {
   align-items: center;
   justify-content: center;
   padding: 0 3px;
-  border: 1px solid var(--bg);
+  border: 0.5px solid var(--bg);
   z-index: 10;
 }
 
@@ -7892,7 +7872,7 @@ a.prediction-link:hover {
 
 .cluster-list .cluster-item {
   padding: 4px 0;
-  border-bottom: 1px solid var(--overlay-medium);
+  border-bottom: 0.5px solid var(--overlay-medium);
 }
 
 .cluster-list .cluster-item:last-child {
@@ -8097,7 +8077,7 @@ a.prediction-link:hover {
 
 .economic-footer {
   padding: 6px 12px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   text-align: right;
 }
 
@@ -8208,7 +8188,7 @@ a.prediction-link:hover {
   font-size: 10px;
   color: var(--semantic-elevated);
   background: rgba(255, 170, 50, 0.08);
-  border-bottom: 1px solid rgba(255, 170, 50, 0.15);
+  border-bottom: 0.5px solid rgba(255, 170, 50, 0.15);
 }
 
 .trade-restrictions-list,
@@ -8351,7 +8331,7 @@ a.prediction-link:hover {
   justify-content: space-between;
   margin-top: 4px;
   padding-top: 4px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
 }
 
 .trade-date {
@@ -8388,13 +8368,13 @@ a.prediction-link:hover {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 4px 8px 6px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .trade-tariffs-table tbody td {
   padding: 5px 8px;
   color: var(--text);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .trade-tariffs-table tbody tr:last-child td {
@@ -8489,7 +8469,7 @@ a.prediction-link:hover {
   width: 560px;
   max-width: 90vw;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 20px 60px var(--shadow-color);
   overflow: hidden;
@@ -8500,7 +8480,7 @@ a.prediction-link:hover {
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   background: var(--bg);
 }
 
@@ -8548,7 +8528,7 @@ a.prediction-link:hover {
   text-transform: uppercase;
   letter-spacing: 1px;
   background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .search-result-item {
@@ -8658,7 +8638,7 @@ a.prediction-link:hover {
 
 .search-all-commands-wrap {
   padding: 8px 16px 12px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   background: var(--bg);
 }
 
@@ -8689,7 +8669,7 @@ a.prediction-link:hover {
 }
 
 .search-command-category {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .search-command-category:last-child {
@@ -8724,7 +8704,7 @@ a.prediction-link:hover {
   display: flex;
   gap: 16px;
   padding: 8px 16px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   background: var(--bg);
   font-size: 10px;
   color: var(--text-dim);
@@ -8850,7 +8830,7 @@ a.prediction-link:hover {
   flex-shrink: 0;
   padding: 6px 14px;
   border-radius: 16px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   background: var(--bg);
   color: var(--text);
   font-size: 12px;
@@ -9458,8 +9438,8 @@ a.prediction-link:hover {
   left: -4px;
   width: 6px;
   height: 6px;
-  border-left: 1px solid var(--cluster-color);
-  border-bottom: 1px solid var(--cluster-color);
+  border-left: 0.5px solid var(--cluster-color);
+  border-bottom: 0.5px solid var(--cluster-color);
 }
 
 .military-cluster-marker .cluster-label::after {
@@ -9469,8 +9449,8 @@ a.prediction-link:hover {
   right: -4px;
   width: 6px;
   height: 6px;
-  border-right: 1px solid var(--cluster-color);
-  border-bottom: 1px solid var(--cluster-color);
+  border-right: 0.5px solid var(--cluster-color);
+  border-bottom: 0.5px solid var(--cluster-color);
 }
 
 @keyframes cluster-pulse {
@@ -9721,7 +9701,7 @@ a.prediction-link:hover {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #d4a843;
-  border: 1px solid rgba(212, 168, 67, 0.4);
+  border: 0.5px solid rgba(212, 168, 67, 0.4);
   border-radius: 3px;
   padding: 1px 4px;
   margin-left: 6px;
@@ -9736,7 +9716,7 @@ a.prediction-link:hover {
   font-weight: 700;
   letter-spacing: 0.05em;
   color: #d4a843;
-  border: 1px solid rgba(212, 168, 67, 0.35);
+  border: 0.5px solid rgba(212, 168, 67, 0.35);
   border-radius: 2px;
   padding: 0 3px;
   margin-left: 4px;
@@ -9915,7 +9895,7 @@ a.prediction-link:hover {
 
 .mobile-warning-modal {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 8px;
   max-width: 360px;
   width: 100%;
@@ -9941,7 +9921,7 @@ a.prediction-link:hover {
   align-items: center;
   gap: 10px;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .mobile-warning-icon {
@@ -9974,7 +9954,7 @@ a.prediction-link:hover {
   flex-direction: column;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   background: var(--darken-medium);
   border-radius: 0 0 8px 8px;
 }
@@ -10032,7 +10012,7 @@ a.prediction-link:hover {
   align-items: center;
   gap: 6px;
   background: transparent;
-  border: 1px solid var(--overlay-heavy);
+  border: 0.5px solid var(--overlay-heavy);
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
@@ -10069,7 +10049,7 @@ a.prediction-link:hover {
   margin-top: 8px;
   width: 320px;
   background: var(--bg);
-  border: 1px solid var(--overlay-heavy);
+  border: 0.5px solid var(--overlay-heavy);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 8px 32px var(--shadow-color);
@@ -10084,7 +10064,7 @@ a.prediction-link:hover {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--overlay-medium);
+  border-bottom: 0.5px solid var(--overlay-medium);
 }
 
 .pizzint-title {
@@ -10131,7 +10111,7 @@ a.prediction-link:hover {
   justify-content: space-between;
   align-items: center;
   padding: 6px 0;
-  border-bottom: 1px solid var(--overlay-light);
+  border-bottom: 0.5px solid var(--overlay-light);
   font-size: 11px;
 }
 
@@ -10188,7 +10168,7 @@ a.prediction-link:hover {
 
 .pizzint-tensions {
   padding: 12px 16px;
-  border-top: 1px solid var(--overlay-medium);
+  border-top: 0.5px solid var(--overlay-medium);
 }
 
 .pizzint-tensions-title {
@@ -10242,7 +10222,7 @@ a.prediction-link:hover {
   display: flex;
   justify-content: space-between;
   padding: 8px 16px;
-  border-top: 1px solid var(--overlay-medium);
+  border-top: 0.5px solid var(--overlay-medium);
   font-size: 10px;
   color: var(--text-ghost);
 }
@@ -10310,7 +10290,7 @@ a.prediction-link:hover {
   width: 280px;
   max-width: 80vw;
   background: var(--surface);
-  border-right: 1px solid var(--border);
+  border-right: 0.5px solid var(--border);
   z-index: 10000;
   transform: translateX(-100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -10702,7 +10682,7 @@ a.prediction-link:hover {
     gap: 4px;
     margin-left: auto;
     padding: 4px 10px;
-    border: 1px solid var(--border);
+    border: 0.5px solid var(--border);
     border-radius: 4px;
     background: var(--bg-secondary);
     color: var(--text-secondary);
@@ -10952,7 +10932,7 @@ a.prediction-link:hover {
 .hotspot-gdelt-context {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
 }
 
 .hotspot-gdelt-header {
@@ -11029,7 +11009,7 @@ a.prediction-link:hover {
   padding: 8px;
   cursor: pointer;
   transition: background 0.1s ease, border-color 0.1s ease;
-  border: 1px solid transparent;
+  border: 0.5px solid transparent;
 }
 
 .cii-country:hover {
@@ -11110,7 +11090,7 @@ a.prediction-link:hover {
   gap: 8px;
   padding: 8px 10px;
   background: rgba(255, 170, 0, 0.15);
-  border: 1px solid rgba(255, 170, 0, 0.3);
+  border: 0.5px solid rgba(255, 170, 0, 0.3);
   border-radius: 4px;
   margin-bottom: 8px;
 }
@@ -11254,7 +11234,7 @@ a.prediction-link:hover {
   font-size: 10px;
   padding: 3px 8px;
   background: rgba(100, 200, 255, 0.1);
-  border: 1px solid rgba(100, 200, 255, 0.2);
+  border: 0.5px solid rgba(100, 200, 255, 0.2);
   border-radius: 10px;
   color: rgba(100, 200, 255, 0.7);
   text-transform: uppercase;
@@ -11360,7 +11340,7 @@ a.prediction-link:hover {
   color: var(--text-dim);
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
 }
 
 /* Tech Readiness Loading State */
@@ -11516,7 +11496,7 @@ a.prediction-link:hover {
   width: 100%;
   padding: 8px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   color: var(--text);
   font-size: 12px;
@@ -11568,7 +11548,7 @@ a.prediction-link:hover {
   gap: 8px;
   padding: 10px;
   background: rgba(68, 255, 136, 0.1);
-  border: 1px solid var(--green);
+  border: 0.5px solid var(--green);
   border-radius: 4px;
 }
 
@@ -11669,7 +11649,7 @@ a.prediction-link:hover {
   padding: 16px;
   background: linear-gradient(135deg, var(--overlay-subtle) 0%, var(--overlay-light) 100%);
   border-radius: 12px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
 }
 
 .risk-score-container {
@@ -11761,7 +11741,7 @@ a.prediction-link:hover {
   padding: 8px 4px;
   background: var(--overlay-subtle);
   border-radius: 6px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   transition: all 0.2s ease;
 }
 
@@ -11798,7 +11778,7 @@ a.prediction-link:hover {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .risk-list {
@@ -11953,7 +11933,7 @@ a.prediction-link:hover {
   justify-content: space-between;
   padding-top: 6px;
   margin-top: 4px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
 }
 
 .risk-updated {
@@ -11964,7 +11944,7 @@ a.prediction-link:hover {
 .risk-refresh-btn {
   padding: 3px 10px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   color: var(--text);
   font-size: 10px;
@@ -11994,7 +11974,7 @@ a.prediction-link:hover {
   text-align: center;
   background: rgba(255, 136, 0, 0.08);
   border-radius: 8px;
-  border: 1px dashed rgba(255, 136, 0, 0.3);
+  border: 0.5px dashed rgba(255, 136, 0, 0.3);
 }
 
 .risk-no-data-icon {
@@ -12022,7 +12002,7 @@ a.prediction-link:hover {
   padding: 6px 10px;
   background: rgba(255, 170, 0, 0.15);
   border-radius: 6px;
-  border: 1px solid rgba(255, 170, 0, 0.3);
+  border: 0.5px solid rgba(255, 170, 0, 0.3);
   margin-bottom: 4px;
 }
 
@@ -12047,7 +12027,7 @@ a.prediction-link:hover {
 
 .risk-status-ok {
   background: rgba(68, 170, 68, 0.12);
-  border: 1px solid rgba(68, 170, 68, 0.25);
+  border: 0.5px solid rgba(68, 170, 68, 0.25);
 }
 
 .risk-status-icon {
@@ -12064,7 +12044,7 @@ a.prediction-link:hover {
 /* Learning Mode Override - must come after base banner styles */
 .risk-status-learning {
   background: rgba(255, 170, 0, 0.15) !important;
-  border: 1px solid rgba(255, 170, 0, 0.3) !important;
+  border: 0.5px solid rgba(255, 170, 0, 0.3) !important;
 }
 
 .risk-status-learning .risk-warning-icon,
@@ -12127,7 +12107,7 @@ a.prediction-link:hover {
 .risk-source-enable {
   padding: 2px 6px;
   background: transparent;
-  border: 1px solid var(--accent);
+  border: 0.5px solid var(--accent);
   border-radius: 3px;
   color: var(--accent);
   font-size: 9px;
@@ -12154,7 +12134,7 @@ a.prediction-link:hover {
   padding: 3px 8px;
   background: var(--overlay-subtle);
   border-radius: 12px;
-  border: 1px solid;
+  border: 0.5px solid;
   font-size: 9px;
 }
 
@@ -12176,7 +12156,7 @@ a.prediction-link:hover {
 .risk-action-btn {
   padding: 6px 16px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   color: var(--text);
   font-size: 11px;
@@ -12269,7 +12249,7 @@ a.prediction-link:hover {
 .escalation-breakdown {
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px solid var(--overlay-medium);
+  border-top: 0.5px solid var(--overlay-medium);
 }
 
 .breakdown-header {
@@ -12456,7 +12436,7 @@ a.prediction-link:hover {
 
 .location-link {
   background: rgba(68, 136, 255, 0.15);
-  border: 1px solid rgba(68, 136, 255, 0.4);
+  border: 0.5px solid rgba(68, 136, 255, 0.4);
   border-radius: 4px;
   color: var(--semantic-low);
   padding: 4px 10px;
@@ -12476,7 +12456,7 @@ a.prediction-link:hover {
 .signal-focal-points,
 .signal-news-correlation {
   background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.25);
+  border: 0.5px solid rgba(139, 92, 246, 0.25);
   border-radius: 6px;
   padding: 10px;
   margin: 10px 0;
@@ -12505,7 +12485,7 @@ a.prediction-link:hover {
   font-size: 11px;
   color: var(--text);
   padding: 4px 0;
-  border-bottom: 1px solid var(--overlay-light);
+  border-bottom: 0.5px solid var(--overlay-light);
 }
 
 .focal-point-item:last-child {
@@ -12545,13 +12525,13 @@ a.prediction-link:hover {
 .propaganda-badge.high {
   background: rgba(255, 60, 60, 0.2);
   color: var(--semantic-critical);
-  border: 1px solid rgba(255, 60, 60, 0.3);
+  border: 0.5px solid rgba(255, 60, 60, 0.3);
 }
 
 .propaganda-badge.medium {
   background: rgba(255, 170, 0, 0.15);
   color: var(--semantic-elevated);
-  border: 1px solid rgba(255, 170, 0, 0.3);
+  border: 0.5px solid rgba(255, 170, 0, 0.3);
 }
 
 .top-source .propaganda-badge {
@@ -12567,7 +12547,7 @@ a.prediction-link:hover {
   gap: 4px;
   padding: 4px 10px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   color: var(--text);
   font-size: 11px;
@@ -12665,7 +12645,7 @@ a.prediction-link:hover {
   right: 0;
   width: 380px;
   background: var(--border-subtle);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 8px 24px var(--shadow-color);
   z-index: 1000;
@@ -12682,7 +12662,7 @@ a.prediction-link:hover {
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .findings-header .header-title {
@@ -12724,7 +12704,7 @@ a.prediction-link:hover {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   cursor: pointer;
   user-select: none;
   transition: background 0.15s;
@@ -12916,7 +12896,7 @@ a.prediction-link:hover {
   padding: 8px;
   font-size: 10px;
   color: var(--accent);
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   margin-top: 8px;
   cursor: pointer;
   transition: background 0.2s;
@@ -12943,7 +12923,7 @@ a.prediction-link:hover {
 
 .findings-modal {
   background: var(--border-subtle);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 8px;
   width: 90%;
   max-width: 600px;
@@ -12958,7 +12938,7 @@ a.prediction-link:hover {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .findings-modal-title {
@@ -13418,7 +13398,7 @@ a.prediction-link:hover {
   padding: 4px 8px;
   font-size: 9px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 3px;
   color: var(--text-dim);
   cursor: pointer;
@@ -13573,7 +13553,7 @@ a.prediction-link:hover {
   text-transform: uppercase;
   color: #00e5ff;
   background: rgba(0, 229, 255, 0.08);
-  border: 1px solid rgba(0, 229, 255, 0.4);
+  border: 0.5px solid rgba(0, 229, 255, 0.4);
   border-radius: 4px;
   box-shadow:
     0 0 6px rgba(0, 229, 255, 0.3),
@@ -13611,7 +13591,7 @@ a.prediction-link:hover {
   width: 32px;
   height: 32px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-size: 16px;
   cursor: pointer;
@@ -13639,7 +13619,7 @@ a.prediction-link:hover {
   width: 100%;
   padding: 6px 8px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   font-family: inherit;
   font-size: 10px;
@@ -13658,7 +13638,7 @@ a.prediction-link:hover {
   z-index: 100;
   background: var(--bg);
   padding: 8px 12px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
 }
 
@@ -13670,7 +13650,7 @@ a.prediction-link:hover {
 .deckgl-time-slider .time-btn {
   padding: 4px 8px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text-dim);
   font-family: inherit;
   font-size: 10px;
@@ -13697,7 +13677,7 @@ a.prediction-link:hover {
   left: 10px;
   z-index: 100;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   max-width: 260px;
   max-height: 50vh;
@@ -13712,7 +13692,7 @@ a.prediction-link:hover {
   justify-content: space-between;
   align-items: center;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   font-size: 10px;
   font-weight: bold;
   color: var(--text-dim);
@@ -13750,7 +13730,7 @@ a.prediction-link:hover {
   margin: 4px 8px;
   padding: 4px 8px;
   background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 0.5px solid rgba(255,255,255,0.15);
   border-radius: 4px;
   color: inherit;
   font-size: 11px;
@@ -13772,7 +13752,7 @@ a.prediction-link:hover {
   padding: 5px 8px;
   cursor: pointer;
   border-radius: 3px;
-  border: 1px solid transparent;
+  border: 0.5px solid transparent;
   background: var(--bg);
   transition: background 0.15s ease, border-color 0.15s ease;
   position: relative;
@@ -13874,7 +13854,7 @@ a.prediction-link:hover {
   gap: 12px;
   padding: 7px 36px 7px 16px;
   background: linear-gradient(90deg, rgba(74, 222, 128, 0.06), rgba(74, 222, 128, 0.12), rgba(74, 222, 128, 0.06));
-  border-bottom: 1px solid rgba(74, 222, 128, 0.15);
+  border-bottom: 0.5px solid rgba(74, 222, 128, 0.15);
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-dim);
@@ -13900,7 +13880,7 @@ a.prediction-link:hover {
   font-weight: 700;
   color: var(--green);
   background: rgba(74, 222, 128, 0.1);
-  border: 1px solid rgba(74, 222, 128, 0.2);
+  border: 0.5px solid rgba(74, 222, 128, 0.2);
   border-radius: 3px;
   flex-shrink: 0;
 }
@@ -13994,7 +13974,7 @@ a.prediction-link:hover {
 
 .layer-warn-dialog {
   background: var(--bg, #0a0a0a);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
   padding: 24px 20px 20px;
   max-width: 340px;
@@ -14088,7 +14068,7 @@ a.prediction-link:hover {
   width: 100%;
   max-width: 200px;
   background: rgba(255, 170, 0, 0.12);
-  border: 1px solid rgba(255, 170, 0, 0.2);
+  border: 0.5px solid rgba(255, 170, 0, 0.2);
   border-radius: 6px;
   color: #ffaa00;
   font-family: var(--font-mono, 'SF Mono', monospace);
@@ -14120,7 +14100,7 @@ a.prediction-link:hover {
   align-items: center;
   gap: 12px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   padding: 5px 12px;
 }
@@ -14163,7 +14143,7 @@ a.prediction-link:hover {
   z-index: 100;
   background: var(--bg);
   padding: 4px 12px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 3px;
   font-size: 9px;
   color: var(--text-dim);
@@ -14175,7 +14155,7 @@ a.prediction-link:hover {
 .deckgl-tooltip {
   background: var(--bg);
   padding: 8px 12px;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   font-size: 11px;
   color: var(--text);
@@ -14230,7 +14210,7 @@ a.prediction-link:hover {
 .maplibregl-popup-content {
   background: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   padding: 10px 14px;
   font-size: 11px;
@@ -14264,7 +14244,7 @@ a.prediction-link:hover {
   font-weight: 700;
   letter-spacing: 1.5px;
   color: #00e5ff;
-  border-top: 1px solid rgba(0, 229, 255, 0.2);
+  border-top: 0.5px solid rgba(0, 229, 255, 0.2);
   pointer-events: none;
 }
 
@@ -14415,7 +14395,7 @@ a.prediction-link:hover {
   padding: 2px 6px;
   border-radius: 10px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   cursor: pointer;
   transition: border-color 0.2s;
 }
@@ -14602,7 +14582,7 @@ a.prediction-link:hover {
 /* Insights Panel - Stories */
 .insight-story {
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .insight-story:last-child {
@@ -14757,7 +14737,7 @@ a.prediction-link:hover {
 .insights-missed {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px dashed var(--border);
+  border-top: 0.5px dashed var(--border);
 }
 
 .insights-missed .insights-section-title {
@@ -14786,7 +14766,7 @@ a.prediction-link:hover {
 .insights-convergence {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
 }
 
 .insights-convergence .insights-section-title {
@@ -14824,7 +14804,7 @@ a.prediction-link:hover {
 .insights-focal {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
 }
 
 .focal-point {
@@ -14927,7 +14907,7 @@ a.prediction-link:hover {
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 4px;
   background: var(--surface);
   color: var(--text-dim);
@@ -14954,7 +14934,7 @@ a.prediction-link:hover {
 
 .unified-settings-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.5px solid var(--border);
   margin-bottom: 12px;
 }
 
@@ -15022,7 +15002,7 @@ a.prediction-link:hover {
 
 .unified-settings-region-pill {
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   border-radius: 16px;
   padding: 5px 12px;
   font-family: inherit;
@@ -15050,7 +15030,7 @@ a.prediction-link:hover {
 .unified-settings-select,
 .unified-settings-lang-select {
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   width: 100%;
   padding: 8px 10px;
@@ -15078,7 +15058,7 @@ a.prediction-link:hover {
 /* ============ Preferences Collapsible Groups ============ */
 
 .wm-pref-group {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   margin-bottom: 8px;
   overflow: hidden;
@@ -15131,7 +15111,7 @@ a.prediction-link:hover {
   text-transform: uppercase;
   color: var(--text-faint);
   padding: 10px 0 4px;
-  border-top: 1px solid #333;
+  border-top: 0.5px solid #333;
 }
 
 .ai-flow-section-label:first-child {
@@ -15223,7 +15203,7 @@ a.prediction-link:hover {
 
 /* Ollama CTA */
 .ai-flow-cta {
-  border-top: 1px solid #333;
+  border-top: 0.5px solid #333;
   margin-top: 8px;
   padding-top: 10px;
 }
@@ -15262,7 +15242,7 @@ a.prediction-link:hover {
   padding: 8px 12px;
   border-radius: 6px;
   background: var(--overlay-subtle);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border);
   color: var(--text);
   text-decoration: none;
   font-size: 12px;
@@ -15328,7 +15308,7 @@ a.prediction-link:hover {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border-top: 1px solid #333;
+  border-top: 0.5px solid #333;
 }
 
 .ai-flow-status-dot {
@@ -15770,7 +15750,7 @@ body.has-breaking-alert .panels-grid {
   gap: 8px;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--overlay-medium);
+  border-top: 0.5px solid var(--overlay-medium);
   font-size: 11px;
 }
 
@@ -15824,7 +15804,7 @@ body.has-breaking-alert .panels-grid {
   gap: 12px;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--overlay-medium);
+  border-top: 0.5px solid var(--overlay-medium);
 }
 
 .posture-strike {
@@ -15869,7 +15849,7 @@ body.has-breaking-alert .panels-grid {
   align-items: center;
   justify-content: space-between;
   padding-top: 8px;
-  border-top: 1px solid var(--overlay-medium);
+  border-top: 0.5px solid var(--overlay-medium);
   font-size: 11px;
   color: var(--text-muted);
 }
@@ -15910,7 +15890,7 @@ body.has-breaking-alert .panels-grid {
   margin-top: 12px;
   padding: 8px 16px;
   background: var(--overlay-medium);
-  border: 1px solid var(--overlay-heavy);
+  border: 0.5px solid var(--overlay-heavy);
   border-radius: 4px;
   color: var(--accent);
   cursor: pointer;
@@ -15925,7 +15905,7 @@ body.has-breaking-alert .panels-grid {
 
 .posture-stale-warning {
   background: rgba(255, 170, 0, 0.15);
-  border: 1px solid rgba(255, 170, 0, 0.3);
+  border: 0.5px solid rgba(255, 170, 0, 0.3);
   border-radius: 4px;
   padding: 8px 12px;
   margin-bottom: 12px;
@@ -16166,7 +16146,7 @@ body.has-breaking-alert .panels-grid {
 
 .country-intel-modal {
   background: var(--surface);
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   border-radius: 12px;
   width: 480px;
   max-width: 92vw;
@@ -16186,7 +16166,7 @@ body.has-breaking-alert .panels-grid {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--overlay-medium);
+  border-bottom: 0.5px solid var(--overlay-medium);
 }
 
 .country-intel-title {
@@ -16305,7 +16285,7 @@ body.has-breaking-alert .panels-grid {
   border-radius: 20px;
   background: var(--overlay-light);
   color: var(--accent);
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
 }
 
 .signal-chip.protest {
@@ -16386,7 +16366,7 @@ body.has-breaking-alert .panels-grid {
 
 .country-markets-section {
   padding: 8px 0;
-  border-bottom: 1px solid var(--overlay-light);
+  border-bottom: 0.5px solid var(--overlay-light);
   margin-bottom: 8px;
 }
 
@@ -16466,7 +16446,7 @@ body.has-breaking-alert .panels-grid {
   gap: 10px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--overlay-light);
+  border-top: 0.5px solid var(--overlay-light);
   font-size: 11px;
   color: var(--text-faint);
 }
@@ -16548,7 +16528,7 @@ body.has-breaking-alert .panels-grid {
 
 .signal-card {
   background: var(--overlay-subtle);
-  border: 1px solid var(--overlay-light);
+  border: 0.5px solid var(--overlay-light);
   border-radius: 6px;
   padding: 8px;
   transition: background 0.15s;
@@ -16705,14 +16685,14 @@ body.has-breaking-alert .panels-grid {
   font-size: 10px;
   color: var(--text-muted);
   padding: 4px 6px;
-  border-bottom: 1px solid var(--overlay-medium);
+  border-bottom: 0.5px solid var(--overlay-medium);
   font-weight: 500;
   text-transform: uppercase;
 }
 
 .etf-table td {
   padding: 5px 6px;
-  border-bottom: 1px solid var(--overlay-light);
+  border-bottom: 0.5px solid var(--overlay-light);
 }
 
 .etf-ticker {
@@ -16809,7 +16789,7 @@ body.has-breaking-alert .panels-grid {
   align-items: center;
   justify-content: space-between;
   padding: 5px 8px;
-  border-bottom: 1px solid var(--overlay-light);
+  border-bottom: 0.5px solid var(--overlay-light);
 }
 
 .stable-info {
@@ -16876,7 +16856,7 @@ body.has-breaking-alert .panels-grid {
   padding: 2px 8px;
   font-size: 10px;
   color: var(--text-faint);
-  border-bottom: 1px solid var(--overlay-light);
+  border-bottom: 0.5px solid var(--overlay-light);
 }
 
 .stable-supply-row {
@@ -16884,7 +16864,7 @@ body.has-breaking-alert .panels-grid {
   grid-template-columns: 60px 1fr 1fr 70px;
   padding: 5px 8px;
   font-size: 12px;
-  border-bottom: 1px solid var(--overlay-light);
+  border-bottom: 0.5px solid var(--overlay-light);
 }
 
 .stable-mcap {
@@ -16920,7 +16900,7 @@ body.has-breaking-alert .panels-grid {
 }
 
 .runtime-alert {
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   border-radius: 8px;
   padding: 12px;
   background: var(--darken-medium);
@@ -16953,7 +16933,7 @@ body.has-breaking-alert .panels-grid {
 }
 
 .runtime-open-settings-btn {
-  border: 1px solid rgba(125, 227, 157, 0.45);
+  border: 0.5px solid rgba(125, 227, 157, 0.45);
   background: rgba(125, 227, 157, 0.08);
   color: var(--status-live);
   border-radius: 4px;
@@ -16968,7 +16948,7 @@ body.has-breaking-alert .panels-grid {
 }
 
 .runtime-early-access-btn {
-  border: 1px solid var(--status-live);
+  border: 0.5px solid var(--status-live);
   background: var(--status-live);
   color: #0a0e14;
   border-radius: 4px;
@@ -16994,7 +16974,7 @@ body.has-breaking-alert .panels-grid {
 }
 
 .runtime-feature {
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   border-radius: 8px;
   padding: 10px;
   background: var(--darken-light);
@@ -17026,7 +17006,7 @@ body.has-breaking-alert .panels-grid {
   font-size: 10px;
   padding: 2px 6px;
   border-radius: 999px;
-  border: 1px solid var(--overlay-heavy);
+  border: 0.5px solid var(--overlay-heavy);
 }
 
 .runtime-pill.ok,
@@ -17092,7 +17072,7 @@ body.has-breaking-alert .panels-grid {
 .runtime-secret-row select {
   width: 100%;
   background: var(--overlay-medium);
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   border-radius: 6px;
   color: var(--accent);
   padding: 6px 8px;
@@ -17114,7 +17094,7 @@ body.has-breaking-alert .panels-grid {
   font-weight: 600;
   color: var(--accent);
   background: rgba(96, 165, 250, 0.1);
-  border: 1px solid rgba(96, 165, 250, 0.25);
+  border: 0.5px solid rgba(96, 165, 250, 0.25);
   border-radius: 3px;
   padding: 2px 8px;
   text-decoration: none;
@@ -17162,7 +17142,7 @@ body.has-breaking-alert .panels-grid {
 
 .country-brief-page {
   background: var(--surface);
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   border-radius: 16px;
   width: 960px;
   max-width: 96vw;
@@ -17183,7 +17163,7 @@ body.has-breaking-alert .panels-grid {
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  border-bottom: 1px solid var(--overlay-medium);
+  border-bottom: 0.5px solid var(--overlay-medium);
   position: sticky;
   top: 0;
   background: var(--surface);
@@ -17245,7 +17225,7 @@ body.has-breaking-alert .panels-grid {
   border-radius: 4px;
   background: rgba(255, 170, 0, 0.12);
   color: var(--semantic-elevated);
-  border: 1px solid rgba(255, 170, 0, 0.25);
+  border: 0.5px solid rgba(255, 170, 0, 0.25);
 }
 
 .cb-close {
@@ -17270,7 +17250,7 @@ body.has-breaking-alert .panels-grid {
 .cb-print-btn,
 .cb-export-btn {
   background: none;
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   color: var(--text-muted);
   cursor: pointer;
   padding: 6px 8px;
@@ -17399,7 +17379,7 @@ body.has-breaking-alert .panels-grid {
   gap: 10px;
   padding: 16px;
   background: var(--overlay-subtle);
-  border: 1px dashed var(--overlay-medium);
+  border: 0.5px dashed var(--overlay-medium);
   border-radius: 8px;
   color: var(--text-muted);
   font-size: 12px;
@@ -17467,7 +17447,7 @@ body.has-breaking-alert .panels-grid {
   top: 100%;
   margin-top: 4px;
   background: var(--surface, var(--surface));
-  border: 1px solid var(--overlay-medium);
+  border: 0.5px solid var(--overlay-medium);
   border-radius: 8px;
   padding: 4px;
   z-index: 10;
@@ -17517,7 +17497,7 @@ body.has-breaking-alert .panels-grid {
   gap: 8px;
   align-items: flex-start;
   text-decoration: none;
-  border: 1px solid var(--overlay-light);
+  border: 0.5px solid var(--overlay-light);
   border-radius: 8px;
   padding: 8px;
   background: var(--overlay-subtle);
@@ -17556,7 +17536,7 @@ body.has-breaking-alert .panels-grid {
 /* Markets */
 .cb-market-item {
   padding: 6px 0;
-  border-bottom: 1px solid var(--overlay-light);
+  border-bottom: 0.5px solid var(--overlay-light);
 }
 
 .cb-market-item:last-child {
@@ -17616,7 +17596,7 @@ body.has-breaking-alert .panels-grid {
 .cb-timeline-mount {
   min-height: 120px;
   background: var(--overlay-subtle);
-  border: 1px dashed var(--overlay-medium);
+  border: 0.5px dashed var(--overlay-medium);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -17783,7 +17763,7 @@ body.has-breaking-alert .panels-grid {
   align-items: center;
   gap: 10px;
   background: var(--panel-bg, #141414);
-  border: 1px solid var(--border, #2a2a2a);
+  border: 0.5px solid var(--border, #2a2a2a);
   border-radius: 28px;
   padding: 8px 8px 8px 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);

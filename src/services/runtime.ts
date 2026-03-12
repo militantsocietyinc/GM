@@ -125,8 +125,13 @@ export function getConfiguredWebApiBaseUrl(): string {
     return '';
   }
 
-  // If we are on a recognized web host, use the default API.
-  // If we are on a third-party host (e.g. tiiny.site), we still fallback to the official API.
+  // Dev mode: use relative paths so Vite proxy works.
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1' || host.includes('.local')) {
+    return '';
+  }
+
+  // If we are on a recognized web host or any third-party host, use the default API.
   return DEFAULT_WEB_API_URL;
 }
 

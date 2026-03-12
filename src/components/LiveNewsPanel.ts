@@ -370,12 +370,12 @@ export class LiveNewsPanel extends Panel {
     this.channels = loadChannelsFromStorage();
     if (this.channels.length === 0) this.channels = getDefaultLiveChannels();
     this.activeChannel = this.channels[0]!;
+    console.log('[LiveNews] Using deferred init:', this.deferredInit);
     this.createLiveButton();
     this.createMuteButton();
     this.createChannelSwitcher();
     this.setupBridgeMessageListener();
     this.renderPlaceholder();
-    this.setupLazyInit();
     this.setupIdleDetection();
     this.unsubscribeStreamSettings = subscribeLiveStreamsSettingsChange((alwaysOn) => {
       this.alwaysOn = alwaysOn;
@@ -388,57 +388,30 @@ export class LiveNewsPanel extends Panel {
     this.content.innerHTML = '';
     const container = document.createElement('div');
     container.className = 'live-news-placeholder';
-    container.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;cursor:pointer;';
+    container.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;cursor:pointer;background:rgba(0,0,0,0.4);border-radius:8px;margin:8px;border:0.5px solid var(--border);';
+
+    const icon = document.createElement('div');
+    icon.style.cssText = 'font-size:32px;opacity:0.8;';
+    icon.textContent = '📺';
 
     const label = document.createElement('div');
-    label.style.cssText = 'color:var(--text-secondary);font-size:13px;';
+    label.style.cssText = 'color:var(--text-secondary);font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:1px;';
     label.textContent = this.getChannelDisplayName(this.activeChannel);
 
     const playBtn = document.createElement('button');
     playBtn.className = 'offline-retry';
+    playBtn.style.cssText = 'padding:8px 24px;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:bold;cursor:pointer;';
     playBtn.textContent = 'Load Player';
     playBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.triggerInit();
+      this.renderPlayer();
     });
 
+    container.appendChild(icon);
     container.appendChild(label);
     container.appendChild(playBtn);
-    container.addEventListener('click', () => this.triggerInit());
+    container.addEventListener('click', () => this.renderPlayer());
     this.content.appendChild(container);
-  }
-
-  private setupLazyInit(): void {
-    this.lazyObserver = new IntersectionObserver(
-      (entries) => {
-        if (entries.some(e => e.isIntersecting)) {
-          this.lazyObserver?.disconnect();
-          this.lazyObserver = null;
-          if ('requestIdleCallback' in window) {
-            this.idleCallbackId = (window as any).requestIdleCallback(
-              () => { this.idleCallbackId = null; this.triggerInit(); },
-              { timeout: 1000 },
-            );
-          } else {
-            this.idleCallbackId = setTimeout(() => { this.idleCallbackId = null; this.triggerInit(); }, 1000);
-          }
-        }
-      },
-      { threshold: 0.1 },
-    );
-    this.lazyObserver.observe(this.element);
-  }
-
-  private triggerInit(): void {
-    if (this.deferredInit) return;
-    this.deferredInit = true;
-    if (this.lazyObserver) { this.lazyObserver.disconnect(); this.lazyObserver = null; }
-    if (this.idleCallbackId !== null) {
-      if ('cancelIdleCallback' in window) (window as any).cancelIdleCallback(this.idleCallbackId);
-      else clearTimeout(this.idleCallbackId as ReturnType<typeof setTimeout>);
-      this.idleCallbackId = null;
-    }
-    this.renderPlayer();
   }
 
   private saveChannels(): void {

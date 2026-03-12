@@ -76,10 +76,7 @@ function normalizeToProtoStatus(raw: string): ServiceOperationalStatus {
   if (val === 'partial_outage') {
     return 'SERVICE_OPERATIONAL_STATUS_PARTIAL_OUTAGE';
   }
-  if (val === 'major' || val.includes('partial system outage')) {
-    return 'SERVICE_OPERATIONAL_STATUS_PARTIAL_OUTAGE';
-  }
-  if (val === 'major_outage' || val === 'critical') {
+  if (val === 'major' || val === 'major_outage' || val === 'critical' || val.includes('outage')) {
     return 'SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE';
   }
   if (val === 'maintenance' || val.includes('maintenance')) {
@@ -99,19 +96,12 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
     name: service.name,
     url: service.statusPage,
   };
-  const withStatus = (
-    status: ServiceOperationalStatus,
-    description: string,
-    latencyMs = 0,
-  ): ServiceStatus => ({
-    ...base,
-    status,
-    description,
-    checkedAt: now,
-    latencyMs,
-  });
   const unknown = (desc: string): ServiceStatus => ({
-    ...withStatus('SERVICE_OPERATIONAL_STATUS_UNSPECIFIED', desc),
+    ...base,
+    status: 'SERVICE_OPERATIONAL_STATUS_UNSPECIFIED',
+    description: desc,
+    checkedAt: now,
+    latencyMs: 0,
   });
 
   try {
@@ -132,7 +122,7 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
     const latencyMs = Date.now() - start;
 
     if (!response.ok) {
-      return withStatus('SERVICE_OPERATIONAL_STATUS_UNSPECIFIED', `HTTP ${response.status}`, latencyMs);
+      return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_UNSPECIFIED', description: `HTTP ${response.status}`, checkedAt: now, latencyMs };
     }
 
     // Custom parsers
@@ -140,38 +130,40 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
       const data = await response.json() as any[];
       const active = Array.isArray(data) ? data.filter((i: any) => i.end === undefined || new Date(i.end) > new Date()) : [];
       if (active.length === 0) {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', 'All services operational', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: 'All services operational', checkedAt: now, latencyMs };
       }
       const hasHigh = active.some((i: any) => i.severity === 'high');
-      return withStatus(
-        hasHigh ? 'SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE' : 'SERVICE_OPERATIONAL_STATUS_DEGRADED',
-        `${active.length} active incident(s)`,
-        latencyMs,
-      );
+      return {
+        ...base,
+        status: hasHigh ? 'SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE' : 'SERVICE_OPERATIONAL_STATUS_DEGRADED',
+        description: `${active.length} active incident(s)`,
+        checkedAt: now, latencyMs,
+      };
     }
 
     if (service.customParser === 'aws') {
-      return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', 'Status page reachable', latencyMs);
+      return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: 'Status page reachable', checkedAt: now, latencyMs };
     }
 
     if (service.customParser === 'rss') {
       const text = await response.text();
       const hasIncident = text.includes('<item>') && (text.includes('degradation') || text.includes('outage') || text.includes('incident'));
-      return withStatus(
-        hasIncident ? 'SERVICE_OPERATIONAL_STATUS_DEGRADED' : 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL',
-        hasIncident ? 'Recent incidents reported' : 'No recent incidents',
-        latencyMs,
-      );
+      return {
+        ...base,
+        status: hasIncident ? 'SERVICE_OPERATIONAL_STATUS_DEGRADED' : 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL',
+        description: hasIncident ? 'Recent incidents reported' : 'No recent incidents',
+        checkedAt: now, latencyMs,
+      };
     }
 
     if (service.customParser === 'instatus') {
       const data = await response.json() as any;
       const pageStatus = data.page?.status;
       if (pageStatus === 'UP') {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', 'All systems operational', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: 'All systems operational', checkedAt: now, latencyMs };
       }
       if (pageStatus === 'HASISSUES') {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_DEGRADED', 'Some issues reported', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_DEGRADED', description: 'Some issues reported', checkedAt: now, latencyMs };
       }
       return unknown(pageStatus || 'Unknown');
     }
@@ -181,13 +173,13 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
       const overall = data.result?.status_overall;
       const code = overall?.status_code;
       if (code === 100) {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', overall.status || 'All systems operational', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: overall.status || 'All systems operational', checkedAt: now, latencyMs };
       }
       if (code >= 300 && code < 500) {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_DEGRADED', overall.status || 'Degraded performance', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_DEGRADED', description: overall.status || 'Degraded performance', checkedAt: now, latencyMs };
       }
       if (code >= 500) {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE', overall.status || 'Service disruption', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE', description: overall.status || 'Service disruption', checkedAt: now, latencyMs };
       }
       return unknown(overall?.status || 'Unknown status');
     }
@@ -195,11 +187,11 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
     if (service.customParser === 'slack') {
       const data = await response.json() as any;
       if (data.status === 'ok') {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', 'All systems operational', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: 'All systems operational', checkedAt: now, latencyMs };
       }
       if (data.status === 'active' || data.active_incidents?.length > 0) {
         const count = data.active_incidents?.length || 1;
-        return withStatus('SERVICE_OPERATIONAL_STATUS_DEGRADED', `${count} active incident(s)`, latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_DEGRADED', description: `${count} active incident(s)`, checkedAt: now, latencyMs };
       }
       return unknown(data.status || 'Unknown');
     }
@@ -207,13 +199,13 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
     if (service.customParser === 'stripe') {
       const data = await response.json() as any;
       if (data.largestatus === 'up') {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', data.message || 'All systems operational', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: data.message || 'All systems operational', checkedAt: now, latencyMs };
       }
       if (data.largestatus === 'degraded') {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_DEGRADED', data.message || 'Degraded performance', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_DEGRADED', description: data.message || 'Degraded performance', checkedAt: now, latencyMs };
       }
       if (data.largestatus === 'down') {
-        return withStatus('SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE', data.message || 'Service disruption', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE', description: data.message || 'Service disruption', checkedAt: now, latencyMs };
       }
       return unknown(data.message || 'Unknown');
     }
@@ -222,10 +214,10 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
       const text = await response.text();
       if (text.startsWith('<!') || text.startsWith('<html')) {
         if (/All Systems Operational|fully operational|no issues/i.test(text)) {
-          return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', 'All systems operational', latencyMs);
+          return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: 'All systems operational', checkedAt: now, latencyMs };
         }
         if (/degraded|partial outage|experiencing issues/i.test(text)) {
-          return withStatus('SERVICE_OPERATIONAL_STATUS_DEGRADED', 'Some issues reported', latencyMs);
+          return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_DEGRADED', description: 'Some issues reported', checkedAt: now, latencyMs };
         }
         return unknown('Could not parse status');
       }
@@ -234,15 +226,15 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
         const indicator = data.status?.indicator || '';
         const description = data.status?.description || '';
         if (indicator === 'none' || description.toLowerCase().includes('operational')) {
-          return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description || 'All systems operational', latencyMs);
+          return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: description || 'All systems operational', checkedAt: now, latencyMs };
         }
         if (indicator === 'minor' || indicator === 'maintenance') {
-          return withStatus('SERVICE_OPERATIONAL_STATUS_DEGRADED', description || 'Minor issues', latencyMs);
+          return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_DEGRADED', description: description || 'Minor issues', checkedAt: now, latencyMs };
         }
         if (indicator === 'major' || indicator === 'critical') {
-          return withStatus('SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE', description || 'Major outage', latencyMs);
+          return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_MAJOR_OUTAGE', description: description || 'Major outage', checkedAt: now, latencyMs };
         }
-        return withStatus('SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description || 'Status OK', latencyMs);
+        return { ...base, status: 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL', description: description || 'Status OK', checkedAt: now, latencyMs };
       } catch {
         return unknown('Invalid response');
       }
@@ -258,21 +250,28 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
     try { data = JSON.parse(text); } catch { return unknown('Invalid JSON response'); }
 
     if (data.status?.indicator !== undefined) {
-      return withStatus(normalizeToProtoStatus(data.status.indicator), data.status.description || '', latencyMs);
+      return {
+        ...base,
+        status: normalizeToProtoStatus(data.status.indicator),
+        description: data.status.description || '',
+        checkedAt: now, latencyMs,
+      };
     }
     if (data.status?.status) {
-      return withStatus(
-        data.status.status === 'ok' ? 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL' : 'SERVICE_OPERATIONAL_STATUS_DEGRADED',
-        data.status.description || '',
-        latencyMs,
-      );
+      return {
+        ...base,
+        status: data.status.status === 'ok' ? 'SERVICE_OPERATIONAL_STATUS_OPERATIONAL' : 'SERVICE_OPERATIONAL_STATUS_DEGRADED',
+        description: data.status.description || '',
+        checkedAt: now, latencyMs,
+      };
     }
     if (data.page && data.status) {
-      return withStatus(
-        normalizeToProtoStatus(data.status.indicator || data.status.description),
-        data.status.description || 'Status available',
-        latencyMs,
-      );
+      return {
+        ...base,
+        status: normalizeToProtoStatus(data.status.indicator || data.status.description),
+        description: data.status.description || 'Status available',
+        checkedAt: now, latencyMs,
+      };
     }
 
     return unknown('Unknown format');

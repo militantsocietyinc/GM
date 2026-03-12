@@ -6,7 +6,7 @@
  * instead of the legacy /api/wingbits proxy.
  */
 
-import { createCircuitBreaker, toUniqueSortedLowercase } from '@/utils';
+import { createCircuitBreaker } from '@/utils';
 import { getRpcBaseUrl } from '@/services/rpc-client';
 import { dataFreshness } from './data-freshness';
 import { isFeatureAvailable } from './runtime-config';
@@ -243,7 +243,7 @@ export async function getAircraftDetailsBatch(icao24List: string[]): Promise<Map
   if (!isFeatureAvailable('wingbitsEnrichment')) return new Map();
   const results = new Map<string, WingbitsAircraftDetails>();
   const toFetch: string[] = [];
-  const requestedKeys = toUniqueSortedLowercase(icao24List);
+  const requestedKeys = Array.from(new Set(icao24List.map((icao24) => icao24.toLowerCase()))).sort();
 
   // Check local cache first
   for (const key of requestedKeys) {

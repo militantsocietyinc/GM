@@ -322,10 +322,9 @@ export class PanelLayoutManager implements AppModule {
           </div>
         </div>
         <nav>
-          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/pro' : 'https://www.worldmonitor.app/pro'}" target="_blank" rel="noopener">Pro</a>
-          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/blog/' : 'https://www.worldmonitor.app/blog/'}" target="_blank" rel="noopener">Blog</a>
-          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/docs' : 'https://www.worldmonitor.app/docs'}" target="_blank" rel="noopener">Docs</a>
-          <a href="https://status.worldmonitor.app/" target="_blank" rel="noopener">Status</a>
+          <a href="https://www.worldmonitor.app/pro">Pro</a>
+          <a href="https://www.worldmonitor.app/blog/">Blog</a>
+          <a href="https://www.worldmonitor.app/docs">Docs</a>
           <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
           <a href="https://github.com/koala73/worldmonitor/discussions" target="_blank" rel="noopener">Discussions</a>
           <a href="https://x.com/worldmonitorai" target="_blank" rel="noopener">X</a>
@@ -840,10 +839,21 @@ export class PanelLayoutManager implements AppModule {
       allOrder = [...defaultOrder];
 
       if (SITE_VARIANT !== 'happy') {
+        // Prioritize Telegram and AI Insights for "front and center" placement
+        ['insights', 'telegram-intel'].forEach(key => {
+          const idx = allOrder.indexOf(key);
+          if (idx !== -1) {
+            allOrder.splice(idx, 1);
+            allOrder.unshift(key);
+          }
+        });
+
         const liveNewsIdx = allOrder.indexOf('live-news');
         if (liveNewsIdx > 0) {
           allOrder.splice(liveNewsIdx, 1);
-          allOrder.unshift('live-news');
+          // Insert after Telegram/Insights
+          const insertIdx = allOrder.findIndex(k => k !== 'telegram-intel' && k !== 'insights');
+          allOrder.splice(insertIdx === -1 ? 0 : insertIdx, 0, 'live-news');
         }
 
         const webcamsIdx = allOrder.indexOf('live-webcams');
@@ -1272,13 +1282,12 @@ export class PanelLayoutManager implements AppModule {
       if (e.button !== 0) return;
       const target = e.target as HTMLElement;
       if (el.dataset.resizing === 'true') return;
-      if (
-        target.classList?.contains('panel-resize-handle') ||
-        target.closest?.('.panel-resize-handle') ||
-        target.classList?.contains('panel-col-resize-handle') ||
-        target.closest?.('.panel-col-resize-handle')
-      ) return;
-      if (target.closest('button, a, input, select, textarea, .panel-content')) return;
+
+      // Only allow dragging from the panel header
+      if (!target.closest('.panel-header')) return;
+
+      // But ignore if clicking buttons or interactive elements in the header
+      if (target.closest('button, a, input, select, textarea, .panel-info-tooltip')) return;
 
       isDragging = true;
       dragStarted = false;

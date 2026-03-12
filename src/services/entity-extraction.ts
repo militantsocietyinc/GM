@@ -5,6 +5,7 @@ import {
   getEntityDisplayName,
   findRelatedEntities,
 } from './entity-index';
+import { matchCountryNamesInText as matchGeoCountryNames, getCountryCentroid } from './country-geometry';
 
 export interface ExtractedEntity {
   entityId: string;
@@ -162,7 +163,7 @@ export function getTopEntitiesFromNews(
 
 /**
  * Extracts a location (lat/lon) from text by matching against ENTITY_REGISTRY
- * and country names.
+ * and country names from the geometry service.
  */
 export function extractLocationFromText(text: string): { lat: number, lon: number, name: string } | null {
   const matches = findEntitiesInText(text);
@@ -176,38 +177,16 @@ export function extractLocationFromText(text: string): { lat: number, lon: numbe
     return { lat: entity.lat!, lon: entity.lon!, name: entity.name };
   }
 
-  // Fallback: simple country name matching if no high-confidence entity found
-  const countries = matchCountryNamesInText(text);
-  if (countries.length > 0 && countries[0]) {
-    return { lat: countries[0].lat, lon: countries[0].lon, name: countries[0].name };
+  // Fallback: Use country-geometry matching
+  const isoCodes = matchGeoCountryNames(text);
+  if (isoCodes.length > 0) {
+    const code = isoCodes[0]!;
+    const centroid = getCountryCentroid(code);
+    if (centroid) {
+      const name = getEntityDisplayName(code);
+      return { lat: centroid.lat, lon: centroid.lon, name: name || code };
+    }
   }
 
   return null;
-}
-
-export function matchCountryNamesInText(text: string): Array<{ name: string, lat: number, lon: number }> {
-  // Simple list for fallback geotagging
-  const commonCountries: Record<string, [number, number]> = {
-    'Israel': [31.0461, 34.8516],
-    'Iran': [32.4279, 53.6880],
-    'Ukraine': [48.3794, 31.1656],
-    'Russia': [61.5240, 105.3188],
-    'USA': [37.0902, -95.7129],
-    'China': [35.8617, 104.1954],
-    'Taiwan': [23.6978, 120.9605],
-    'Lebanon': [33.8547, 35.8623],
-    'Syria': [34.8021, 38.9968],
-    'Yemen': [15.5527, 48.5164],
-    'Red Sea': [20.3858, 38.1221],
-    'Gaza': [31.3547, 34.3088],
-  };
-
-  const results: Array<{ name: string, lat: number, lon: number }> = [];
-  const lower = text.toLowerCase();
-  for (const [name, coords] of Object.entries(commonCountries)) {
-    if (lower.includes(name.toLowerCase())) {
-      results.push({ name, lat: coords[0], lon: coords[1] });
-    }
-  }
-  return results;
 }

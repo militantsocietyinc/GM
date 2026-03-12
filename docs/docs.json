@@ -9,17 +9,6 @@
     "href": "https://www.worldmonitor.app"
   },
   "favicon": "/favicon.png",
-  "seo": {
-    "metatags": {
-      "og:image": "https://www.worldmonitor.app/favico/og-image.png",
-      "og:site_name": "World Monitor Documentation",
-      "og:type": "website",
-      "og:locale": "en_US",
-      "twitter:card": "summary_large_image",
-      "twitter:site": "@worldmonitorai",
-      "twitter:image": "https://www.worldmonitor.app/favico/og-image.png"
-    }
-  },
   "colors": {
     "primary": "#4ade80",
     "light": "#4ade80",
@@ -59,38 +48,16 @@
             "group": "Getting Started",
             "pages": [
               "documentation",
-              "getting-started",
               "architecture"
             ]
           },
           {
-            "group": "Platform & Features",
+            "group": "Core Systems",
             "pages": [
-              "overview",
-              "features",
-              "hotspots"
-            ]
-          },
-          {
-            "group": "Intelligence & Analysis",
-            "pages": [
-              "signal-intelligence",
-              "ai-intelligence",
-              "country-instability-index",
-              "geographic-convergence",
-              "strategic-risk",
-              "algorithms"
-            ]
-          },
-          {
-            "group": "Map Layers",
-            "pages": [
+              "data-sources",
+              "algorithms",
               "map-engine",
-              "orbital-surveillance",
-              "military-tracking",
-              "maritime-intelligence",
-              "natural-disasters",
-              "infrastructure-cascade",
+              "ai-intelligence",
               "maps-and-geocoding"
             ]
           },
@@ -103,28 +70,21 @@
             ]
           },
           {
-            "group": "Desktop Application",
+            "group": "Infrastructure",
             "pages": [
-              "desktop-app"
-            ]
-          },
-          {
-            "group": "Developer Guide",
-            "pages": [
-              "contributing",
-              "adding-endpoints",
-              "api-key-deployment",
-              "release-packaging",
+              "desktop-app",
+              "orbital-surveillance",
               "cors",
               "health-endpoints",
-              "relay-parameters",
-              "data-sources"
+              "relay-parameters"
             ]
           },
           {
-            "group": "Legal",
+            "group": "Contributing",
             "pages": [
-              "license"
+              "adding-endpoints",
+              "api-key-deployment",
+              "release-packaging"
             ]
           }
         ]
@@ -246,17 +206,6 @@
             ]
           }
         ]
-      },
-      {
-        "tab": "Changelog",
-        "groups": [
-          {
-            "group": "Changelog",
-            "pages": [
-              "changelog"
-            ]
-          }
-        ]
       }
     ]
   },
@@ -297,10 +246,6 @@
           {
             "label": "X",
             "href": "https://x.com/worldmonitorai"
-          },
-          {
-            "label": "Status",
-            "href": "https://status.worldmonitor.app/"
           }
         ]
       }

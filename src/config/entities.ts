@@ -630,6 +630,26 @@ export const ENTITY_REGISTRY: EntityEntry[] = [
     keywords: ['suez canal', 'gaza', 'rafah', 'imf', 'debt', 'tourism'],
     related: ['IL', 'SA', 'AE'],
   },
+
+  // ============================================================================
+  // MAJOR CITIES & GEOPOLITICAL HOTSPOTS
+  // ============================================================================
+  { id: 'london', type: 'location', name: 'London', aliases: ['london'], keywords: [], lat: 51.5074, lon: -0.1278 },
+  { id: 'new-york', type: 'location', name: 'New York', aliases: ['new york', 'nyc'], keywords: [], lat: 40.7128, lon: -74.0060 },
+  { id: 'tokyo', type: 'location', name: 'Tokyo', aliases: ['tokyo'], keywords: [], lat: 35.6762, lon: 139.6503 },
+  { id: 'paris', type: 'location', name: 'Paris', aliases: ['paris'], keywords: [], lat: 48.8566, lon: 2.3522 },
+  { id: 'beijing', type: 'location', name: 'Beijing', aliases: ['beijing'], keywords: [], lat: 39.9042, lon: 116.4074 },
+  { id: 'moscow', type: 'location', name: 'Moscow', aliases: ['moscow'], keywords: [], lat: 55.7558, lon: 37.6173 },
+  { id: 'kyiv', type: 'location', name: 'Kyiv', aliases: ['kyiv', 'kiev'], keywords: [], lat: 50.4501, lon: 30.5234 },
+  { id: 'tehran', type: 'location', name: 'Tehran', aliases: ['tehran'], keywords: [], lat: 35.6892, lon: 51.3890 },
+  { id: 'tel-aviv', type: 'location', name: 'Tel Aviv', aliases: ['tel aviv'], keywords: [], lat: 32.0853, lon: 34.7818 },
+  { id: 'jerusalem', type: 'location', name: 'Jerusalem', aliases: ['jerusalem'], keywords: [], lat: 31.7683, lon: 35.2137 },
+  { id: 'beirut', type: 'location', name: 'Beirut', aliases: ['beirut'], keywords: [], lat: 33.8938, lon: 35.5018 },
+  { id: 'damascus', type: 'location', name: 'Damascus', aliases: ['damascus'], keywords: [], lat: 33.5138, lon: 36.2765 },
+  { id: 'taipei', type: 'location', name: 'Taipei', aliases: ['taipei'], keywords: [], lat: 25.0330, lon: 121.5654 },
+  { id: 'washington', type: 'location', name: 'Washington', aliases: ['washington'], keywords: [], lat: 38.9072, lon: -77.0369 },
+  { id: 'berlin', type: 'location', name: 'Berlin', aliases: ['berlin'], keywords: [], lat: 52.5200, lon: 13.4050 },
+  { id: 'seoul', type: 'location', name: 'Seoul', aliases: ['seoul'], keywords: [], lat: 37.5665, lon: 126.9780 },
 ];
 
 export function getEntityById(id: string): EntityEntry | undefined {

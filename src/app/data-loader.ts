@@ -223,6 +223,21 @@ export class DataLoaderManager implements AppModule {
   private readonly perFeedFallbackBatchSize = 2;
   private lastGoodDigest: ListFeedDigestResponse | null = null;
 
+  private geotaggedNews: any[] = [];
+  private geotaggedTelegram: any[] = [];
+  private geotaggedPredictions: any[] = [];
+
+  private updateMapGeotags(): void {
+    const all = [
+      ...this.geotaggedNews,
+      ...this.geotaggedTelegram,
+      ...this.geotaggedPredictions,
+    ];
+    if (all.length > 0) {
+      this.ctx.map?.setNewsLocations(all);
+    }
+  }
+
   constructor(ctx: AppContext, callbacks: DataLoaderCallbacks) {
     this.ctx = ctx;
     this.callbacks = callbacks;
@@ -309,9 +324,6 @@ export class DataLoaderManager implements AppModule {
   }
 
   private isPerFeedFallbackEnabled(): boolean {
-    // Desktop: server digest has fewer categories than client FEEDS config.
-    // Enable per-feed RSS fallback so missing categories fetch directly.
-    if (isDesktopRuntime()) return true;
     return isFeatureEnabled('newsPerFeedFallback');
   }
 
@@ -1070,9 +1082,8 @@ export class DataLoaderManager implements AppModule {
         })
         .filter((x): x is { lat: number; lon: number; title: string; threatLevel: ClientThreatLevel; timestamp: Date } => x !== null);
 
-      if (geoLocated.length > 0) {
-        this.ctx.map?.setNewsLocations(geoLocated);
-      }
+      this.geotaggedNews = geoLocated;
+      this.updateMapGeotags();
     } catch (error) {
       console.error('[App] Clustering failed, clusters unchanged:', error);
       const insightsPanel = this.ctx.panels['insights'] as InsightsPanel | undefined;
@@ -1356,9 +1367,31 @@ export class DataLoaderManager implements AppModule {
 
   async loadPredictions(): Promise<void> {
     try {
-      const predictions = await fetchPredictions({ region: this.ctx.resolvedLocation });
+      const predictions = await fetchPredictions();
       this.ctx.latestPredictions = predictions;
       (this.ctx.panels['polymarket'] as PredictionPanel | undefined)?.renderPredictions(predictions);
+
+      // Geotag predictions for the map
+      if (predictions.length > 0) {
+        const geoLocated = predictions
+          .map(p => {
+            const ext = extractLocationFromText(p.title);
+            if (ext) {
+              return {
+                lat: ext.lat,
+                lon: ext.lon,
+                title: `Prediction: ${p.title}`,
+                threatLevel: 'info' as any,
+                timestamp: new Date(),
+              };
+            }
+            return null;
+          })
+          .filter((x): x is { lat: number; lon: number; title: string; threatLevel: any; timestamp: Date } => x !== null);
+
+        this.geotaggedPredictions = geoLocated;
+        this.updateMapGeotags();
+      }
 
       this.ctx.statusPanel?.updateFeed('Polymarket', { status: 'ok', itemCount: predictions.length });
       this.ctx.statusPanel?.updateApi('Polymarket', { status: 'ok' });
@@ -1419,34 +1452,17 @@ export class DataLoaderManager implements AppModule {
     }
 
     try {
-      // Try hydrated bootstrap data first (instant, no RPC)
-      const hydrated = getHydratedData('techEvents') as { events?: Array<{ id: string; title: string; type: string; location: string; coords?: { lat: number; lng: number; country: string; virtual?: boolean }; startDate: string; endDate: string; url: string }> } | undefined;
-      let events = hydrated?.events;
-
-      if (!events?.length) {
-        // Fallback: RPC call
-        const client = new ResearchServiceClient(getRpcBaseUrl(), { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
-        const data = await client.listTechEvents({
-          type: 'conference',
-          mappable: true,
-          days: 90,
-          limit: 50,
-        });
-        if (!data.success) throw new Error(data.error || 'Unknown error');
-        events = data.events;
-      } else {
-        // Filter hydrated data to match map layer needs (conferences, mappable, 90 days)
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() + 90);
-        events = events.filter(e =>
-          e.type === 'conference' &&
-          e.coords && !e.coords.virtual &&
-          new Date(e.startDate) <= cutoff,
-        ).slice(0, 50);
-      }
+      const client = new ResearchServiceClient(getRpcBaseUrl(), { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
+      const data = await client.listTechEvents({
+        type: 'conference',
+        mappable: true,
+        days: 90,
+        limit: 50,
+      });
+      if (!data.success) throw new Error(data.error || 'Unknown error');
 
       const now = new Date();
-      const mapEvents = (events || []).map((e: any) => ({
+      const mapEvents = data.events.map((e: any) => ({
         id: e.id,
         title: e.title,
         location: e.location,
@@ -1495,7 +1511,6 @@ export class DataLoaderManager implements AppModule {
 
   async loadIntelligenceSignals(): Promise<void> {
     resetHotspotActivity();
-    const _desktopLocked = isDesktopRuntime() && !getSecretState('WORLDMONITOR_API_KEY').present;
     const tasks: Promise<void>[] = [];
 
     tasks.push((async () => {
@@ -1715,36 +1730,32 @@ export class DataLoaderManager implements AppModule {
     // Security advisories
     tasks.push(this.loadSecurityAdvisories());
 
-    // Telegram Intel (premium-locked on desktop without API key)
-    if (!_desktopLocked) {
-      tasks.push(this.loadTelegramIntel());
-    }
+    // Telegram Intel
+    tasks.push(this.loadTelegramIntel());
 
-    // OREF sirens (premium-locked on desktop without API key)
-    if (!_desktopLocked) {
-      tasks.push((async () => {
-        try {
-          const data = await fetchOrefAlerts();
-          this.callPanel('oref-sirens', 'setData', data);
-          const alertCount = data.alerts?.length ?? 0;
-          const historyCount24h = data.historyCount24h ?? 0;
-          ingestOrefForCII(alertCount, historyCount24h);
-          this.ctx.intelligenceCache.orefAlerts = { alertCount, historyCount24h };
-          if (data.alerts?.length) dispatchOrefBreakingAlert(data.alerts);
-          onOrefAlertsUpdate((update) => {
-            this.callPanel('oref-sirens', 'setData', update);
-            const updAlerts = update.alerts?.length ?? 0;
-            const updHistory = update.historyCount24h ?? 0;
-            ingestOrefForCII(updAlerts, updHistory);
-            this.ctx.intelligenceCache.orefAlerts = { alertCount: updAlerts, historyCount24h: updHistory };
-            if (update.alerts?.length) dispatchOrefBreakingAlert(update.alerts);
-          });
-          startOrefPolling();
-        } catch (error) {
-          console.error('[Intelligence] OREF alerts fetch failed:', error);
-        }
-      })());
-    }
+    // OREF sirens
+    tasks.push((async () => {
+      try {
+        const data = await fetchOrefAlerts();
+        this.callPanel('oref-sirens', 'setData', data);
+        const alertCount = data.alerts?.length ?? 0;
+        const historyCount24h = data.historyCount24h ?? 0;
+        ingestOrefForCII(alertCount, historyCount24h);
+        this.ctx.intelligenceCache.orefAlerts = { alertCount, historyCount24h };
+        if (data.alerts?.length) dispatchOrefBreakingAlert(data.alerts);
+        onOrefAlertsUpdate((update) => {
+          this.callPanel('oref-sirens', 'setData', update);
+          const updAlerts = update.alerts?.length ?? 0;
+          const updHistory = update.historyCount24h ?? 0;
+          ingestOrefForCII(updAlerts, updHistory);
+          this.ctx.intelligenceCache.orefAlerts = { alertCount: updAlerts, historyCount24h: updHistory };
+          if (update.alerts?.length) dispatchOrefBreakingAlert(update.alerts);
+        });
+        startOrefPolling();
+      } catch (error) {
+        console.error('[Intelligence] OREF alerts fetch failed:', error);
+      }
+    })());
 
     // GPS/GNSS jamming (cloud-only — seeded by Wingbits API via fetch-gpsjam.mjs)
     if (!isDesktopRuntime()) {
@@ -2615,7 +2626,6 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadTelegramIntel(): Promise<void> {
-    if (isDesktopRuntime() && !getSecretState('WORLDMONITOR_API_KEY').present) return;
     try {
       const result = await fetchTelegramFeed();
       this.callPanel('telegram-intel', 'setData', result);
@@ -2637,9 +2647,8 @@ export class DataLoaderManager implements AppModule {
           })
           .filter((x): x is { lat: number; lon: number; title: string; threatLevel: ClientThreatLevel; timestamp: Date } => x !== null);
 
-        if (geoLocated.length > 0) {
-          this.ctx.map?.setNewsLocations([...(this.ctx.map.getNewsLocations?.() || []), ...geoLocated]);
-        }
+        this.geotaggedTelegram = geoLocated;
+        this.updateMapGeotags();
       }
     } catch (error) {
       console.error('[App] Telegram intel fetch failed:', error);

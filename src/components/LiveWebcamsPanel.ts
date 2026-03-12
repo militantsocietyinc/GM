@@ -118,7 +118,7 @@ export class LiveWebcamsPanel extends Panel {
     });
     this.boundEmbedMessageHandler = (e) => this.handleEmbedMessage(e);
     window.addEventListener('message', this.boundEmbedMessageHandler);
-    this.render();
+    this.renderPlaceholder();
     document.addEventListener('keydown', this.boundFullscreenEscHandler);
   }
 
@@ -550,14 +550,19 @@ export class LiveWebcamsPanel extends Panel {
     this.content.innerHTML = '';
     const container = document.createElement('div');
     container.className = 'webcam-placeholder';
-    container.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;cursor:pointer;';
+    container.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;cursor:pointer;background:rgba(0,0,0,0.4);border-radius:8px;margin:8px;border:0.5px solid var(--border);';
+
+    const icon = document.createElement('div');
+    icon.style.cssText = 'font-size:32px;opacity:0.8;';
+    icon.textContent = '🔭';
 
     const label = document.createElement('div');
-    label.style.cssText = 'color:var(--text-secondary);font-size:13px;';
+    label.style.cssText = 'color:var(--text-secondary);font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:1px;';
     label.textContent = t('components.webcams.paused') || 'Webcams Paused';
 
     const playBtn = document.createElement('button');
     playBtn.className = 'offline-retry';
+    playBtn.style.cssText = 'padding:8px 24px;background:var(--accent);color:var(--bg);border:none;border-radius:4px;font-weight:bold;cursor:pointer;';
     playBtn.textContent = 'Load Webcams';
     playBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -565,6 +570,7 @@ export class LiveWebcamsPanel extends Panel {
       this.render();
     });
 
+    container.appendChild(icon);
     container.appendChild(label);
     container.appendChild(playBtn);
     container.addEventListener('click', () => {

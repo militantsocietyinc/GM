@@ -317,11 +317,12 @@ export class Panel {
   }
 
   private appendCollapseButton(): void {
+    const isCollapsed = localStorage.getItem(`panel-collapsed-${this.panelId}`) === 'true';
     const collapseBtn = h('button', {
       className: 'icon-btn panel-collapse-btn',
       'aria-label': 'Toggle Collapse',
       title: 'Toggle Collapse',
-    }, '_');
+    }, isCollapsed ? '\u25BE' : '\u25B4'); // ▾ and ▴
 
     collapseBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -334,6 +335,8 @@ export class Panel {
   private toggleCollapse(): void {
     const isCollapsed = this.element.classList.toggle('collapsed');
     localStorage.setItem(`panel-collapsed-${this.panelId}`, isCollapsed ? 'true' : 'false');
+    const btn = this.header.querySelector('.panel-collapse-btn');
+    if (btn) btn.textContent = isCollapsed ? '\u25BE' : '\u25B4';
   }
 
   private restoreCollapsedState(): void {

@@ -90,7 +90,9 @@ export const economicAdapter: DomainAdapter = {
         })
         .filter(Boolean);
       const pctSuffix = pctParts.length > 0 ? ` (${pctParts[0]})` : '';
-      return `${names.join('/')} spike${pctSuffix}`;
+      const base = `${names.join('/')} spike${pctSuffix}`;
+      if (types.has('sanctions_news')) return `${base} + sanctions`;
+      return base;
     }
 
     if (types.has('sanctions_news')) {
@@ -114,7 +116,7 @@ export const economicAdapter: DomainAdapter = {
   },
 };
 
-const KNOWN_ENTITIES = /\b(Iran|Russia|China|North Korea|Venezuela|Cuba|Syria|Myanmar|Belarus|Turkey|Saudi|OPEC|EU|US|India)\b/i;
+const KNOWN_ENTITIES = /\b(Iran|Russia|China|North Korea|Venezuela|Cuba|Syria|Myanmar|Belarus|Turkey|Saudi|OPEC|EU|USA?|United States|India)\b(?![A-Za-z])/i;
 
 function extractMentionedEntities(labels: string[]): string {
   for (const label of labels) {

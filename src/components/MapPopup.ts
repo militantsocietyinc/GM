@@ -2178,8 +2178,8 @@ export class MapPopup {
       : '';
 
     const dataSourceBadge = vessel.usniSource
-      ? `<span class="popup-badge" style="background:rgba(255,170,50,0.15);border:1px solid rgba(255,170,50,0.5);color:#ffaa44;">EST. POSITION</span>`
-      : `<span class="popup-badge" style="background:rgba(68,255,136,0.15);border:1px solid rgba(68,255,136,0.5);color:#44ff88;">AIS LIVE</span>`;
+      ? `<span class="popup-badge" style="background:rgba(255,170,50,0.15);border:1px solid rgba(255,170,50,0.5);color:#ffaa44;">${t('popups.militaryVessel.estPosition')}</span>`
+      : `<span class="popup-badge" style="background:rgba(68,255,136,0.15);border:1px solid rgba(68,255,136,0.5);color:#44ff88;">${t('popups.militaryVessel.aisLive')}</span>`;
 
     // USNI deployment status badge
     const deploymentBadge = vessel.usniDeploymentStatus && vessel.usniDeploymentStatus !== 'unknown'

@@ -148,6 +148,10 @@ export function mergeUSNIWithAIS(
         vessel.usniActivityDescription = usniVessel.activityDescription;
         vessel.usniArticleUrl = usniVessel.usniArticleUrl;
         vessel.usniArticleDate = usniVessel.usniArticleDate;
+        const portRes = usniVessel.deploymentStatus === 'in-port'
+          ? resolvePortCoords(usniVessel.homePort, usniVessel.hullNumber)
+          : undefined;
+        vessel.usniHomePort = portRes?.portName ?? usniVessel.homePort;
         matchedHulls.add(normalizeHull(usniVessel.hullNumber));
         break;
       }
@@ -170,6 +174,10 @@ export function mergeUSNIWithAIS(
         vessel.usniActivityDescription = usniVessel.activityDescription;
         vessel.usniArticleUrl = usniVessel.usniArticleUrl;
         vessel.usniArticleDate = usniVessel.usniArticleDate;
+        const portRes = usniVessel.deploymentStatus === 'in-port'
+          ? resolvePortCoords(usniVessel.homePort, usniVessel.hullNumber)
+          : undefined;
+        vessel.usniHomePort = portRes?.portName ?? usniVessel.homePort;
         matchedHulls.add(normalizeHull(usniVessel.hullNumber));
         break;
       }

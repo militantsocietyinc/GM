@@ -14,16 +14,16 @@ body.is-desktop-macos {
   --mac-toolbar-height: 44px;
   --mac-traffic-lights-height: 44px; /* safe area below traffic lights */
 
-  /* Dark-mode macOS system colors (approximated) */
-  --mac-window-bg: #1c1c1e;
-  --mac-sidebar-bg: rgba(44, 44, 46, 0.72);
-  --mac-surface: #2c2c2e;
-  --mac-surface-hover: #3a3a3c;
-  --mac-surface-active: #48484a;
+  /* Dark-mode macOS system colors — deep dark calibration */
+  --mac-window-bg: #161618;
+  --mac-sidebar-bg: rgba(18, 18, 20, 0.92);
+  --mac-surface: #222224;
+  --mac-surface-hover: #2c2c2e;
+  --mac-surface-active: #3a3a3c;
   --mac-label: rgba(255, 255, 255, 0.85);
   --mac-secondary-label: rgba(255, 255, 255, 0.55);
   --mac-tertiary-label: rgba(255, 255, 255, 0.25);
-  --mac-separator: rgba(255, 255, 255, 0.13);
+  --mac-separator: rgba(255, 255, 255, 0.12);
   --mac-fill: rgba(255, 255, 255, 0.08);
 
   /* macOS system accent colors */
@@ -48,13 +48,13 @@ body.is-desktop-macos {
   --mac-ease-standard:   cubic-bezier(0.4, 0, 0.2, 1); /* keep for slow/ambient motion */
 
   /* Card / panel appearance */
-  --mac-card-bg: #2c2c2e;
-  --mac-card-border: rgba(255, 255, 255, 0.08);
+  --mac-card-bg: #222224;
+  --mac-card-border: rgba(255, 255, 255, 0.10);
   --mac-card-radius: 14px;
   --mac-card-shadow:
-    0 2px 16px rgba(0, 0, 0, 0.45),
-    0 0 0 0.5px rgba(255, 255, 255, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 2px 16px rgba(0, 0, 0, 0.60),
+    0 0 0 0.5px rgba(255, 255, 255, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 /* Light-mode macOS overrides */
@@ -666,12 +666,12 @@ body.is-desktop-macos[data-app-mode="ghost"] .mac-mode-section {
 }
 
 #lowPowerBtn.low-power-active {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.12);
+  color: var(--mac-orange);
+  background: rgba(255, 159, 10, 0.12);
 }
 
 #lowPowerBtn.low-power-active:hover {
-  background: rgba(245, 158, 11, 0.2);
+  background: rgba(255, 159, 10, 0.22);
 }
 
 .mac-sidebar-version {
@@ -698,7 +698,7 @@ body.is-desktop-macos .mac-content {
   align-items: center;
   padding: 0 14px 0 16px;
   gap: 10px;
-  background: rgba(28, 28, 30, 0.82);
+  background: rgba(22, 22, 24, 0.95);
   backdrop-filter: blur(32px) saturate(185%);
   -webkit-backdrop-filter: blur(32px) saturate(185%);
   border-bottom: 1px solid var(--mac-separator);

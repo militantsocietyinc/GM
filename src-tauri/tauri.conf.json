@@ -23,9 +23,9 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "backgroundColor": [
-          28,
-          28,
-          30,
+          22,
+          22,
+          24,
           255
         ]
       }

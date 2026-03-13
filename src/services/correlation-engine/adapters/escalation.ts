@@ -48,11 +48,12 @@ export const escalationAdapter: DomainAdapter = {
       });
     }
 
-    // Internet outages
+    // Internet outages — skip 0/0 sentinel coordinates
     const outages = cache.outages ?? [];
     for (const o of outages) {
       const age = now - (o.pubDate?.getTime?.() ?? now);
       if (age > windowMs) continue;
+      if (o.lat != null && o.lon != null && o.lat === 0 && o.lon === 0) continue;
 
       const severityMap: Record<string, number> = { total: 90, major: 70, partial: 40 };
       const severity = severityMap[o.severity] ?? 30;

@@ -3669,8 +3669,15 @@ async function pwFetchAllPages(portname, sinceEpoch) {
       headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' },
       signal: AbortSignal.timeout(PORTWATCH_FETCH_TIMEOUT_MS),
     });
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      console.warn(`[PortWatch] ArcGIS error ${resp.status} for ${portname}`);
+      return [];
+    }
     const body = await resp.json();
+    if (body.error) {
+      console.warn(`[PortWatch] ArcGIS query error for ${portname}: ${body.error.message}`);
+      return [];
+    }
     if (body.features?.length) all.push(...body.features);
     if (!body.exceededTransferLimit) break;
     offset += PORTWATCH_PAGE_SIZE;

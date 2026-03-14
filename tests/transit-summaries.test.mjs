@@ -495,3 +495,36 @@ describe('handler does not fetch upstream data directly', () => {
     assert.doesNotMatch(handlerSrc, /fetchCorridorRisk/);
   });
 });
+
+describe('seedTransitSummaries cold-start hydration', () => {
+  it('reads PortWatch from Redis when latestPortwatchData is null', () => {
+    assert.match(relaySrc, /if\s*\(\s*!latestPortwatchData\s*\)/);
+    assert.match(relaySrc, /upstashGet\(PORTWATCH_REDIS_KEY\)/);
+    assert.match(relaySrc, /Hydrated PortWatch from Redis/);
+  });
+
+  it('reads CorridorRisk from Redis when latestCorridorRiskData is null', () => {
+    assert.match(relaySrc, /if\s*\(\s*!latestCorridorRiskData\s*\)/);
+    assert.match(relaySrc, /upstashGet\(CORRIDOR_RISK_REDIS_KEY\)/);
+    assert.match(relaySrc, /Hydrated CorridorRisk from Redis/);
+  });
+
+  it('hydration happens BEFORE the empty-check early return', () => {
+    const fnBody = relaySrc.match(/async function seedTransitSummaries\(\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+    const hydratePos = fnBody.indexOf('upstashGet(PORTWATCH_REDIS_KEY)');
+    const earlyReturnPos = fnBody.indexOf("if (!pw || Object.keys(pw).length === 0) return");
+    assert.ok(hydratePos > 0, 'hydration code not found');
+    assert.ok(earlyReturnPos > 0, 'early return not found');
+    assert.ok(hydratePos < earlyReturnPos, 'hydration must happen BEFORE the empty-data early return');
+  });
+
+  it('assigns hydrated data back to latestPortwatchData', () => {
+    const fnBody = relaySrc.match(/async function seedTransitSummaries\(\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+    assert.match(fnBody, /latestPortwatchData\s*=\s*persisted/);
+  });
+
+  it('assigns hydrated data back to latestCorridorRiskData', () => {
+    const fnBody = relaySrc.match(/async function seedTransitSummaries\(\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+    assert.match(fnBody, /latestCorridorRiskData\s*=\s*persisted/);
+  });
+});

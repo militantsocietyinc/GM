@@ -4759,6 +4759,22 @@ function detectTrafficAnomalyRelay(history, threatLevel) {
 }
 
 async function seedTransitSummaries() {
+  // Hydrate from Redis on cold start (in-memory state lost after relay restart)
+  if (!latestPortwatchData) {
+    const persisted = await upstashGet(PORTWATCH_REDIS_KEY);
+    if (persisted && typeof persisted === 'object' && Object.keys(persisted).length > 0) {
+      latestPortwatchData = persisted;
+      console.log(`[TransitSummary] Hydrated PortWatch from Redis (${Object.keys(persisted).length} chokepoints)`);
+    }
+  }
+  if (!latestCorridorRiskData) {
+    const persisted = await upstashGet(CORRIDOR_RISK_REDIS_KEY);
+    if (persisted && typeof persisted === 'object' && Object.keys(persisted).length > 0) {
+      latestCorridorRiskData = persisted;
+      console.log(`[TransitSummary] Hydrated CorridorRisk from Redis (${Object.keys(persisted).length} corridors)`);
+    }
+  }
+
   const pw = latestPortwatchData;
   if (!pw || Object.keys(pw).length === 0) return;
 

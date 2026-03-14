@@ -3688,6 +3688,7 @@ const PORTWATCH_CHOKEPOINT_NAMES = [
   { name: 'Lombok Strait', id: 'lombok_strait' },
 ];
 let portwatchSeedInFlight = false;
+let latestPortwatchData = null;
 
 function pwFormatDate(ts) {
   const d = new Date(ts);
@@ -3777,9 +3778,11 @@ async function seedPortWatch() {
       console.warn('[PortWatch] No data fetched — skipping');
       return;
     }
+    latestPortwatchData = result;
     const ok = await upstashSet(PORTWATCH_REDIS_KEY, result, PORTWATCH_TTL);
     await upstashSet('seed-meta:supply_chain:portwatch', { fetchedAt: Date.now(), recordCount: Object.keys(result).length }, 604800);
     console.log(`[PortWatch] Seeded ${Object.keys(result).length} chokepoints (redis: ${ok ? 'OK' : 'FAIL'}) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    seedTransitSummaries().catch(e => console.warn('[TransitSummary] Post-PortWatch seed error:', e?.message || e));
   } catch (e) {
     console.warn('[PortWatch] Seed error:', e?.message || e);
   } finally {
@@ -4710,6 +4713,101 @@ setTimeout(() => {
 setInterval(() => {
   seedChokepointTransits().catch(err => console.error('[Transit] Seed error:', err.message));
 }, CHOKEPOINT_TRANSIT_INTERVAL_MS).unref?.();
+
+// --- Pre-assembled Transit Summaries (Railway advantage: avoids large Redis reads on Vercel) ---
+const TRANSIT_SUMMARY_REDIS_KEY = 'supply_chain:transit-summaries:v1';
+const TRANSIT_SUMMARY_TTL = 900; // 15 min
+const TRANSIT_SUMMARY_INTERVAL_MS = 10 * 60 * 1000;
+
+// Threat levels for anomaly detection (mirrors _scoring.mjs)
+const CHOKEPOINT_THREAT_LEVELS = {
+  suez: 'high', malacca_strait: 'normal', hormuz_strait: 'war_zone',
+  bab_el_mandeb: 'critical', panama: 'normal', taiwan_strait: 'elevated',
+  cape_of_good_hope: 'normal', gibraltar: 'normal', bosphorus: 'elevated',
+  korea_strait: 'normal', dover_strait: 'normal', kerch_strait: 'war_zone',
+  lombok_strait: 'normal',
+};
+
+// ID mapping: relay geofence name -> canonical ID
+const RELAY_NAME_TO_ID = {
+  'Suez Canal': 'suez', 'Malacca Strait': 'malacca_strait',
+  'Strait of Hormuz': 'hormuz_strait', 'Bab el-Mandeb Strait': 'bab_el_mandeb',
+  'Panama Canal': 'panama', 'Taiwan Strait': 'taiwan_strait',
+  'Cape of Good Hope': 'cape_of_good_hope', 'Gibraltar Strait': 'gibraltar',
+  'Bosporus Strait': 'bosphorus', 'Korea Strait': 'korea_strait',
+  'Dover Strait': 'dover_strait', 'Kerch Strait': 'kerch_strait',
+  'Lombok Strait': 'lombok_strait',
+  'South China Sea': null, 'Black Sea': null, // area geofences, not chokepoints
+};
+
+function detectTrafficAnomalyRelay(history, threatLevel) {
+  if (!history || history.length < 37) return { dropPct: 0, signal: false };
+  const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
+  let recent7 = 0, baseline30 = 0;
+  for (let i = 0; i < 7 && i < sorted.length; i++) recent7 += sorted[i].total;
+  for (let i = 7; i < 37 && i < sorted.length; i++) baseline30 += sorted[i].total;
+  const baselineAvg7 = (baseline30 / Math.min(30, sorted.length - 7)) * 7;
+  if (baselineAvg7 < 14) return { dropPct: 0, signal: false };
+  const dropPct = Math.round(((baselineAvg7 - recent7) / baselineAvg7) * 100);
+  const isHighThreat = threatLevel === 'war_zone' || threatLevel === 'critical';
+  return { dropPct, signal: dropPct >= 50 && isHighThreat };
+}
+
+async function seedTransitSummaries() {
+  const pw = latestPortwatchData;
+  if (!pw || Object.keys(pw).length === 0) return;
+
+  const now = Date.now();
+  const summaries = {};
+
+  for (const [cpId, cpData] of Object.entries(pw)) {
+    const threatLevel = CHOKEPOINT_THREAT_LEVELS[cpId] || 'normal';
+    const anomaly = detectTrafficAnomalyRelay(cpData.history, threatLevel);
+
+    // Get relay transit counts for this chokepoint
+    let relayTransit = null;
+    for (const [relayName, canonicalId] of Object.entries(RELAY_NAME_TO_ID)) {
+      if (canonicalId === cpId) {
+        const crossings = chokepointCrossings.get(relayName) || [];
+        const recent = crossings.filter(c => now - c.ts < TRANSIT_WINDOW_MS);
+        if (recent.length > 0) {
+          relayTransit = {
+            tanker: recent.filter(c => c.type === 'tanker').length,
+            cargo: recent.filter(c => c.type === 'cargo').length,
+            other: recent.filter(c => c.type === 'other').length,
+            total: recent.length,
+          };
+        }
+        break;
+      }
+    }
+
+    summaries[cpId] = {
+      todayTotal: relayTransit?.total ?? 0,
+      todayTanker: relayTransit?.tanker ?? 0,
+      todayCargo: relayTransit?.cargo ?? 0,
+      todayOther: relayTransit?.other ?? 0,
+      wowChangePct: cpData.wowChangePct ?? 0,
+      history: cpData.history ?? [],
+      riskLevel: '',
+      incidentCount7d: 0,
+      disruptionPct: 0,
+      anomaly,
+    };
+  }
+
+  const ok = await upstashSet(TRANSIT_SUMMARY_REDIS_KEY, { summaries, fetchedAt: now }, TRANSIT_SUMMARY_TTL);
+  await upstashSet('seed-meta:supply_chain:transit-summaries', { fetchedAt: now, recordCount: Object.keys(summaries).length }, 604800);
+  console.log(`[TransitSummary] Seeded ${Object.keys(summaries).length} summaries (redis: ${ok ? 'OK' : 'FAIL'})`);
+}
+
+// Seed transit summaries every 10 min (same as transit counter)
+setTimeout(() => {
+  seedTransitSummaries().catch(e => console.warn('[TransitSummary] Initial seed error:', e?.message || e));
+}, 35_000);
+setInterval(() => {
+  seedTransitSummaries().catch(e => console.warn('[TransitSummary] Seed error:', e?.message || e));
+}, TRANSIT_SUMMARY_INTERVAL_MS).unref?.();
 
 // UCDP GED Events cache (persistent in-memory — Railway advantage)
 const UCDP_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours

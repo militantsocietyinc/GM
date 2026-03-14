@@ -42,31 +42,35 @@ const ISO2_TO_ISO3 = {
 // ─── ACLED Events ───
 
 async function fetchAcledToken() {
-  const email = process.env.ACLED_EMAIL;
-  const key = process.env.ACLED_KEY;
-  if (!email || !key) return null;
+  // Priority 1: ACLED_EMAIL + ACLED_PASSWORD -> OAuth flow (matches server/acled-auth.ts)
+  const email = process.env.ACLED_EMAIL?.trim();
+  const password = process.env.ACLED_PASSWORD?.trim();
+  if (email && password) {
+    const body = new URLSearchParams({
+      username: email, password, grant_type: 'password', client_id: 'acled',
+    });
+    const resp = await fetch('https://acleddata.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': CHROME_UA },
+      body,
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) throw new Error(`ACLED OAuth failed: HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.access_token) return data.access_token;
+    throw new Error('ACLED OAuth response missing access_token');
+  }
 
-  const resp = await fetch('https://acleddata.com/api/user/me', {
-    headers: { 'User-Agent': CHROME_UA, Authorization: `Bearer ${key}` },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (resp.ok) return key;
+  // Priority 2: Static token fallback (legacy)
+  const staticToken = process.env.ACLED_ACCESS_TOKEN?.trim();
+  if (staticToken) return staticToken;
 
-  // Try token endpoint
-  const tokenResp = await fetch('https://acleddata.com/api/acled/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': CHROME_UA },
-    body: JSON.stringify({ email, key }),
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!tokenResp.ok) return null;
-  const data = await tokenResp.json();
-  return data.access_token || data.token || key;
+  return null;
 }
 
 async function fetchAcledEvents() {
   const token = await fetchAcledToken();
-  if (!token) throw new Error('Missing ACLED credentials (ACLED_EMAIL + ACLED_KEY)');
+  if (!token) throw new Error('Missing ACLED credentials (ACLED_EMAIL+ACLED_PASSWORD or ACLED_ACCESS_TOKEN)');
 
   const now = Date.now();
   const startDate = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];

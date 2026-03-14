@@ -37,7 +37,7 @@ async function warmPing(name, path) {
       return false;
     }
     const data = await resp.json();
-    const count = data.statuses?.length ?? data.cables ? Object.keys(data.cables).length : 0;
+    const count = data.statuses?.length ?? (data.cables ? Object.keys(data.cables).length : 0);
     console.log(`  ${name}: OK (${count} items)`);
     return true;
   } catch (e) {

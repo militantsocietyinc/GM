@@ -14,6 +14,14 @@ import {
   detectPoliticalScenarios,
   detectMilitaryScenarios,
   detectInfraScenarios,
+  detectUcdpConflictZones,
+  detectCyberScenarios,
+  detectGpsJammingScenarios,
+  detectFromPredictionMarkets,
+  normalizeChokepoints,
+  normalizeGpsJamming,
+  loadEntityGraph,
+  discoverGraphCascades,
   attachNewsContext,
   computeConfidence,
   sanitizeForPrompt,
@@ -743,5 +751,186 @@ describe('evaluateRuleConditions', () => {
       { type: 'outage', value: 'Iran minor outage', weight: 0.4 },
     ]);
     assert.ok(!evaluateRuleConditions({ requiresSeverity: 'total' }, pred));
+  });
+});
+
+// ── Phase 4 Tests ──────────────────────────────────────────
+
+describe('normalizeChokepoints', () => {
+  it('maps v4 shape to v2 fields', () => {
+    const v4 = { chokepoints: [{ name: 'Suez Canal', disruptionScore: 75, status: 'yellow' }] };
+    const result = normalizeChokepoints(v4);
+    assert.equal(result.chokepoints[0].region, 'Suez Canal');
+    assert.equal(result.chokepoints[0].riskScore, 75);
+    assert.equal(result.chokepoints[0].riskLevel, 'high');
+    assert.equal(result.chokepoints[0].disrupted, false);
+  });
+
+  it('maps red status to critical + disrupted', () => {
+    const v4 = { chokepoints: [{ name: 'Hormuz', status: 'red' }] };
+    const result = normalizeChokepoints(v4);
+    assert.equal(result.chokepoints[0].riskLevel, 'critical');
+    assert.equal(result.chokepoints[0].disrupted, true);
+  });
+
+  it('handles null', () => {
+    assert.equal(normalizeChokepoints(null), null);
+  });
+});
+
+describe('normalizeGpsJamming', () => {
+  it('maps hexes to zones', () => {
+    const raw = { hexes: [{ lat: 35, lon: 30 }] };
+    const result = normalizeGpsJamming(raw);
+    assert.ok(result.zones);
+    assert.equal(result.zones[0].lat, 35);
+  });
+
+  it('preserves existing zones', () => {
+    const raw = { zones: [{ lat: 10, lon: 20 }] };
+    const result = normalizeGpsJamming(raw);
+    assert.equal(result.zones[0].lat, 10);
+  });
+
+  it('handles null', () => {
+    assert.equal(normalizeGpsJamming(null), null);
+  });
+});
+
+describe('detectUcdpConflictZones', () => {
+  it('generates prediction for 10+ events in one country', () => {
+    const events = Array.from({ length: 15 }, () => ({ country: 'Syria' }));
+    const result = detectUcdpConflictZones({ ucdpEvents: { events } });
+    assert.equal(result.length, 1);
+    assert.equal(result[0].domain, 'conflict');
+    assert.equal(result[0].region, 'Syria');
+  });
+
+  it('skips countries with < 10 events', () => {
+    const events = Array.from({ length: 5 }, () => ({ country: 'Jordan' }));
+    assert.equal(detectUcdpConflictZones({ ucdpEvents: { events } }).length, 0);
+  });
+
+  it('handles empty input', () => {
+    assert.equal(detectUcdpConflictZones({}).length, 0);
+  });
+});
+
+describe('detectCyberScenarios', () => {
+  it('generates prediction for 5+ threats in one country', () => {
+    const threats = Array.from({ length: 8 }, () => ({ country: 'US', type: 'malware' }));
+    const result = detectCyberScenarios({ cyberThreats: { threats } });
+    assert.equal(result.length, 1);
+    assert.equal(result[0].domain, 'infrastructure');
+  });
+
+  it('skips countries with < 5 threats', () => {
+    const threats = Array.from({ length: 3 }, () => ({ country: 'CH', type: 'phishing' }));
+    assert.equal(detectCyberScenarios({ cyberThreats: { threats } }).length, 0);
+  });
+
+  it('handles empty input', () => {
+    assert.equal(detectCyberScenarios({}).length, 0);
+  });
+});
+
+describe('detectGpsJammingScenarios', () => {
+  it('generates prediction for hexes in maritime region', () => {
+    const zones = Array.from({ length: 5 }, () => ({ lat: 35, lon: 30 })); // Eastern Med
+    const result = detectGpsJammingScenarios({ gpsJamming: { zones } });
+    assert.equal(result.length, 1);
+    assert.equal(result[0].domain, 'supply_chain');
+    assert.equal(result[0].region, 'Eastern Mediterranean');
+  });
+
+  it('skips hexes outside maritime regions', () => {
+    const zones = [{ lat: 0, lon: 0 }, { lat: 1, lon: 1 }, { lat: 2, lon: 2 }];
+    assert.equal(detectGpsJammingScenarios({ gpsJamming: { zones } }).length, 0);
+  });
+});
+
+describe('detectFromPredictionMarkets', () => {
+  it('generates from 60-90% markets with region', () => {
+    const markets = { geopolitical: [{ title: 'Will Iran strike Israel?', yesPrice: 70, source: 'polymarket' }] };
+    const result = detectFromPredictionMarkets({ predictionMarkets: markets });
+    assert.equal(result.length, 1);
+    assert.equal(result[0].domain, 'conflict');
+    assert.equal(result[0].region, 'Middle East');
+  });
+
+  it('skips markets below 60%', () => {
+    const markets = { geopolitical: [{ title: 'Will US enter recession?', yesPrice: 30 }] };
+    assert.equal(detectFromPredictionMarkets({ predictionMarkets: markets }).length, 0);
+  });
+
+  it('caps at 5 predictions', () => {
+    const markets = { geopolitical: Array.from({ length: 10 }, (_, i) => ({
+      title: `Will Europe face crisis ${i}?`, yesPrice: 70,
+    })) };
+    assert.ok(detectFromPredictionMarkets({ predictionMarkets: markets }).length <= 5);
+  });
+});
+
+describe('lowered CII conflict threshold', () => {
+  it('CII score 67 (high level) now triggers conflict', () => {
+    const result = detectConflictScenarios({
+      ciiScores: { ciiScores: [{ region: 'IL', combinedScore: 67, trend: 'TREND_DIRECTION_STABLE', components: {} }] },
+      theaterPosture: { theaters: [] },
+      iranEvents: { events: [] },
+      ucdpEvents: { events: [] },
+    });
+    assert.ok(result.length >= 1, 'should trigger at score 67');
+  });
+
+  it('CII score 62 (elevated level) does NOT trigger conflict', () => {
+    const result = detectConflictScenarios({
+      ciiScores: { ciiScores: [{ region: 'JO', combinedScore: 62, trend: 'TREND_DIRECTION_RISING', components: {} }] },
+      theaterPosture: { theaters: [] },
+      iranEvents: { events: [] },
+      ucdpEvents: { events: [] },
+    });
+    assert.equal(result.length, 0, 'should NOT trigger at score 62 (elevated)');
+  });
+});
+
+describe('loadEntityGraph', () => {
+  it('loads graph from JSON', () => {
+    const graph = loadEntityGraph();
+    assert.ok(graph.nodes);
+    assert.ok(graph.aliases);
+    assert.ok(graph.edges);
+    assert.ok(Object.keys(graph.nodes).length > 10);
+  });
+
+  it('aliases resolve country codes', () => {
+    const graph = loadEntityGraph();
+    assert.equal(graph.aliases['IR'], 'IR');
+    assert.equal(graph.aliases['Iran'], 'IR');
+    assert.equal(graph.aliases['Middle East'], 'middle-east');
+  });
+});
+
+describe('discoverGraphCascades', () => {
+  it('finds linked predictions via graph', () => {
+    const graph = loadEntityGraph();
+    const preds = [
+      makePrediction('conflict', 'IR', 'Iran conflict', 0.6, 0.5, '7d', []),
+      makePrediction('market', 'Middle East', 'Oil impact', 0.4, 0.5, '30d', []),
+    ];
+    discoverGraphCascades(preds, graph);
+    // IR links to middle-east theater, which has Oil impact prediction
+    const irCascades = preds[0].cascades.filter(c => c.effect.includes('graph:'));
+    assert.ok(irCascades.length > 0 || preds[1].cascades.length > 0, 'should find graph cascade between Iran and Middle East');
+  });
+
+  it('skips same-domain predictions', () => {
+    const graph = loadEntityGraph();
+    const preds = [
+      makePrediction('conflict', 'IR', 'a', 0.6, 0.5, '7d', []),
+      makePrediction('conflict', 'Middle East', 'b', 0.5, 0.5, '7d', []),
+    ];
+    discoverGraphCascades(preds, graph);
+    const graphCascades = preds[0].cascades.filter(c => c.effect.includes('graph:'));
+    assert.equal(graphCascades.length, 0, 'same domain should not cascade');
   });
 });

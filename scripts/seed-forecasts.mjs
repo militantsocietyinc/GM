@@ -70,6 +70,41 @@ async function redisGet(url, token, key) {
   try { return JSON.parse(data.result); } catch { return null; }
 }
 
+// ── Phase 4: Input normalizers ──────────────────────────────
+function normalizeChokepoints(raw) {
+  if (!raw?.chokepoints && !raw?.corridors) return raw;
+  const items = raw.chokepoints || raw.corridors || [];
+  return {
+    ...raw,
+    chokepoints: items.map(cp => ({
+      ...cp,
+      region: cp.name || cp.region || '',
+      riskScore: cp.disruptionScore ?? cp.riskScore ?? 0,
+      riskLevel: cp.status === 'red' ? 'critical' : cp.status === 'yellow' ? 'high' : cp.riskLevel || 'normal',
+      disrupted: cp.status === 'red' || cp.disrupted || false,
+    })),
+  };
+}
+
+function normalizeGpsJamming(raw) {
+  if (!raw) return raw;
+  if (raw.hexes && !raw.zones) return { ...raw, zones: raw.hexes };
+  return raw;
+}
+
+async function warmPingChokepoints() {
+  const baseUrl = process.env.WM_API_BASE_URL;
+  if (!baseUrl) { console.log('  [Chokepoints] Warm-ping skipped (no WM_API_BASE_URL)'); return; }
+  try {
+    const resp = await fetch(`${baseUrl}/api/supply-chain/v1/get-chokepoint-status`, {
+      headers: { 'User-Agent': CHROME_UA, Origin: 'https://worldmonitor.app' },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!resp.ok) console.warn(`  [Chokepoints] Warm-ping failed: HTTP ${resp.status}`);
+    else console.log('  [Chokepoints] Warm-ping OK');
+  } catch (err) { console.warn(`  [Chokepoints] Warm-ping error: ${err.message}`); }
+}
+
 async function readInputKeys() {
   const { url, token } = getRedisCredentials();
   const keys = [
@@ -105,13 +140,13 @@ async function readInputKeys() {
     temporalAnomalies: parse(1),
     theaterPosture: parse(2),
     predictionMarkets: parse(3),
-    chokepoints: parse(4),
+    chokepoints: normalizeChokepoints(parse(4)),
     iranEvents: parse(5),
     ucdpEvents: parse(6),
     unrestEvents: parse(7),
     outages: parse(8),
     cyberThreats: parse(9),
-    gpsJamming: parse(10),
+    gpsJamming: normalizeGpsJamming(parse(10)),
     newsInsights: parse(11),
   };
 }
@@ -186,8 +221,8 @@ function detectConflictScenarios(inputs) {
   const ucdp = Array.isArray(inputs.ucdpEvents) ? inputs.ucdpEvents : inputs.ucdpEvents?.events || [];
 
   for (const c of scores) {
-    if (!c.score || c.score <= 70) continue;
-    if (c.trend !== 'rising' && c.level !== 'critical') continue;
+    if (!c.score || c.score <= 60) continue;
+    if (c.level !== 'high' && c.level !== 'critical') continue;
 
     const signals = [
       { type: 'cii', value: `${c.name} CII ${c.score} (${c.level})`, weight: 0.4 },
@@ -500,6 +535,167 @@ function detectInfraScenarios(inputs) {
   }
 
   return predictions;
+}
+
+// ── Phase 4: Standalone detectors ───────────────────────────
+function detectUcdpConflictZones(inputs) {
+  const predictions = [];
+  const ucdp = Array.isArray(inputs.ucdpEvents) ? inputs.ucdpEvents : inputs.ucdpEvents?.events || [];
+  if (ucdp.length === 0) return predictions;
+
+  const byCountry = {};
+  for (const e of ucdp) {
+    const country = e.country || e.country_name || '';
+    if (!country) continue;
+    byCountry[country] = (byCountry[country] || 0) + 1;
+  }
+
+  for (const [country, count] of Object.entries(byCountry)) {
+    if (count < 10) continue;
+    predictions.push(makePrediction(
+      'conflict', country,
+      `Active armed conflict: ${country}`,
+      Math.min(0.85, normalize(count, 5, 100) * 0.7),
+      confidenceFromSources(1), '30d',
+      [{ type: 'ucdp', value: `${count} UCDP conflict events`, weight: 0.5 }],
+    ));
+  }
+  return predictions;
+}
+
+function detectCyberScenarios(inputs) {
+  const predictions = [];
+  const threats = Array.isArray(inputs.cyberThreats) ? inputs.cyberThreats : inputs.cyberThreats?.threats || [];
+  if (threats.length < 5) return predictions;
+
+  const byCountry = {};
+  for (const t of threats) {
+    const country = t.country || t.target || t.region || '';
+    if (!country) continue;
+    if (!byCountry[country]) byCountry[country] = [];
+    byCountry[country].push(t);
+  }
+
+  for (const [country, items] of Object.entries(byCountry)) {
+    if (items.length < 5) continue;
+    const types = new Set(items.map(t => t.type || t.category || 'unknown'));
+    predictions.push(makePrediction(
+      'infrastructure', country,
+      `Cyber threat concentration: ${country}`,
+      Math.min(0.7, normalize(items.length, 3, 50) * 0.6),
+      confidenceFromSources(1), '7d',
+      [{ type: 'cyber', value: `${items.length} threats (${[...types].join(', ')})`, weight: 0.5 }],
+    ));
+  }
+  return predictions;
+}
+
+const MARITIME_REGIONS = {
+  'Eastern Mediterranean': { latRange: [33, 37], lonRange: [25, 37] },
+  'Red Sea': { latRange: [11, 22], lonRange: [32, 54] },
+  'Persian Gulf': { latRange: [20, 32], lonRange: [45, 60] },
+  'Black Sea': { latRange: [40, 48], lonRange: [26, 42] },
+  'Baltic Sea': { latRange: [52, 65], lonRange: [10, 32] },
+};
+
+function detectGpsJammingScenarios(inputs) {
+  const predictions = [];
+  const zones = Array.isArray(inputs.gpsJamming) ? inputs.gpsJamming
+    : inputs.gpsJamming?.zones || inputs.gpsJamming?.hexes || [];
+  if (zones.length === 0) return predictions;
+
+  for (const [region, bounds] of Object.entries(MARITIME_REGIONS)) {
+    const inRegion = zones.filter(h => {
+      const lat = h.lat || h.latitude || 0;
+      const lon = h.lon || h.longitude || 0;
+      return lat >= bounds.latRange[0] && lat <= bounds.latRange[1]
+          && lon >= bounds.lonRange[0] && lon <= bounds.lonRange[1];
+    });
+    if (inRegion.length < 3) continue;
+    predictions.push(makePrediction(
+      'supply_chain', region,
+      `GPS interference in ${region} shipping zone`,
+      Math.min(0.6, normalize(inRegion.length, 2, 30) * 0.5),
+      confidenceFromSources(1), '7d',
+      [{ type: 'gps_jamming', value: `${inRegion.length} jamming hexes in ${region}`, weight: 0.5 }],
+    ));
+  }
+  return predictions;
+}
+
+const MARKET_TAG_TO_REGION = {
+  mena: 'Middle East', eu: 'Europe', asia: 'Asia-Pacific',
+  america: 'Americas', latam: 'Latin America', africa: 'Africa', oceania: 'Oceania',
+};
+
+function detectFromPredictionMarkets(inputs) {
+  const predictions = [];
+  const markets = inputs.predictionMarkets?.geopolitical || [];
+
+  for (const m of markets) {
+    const yesPrice = (m.yesPrice || 50) / 100;
+    if (yesPrice < 0.6 || yesPrice > 0.9) continue;
+    const tags = tagRegions(m.title);
+    if (tags.length === 0) continue;
+    const region = MARKET_TAG_TO_REGION[tags[0]] || tags[0];
+
+    const titleLower = m.title.toLowerCase();
+    const domain = titleLower.match(/war|strike|military|attack/) ? 'conflict'
+      : titleLower.match(/tariff|recession|economy|gdp/) ? 'market'
+      : 'political';
+
+    predictions.push(makePrediction(
+      domain, region,
+      m.title.slice(0, 100),
+      yesPrice, 0.7, '30d',
+      [{ type: 'prediction_market', value: `${m.source || 'Polymarket'}: ${Math.round(yesPrice * 100)}%`, weight: 0.8 }],
+    ));
+  }
+  return predictions.slice(0, 5);
+}
+
+// ── Phase 4: Entity graph ───────────────────────────────────
+let _entityGraph = null;
+function loadEntityGraph() {
+  if (_entityGraph) return _entityGraph;
+  try {
+    const graphPath = new URL('./data/entity-graph.json', import.meta.url);
+    _entityGraph = JSON.parse(readFileSync(graphPath, 'utf8'));
+    console.log(`  [Graph] Loaded ${Object.keys(_entityGraph.nodes).length} nodes`);
+    return _entityGraph;
+  } catch (err) {
+    console.warn(`  [Graph] Failed: ${err.message}`);
+    return { nodes: {}, edges: [], aliases: {} };
+  }
+}
+
+function discoverGraphCascades(predictions, graph) {
+  if (!graph?.nodes || !graph?.aliases) return;
+  for (const pred of predictions) {
+    const nodeId = graph.aliases[pred.region];
+    if (!nodeId) continue;
+    const node = graph.nodes[nodeId];
+    if (!node?.links) continue;
+
+    for (const linkedId of node.links) {
+      const linked = graph.nodes[linkedId];
+      if (!linked) continue;
+      const linkedPred = predictions.find(p =>
+        p !== pred && p.domain !== pred.domain && graph.aliases[p.region] === linkedId
+      );
+      if (!linkedPred) continue;
+
+      const edge = graph.edges.find(e =>
+        (e.from === nodeId && e.to === linkedId) || (e.from === linkedId && e.to === nodeId)
+      );
+      const coupling = (edge?.weight || 0.3) * 0.5;
+      pred.cascades.push({
+        domain: linkedPred.domain,
+        effect: `graph: ${edge?.relation || 'linked'} via ${linked.name}`,
+        probability: Math.round(Math.min(0.6, pred.probability * coupling) * 1000) / 1000,
+      });
+    }
+  }
 }
 
 // ── Phase 3: Data-driven cascade rules ─────────────────────
@@ -922,6 +1118,8 @@ async function enrichScenariosWithLLM(predictions) {
 
 // ── Main pipeline ──────────────────────────────────────────
 async function fetchForecasts() {
+  await warmPingChokepoints();
+
   console.log('  Reading input data from Redis...');
   const inputs = await readInputKeys();
   const prior = await readPriorPredictions();
@@ -934,6 +1132,10 @@ async function fetchForecasts() {
     ...detectPoliticalScenarios(inputs),
     ...detectMilitaryScenarios(inputs),
     ...detectInfraScenarios(inputs),
+    ...detectUcdpConflictZones(inputs),
+    ...detectCyberScenarios(inputs),
+    ...detectGpsJammingScenarios(inputs),
+    ...detectFromPredictionMarkets(inputs),
   ];
 
   console.log(`  Generated ${predictions.length} predictions`);
@@ -944,6 +1146,7 @@ async function fetchForecasts() {
   computeProjections(predictions);
   const cascadeRules = loadCascadeRules();
   resolveCascades(predictions, cascadeRules);
+  discoverGraphCascades(predictions, loadEntityGraph());
   computeTrends(predictions, prior);
 
   predictions.sort((a, b) => (b.probability * b.confidence) - (a.probability * a.confidence));
@@ -999,4 +1202,14 @@ export {
   PREDICATE_EVALUATORS,
   DEFAULT_CASCADE_RULES,
   PROJECTION_CURVES,
+  normalizeChokepoints,
+  normalizeGpsJamming,
+  detectUcdpConflictZones,
+  detectCyberScenarios,
+  detectGpsJammingScenarios,
+  detectFromPredictionMarkets,
+  loadEntityGraph,
+  discoverGraphCascades,
+  MARITIME_REGIONS,
+  MARKET_TAG_TO_REGION,
 };

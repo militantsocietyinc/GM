@@ -165,6 +165,12 @@ function normalize(value, min, max) {
   return Math.max(0, Math.min(1, (value - min) / (max - min)));
 }
 
+function resolveCountryName(raw) {
+  if (!raw || raw.length > 3) return raw; // already a full name or long-form
+  const codes = loadCountryCodes();
+  return codes[raw]?.name || raw;
+}
+
 function makePrediction(domain, region, title, probability, confidence, timeHorizon, signals) {
   const now = Date.now();
   return {
@@ -197,10 +203,14 @@ function normalizeCiiEntry(c) {
     : rawTrend.includes('falling') ? 'falling'
     : 'stable';
   const level = score >= 81 ? 'critical' : score >= 66 ? 'high' : score >= 51 ? 'elevated' : score >= 31 ? 'normal' : 'low';
-  // Unrest component: try sebuf proto shape (ciiContribution is the primary unrest signal
-  // from get-risk-scores.ts), then frontend shape, then geoConvergence as fallback
   const unrest = c.components?.unrest ?? c.components?.protest ?? c.components?.ciiContribution ?? c.components?.geoConvergence ?? 0;
-  return { code, name: c.name || code, score, level, trend, change24h: c.change24h ?? 0, components: { ...c.components, unrest } };
+  // Resolve ISO code to full country name (prevents substring false positives: IL matching Chile)
+  let name = c.name || '';
+  if (!name && code) {
+    const codes = loadCountryCodes();
+    name = codes[code]?.name || code;
+  }
+  return { code, name, score, level, trend, change24h: c.change24h ?? 0, components: { ...c.components, unrest } };
 }
 
 function extractCiiScores(inputs) {
@@ -232,14 +242,17 @@ function detectConflictScenarios(inputs) {
       sourceCount++;
     }
 
+    // Use word-boundary regex to prevent substring false positives (IL matching Chile)
     const countryName = c.name.toLowerCase();
-    const matchingIran = iran.filter(e => (e.country || e.location || '').toLowerCase().includes(countryName));
+    const countryCode = c.code.toLowerCase();
+    const matchRegex = new RegExp(`\\b(${countryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|${countryCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i');
+    const matchingIran = iran.filter(e => matchRegex.test(e.country || e.location || ''));
     if (matchingIran.length > 0) {
       signals.push({ type: 'conflict_events', value: `${matchingIran.length} Iran-related events`, weight: 0.2 });
       sourceCount++;
     }
 
-    const matchingUcdp = ucdp.filter(e => (e.country || e.location || '').toLowerCase().includes(countryName));
+    const matchingUcdp = ucdp.filter(e => matchRegex.test(e.country || e.location || ''));
     if (matchingUcdp.length > 0) {
       signals.push({ type: 'ucdp', value: `${matchingUcdp.length} UCDP events`, weight: 0.2 });
       sourceCount++;
@@ -311,11 +324,31 @@ function detectMarketScenarios(inputs) {
     ));
   }
 
+  // Map high-CII countries to their commodity-sensitive theater via entity graph
+  const graph = loadEntityGraph();
   for (const c of scores) {
     if (!c.score || c.score <= 75) continue;
-    const countryName = c.name;
-    const matchedRegion = Object.entries(THEATER_REGIONS).find(([, r]) => r.toLowerCase().includes(countryName.toLowerCase()));
-    const region = matchedRegion?.[1];
+    // Find theater region: check entity graph links for theater nodes with commodity sensitivity
+    const nodeId = graph.aliases?.[c.code] || graph.aliases?.[c.name];
+    const node = nodeId ? graph.nodes?.[nodeId] : null;
+    let region = null;
+    if (node) {
+      for (const linkId of node.links || []) {
+        const linked = graph.nodes?.[linkId];
+        if (linked?.type === 'theater' && CHOKEPOINT_COMMODITIES[linked.name]) {
+          region = linked.name;
+          break;
+        }
+      }
+    }
+    // Fallback: direct theater region lookup
+    if (!region) {
+      const matchedTheater = Object.entries(THEATER_REGIONS).find(([id]) => {
+        const theaterId = graph.aliases?.[c.name] || graph.aliases?.[c.code];
+        return theaterId && graph.nodes?.[theaterId]?.links?.includes(id);
+      });
+      region = matchedTheater ? THEATER_REGIONS[matchedTheater[0]] : null;
+    }
     if (!region || affectedRegions.has(region)) continue;
 
     const commodity = CHOKEPOINT_COMMODITIES[region];
@@ -494,7 +527,7 @@ function detectInfraScenarios(inputs) {
       : rawSev;
     if (severity !== 'major' && severity !== 'total' && severity !== 'critical') continue;
 
-    const country = o.country || o.region || o.name || '';
+    const country = resolveCountryName(o.country || o.region || o.name || '');
     if (!country) continue;
 
     const countryLower = country.toLowerCase();
@@ -568,7 +601,7 @@ function detectCyberScenarios(inputs) {
 
   const byCountry = {};
   for (const t of threats) {
-    const country = t.country || t.target || t.region || '';
+    const country = resolveCountryName(t.country || t.target || t.region || '');
     if (!country) continue;
     if (!byCountry[country]) byCountry[country] = [];
     byCountry[country].push(t);
@@ -1313,6 +1346,7 @@ export {
   discoverGraphCascades,
   MARITIME_REGIONS,
   MARKET_TAG_TO_REGION,
+  resolveCountryName,
   loadCountryCodes,
   getSearchTermsForRegion,
   extractAllHeadlines,

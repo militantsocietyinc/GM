@@ -1,4 +1,5 @@
-import type { AppContext } from '@/types';
+// boundary-ignore: AppContext is an aggregate type that lives in app/ by design
+import type { AppContext } from '@/app/app-context';
 import type {
   DomainAdapter,
   SignalEvidence,

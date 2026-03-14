@@ -1,6 +1,7 @@
 // Core types for the correlation engine
 
-import type { AppContext } from '@/types';
+// boundary-ignore: AppContext is an aggregate type that lives in app/ by design
+import type { AppContext } from '@/app/app-context';
 
 export type CorrelationDomain = 'military' | 'escalation' | 'economic' | 'disaster';
 export type TrendDirection = 'escalating' | 'stable' | 'de-escalating';

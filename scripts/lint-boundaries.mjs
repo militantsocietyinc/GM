@@ -68,23 +68,30 @@ for (const file of srcFiles) {
     if (line.includes('boundary-ignore')) continue;
     if (i > 0 && lines[i - 1].includes('boundary-ignore')) continue;
 
-    const match = line.match(/from\s+['"]@\/(\w+)/);
-    if (!match) continue;
+    // Check both `from '@/layer'` imports and `import('@/layer')` type expressions
+    const patterns = [
+      line.match(/from\s+['"]@\/(\w+)/),
+      line.match(/import\(['"]@\/(\w+)/),
+    ];
 
-    const importLayer = match[1];
-    const importIdx = getLayerIndex(importLayer);
-    if (importIdx === -1) continue; // not a tracked layer
+    for (const match of patterns) {
+      if (!match) continue;
+      const importLayer = match[1];
+      const importIdx = getLayerIndex(importLayer);
+      if (importIdx === -1) continue; // not a tracked layer
 
-    if (importIdx > fileIdx) {
-      const rel = relative(ROOT, file);
-      violations.push({
-        file: rel,
-        line: i + 1,
-        from: fileLayer,
-        to: importLayer,
-        text: line.trim(),
-        remedy: `Move the imported type/function to a lower layer (${fileLayer} or below), or add a "boundary-ignore" comment if this is a pragmatic exception.`,
-      });
+      if (importIdx > fileIdx) {
+        const rel = relative(ROOT, file);
+        violations.push({
+          file: rel,
+          line: i + 1,
+          from: fileLayer,
+          to: importLayer,
+          text: line.trim(),
+          remedy: `Move the imported type/function to a lower layer (${fileLayer} or below), or add a "boundary-ignore" comment if this is a pragmatic exception.`,
+        });
+        break; // one violation per line is enough
+      }
     }
   }
 }

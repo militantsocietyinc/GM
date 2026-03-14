@@ -31,66 +31,27 @@ export type DataSourceId =
   | 'security_advisories'
   | 'gpsjam';
 
-export interface AppContext {
-  map: import('@/components').MapContainer | null;
-  readonly isMobile: boolean;
-  readonly isDesktopApp: boolean;
-  readonly container: HTMLElement;
+// AppContext lives in src/app/app-context.ts because it references
+// components, services, and utils (top-level aggregate type).
 
-  panels: Record<string, import('@/components').Panel>;
-  newsPanels: Record<string, import('@/components').NewsPanel>;
-  panelSettings: Record<string, PanelConfig>;
+export type HappyContentCategory =
+  | 'science-health'
+  | 'nature-wildlife'
+  | 'humanity-kindness'
+  | 'innovation-tech'
+  | 'climate-wins'
+  | 'culture-community';
 
-  mapLayers: MapLayers;
-
-  allNews: NewsItem[];
-  newsByCategory: Record<string, NewsItem[]>;
-  latestMarkets: MarketData[];
-  latestPredictions: import('@/services/prediction').PredictionMarket[];
-  latestClusters: ClusteredEvent[];
-  intelligenceCache: import('@/app/app-context').IntelligenceCache;
-  cyberThreatsCache: CyberThreat[] | null;
-
-  disabledSources: Set<string>;
-  currentTimeRange: import('@/components').TimeRange;
-
-  inFlight: Set<string>;
-  seenGeoAlerts: Set<string>;
-  monitors: Monitor[];
-
-  signalModal: import('@/components').SignalModal | null;
-  statusPanel: import('@/components').StatusPanel | null;
-  searchModal: import('@/components').SearchModal | null;
-  findingsBadge: import('@/components').IntelligenceGapBadge | null;
-  breakingBanner: import('@/components/BreakingNewsBanner').BreakingNewsBanner | null;
-  playbackControl: import('@/components').PlaybackControl | null;
-  exportPanel: import('@/utils').ExportPanel | null;
-  unifiedSettings: import('@/components/UnifiedSettings').UnifiedSettings | null;
-  pizzintIndicator: import('@/components').PizzIntIndicator | null;
-  correlationEngine: import('@/services/correlation-engine').CorrelationEngine | null;
-  llmStatusIndicator: import('@/components').LlmStatusIndicator | null;
-  countryBriefPage: import('@/components/CountryBriefPanel').CountryBriefPanel | null;
-  countryTimeline: import('@/components/CountryTimeline').CountryTimeline | null;
-
-  positivePanel: import('@/components/PositiveNewsFeedPanel').PositiveNewsFeedPanel | null;
-  countersPanel: import('@/components/CountersPanel').CountersPanel | null;
-  progressPanel: import('@/components/ProgressChartsPanel').ProgressChartsPanel | null;
-  breakthroughsPanel: import('@/components/BreakthroughsTickerPanel').BreakthroughsTickerPanel | null;
-  heroPanel: import('@/components/HeroSpotlightPanel').HeroSpotlightPanel | null;
-  digestPanel: import('@/components/GoodThingsDigestPanel').GoodThingsDigestPanel | null;
-  speciesPanel: import('@/components/SpeciesComebackPanel').SpeciesComebackPanel | null;
-  renewablePanel: import('@/components/RenewableEnergyPanel').RenewableEnergyPanel | null;
-  tvMode: import('@/services/tv-mode').TvModeController | null;
-  happyAllItems: NewsItem[];
-  isDestroyed: boolean;
-  isPlaybackMode: boolean;
-  isIdle: boolean;
-  initialLoadComplete: boolean;
-  resolvedLocation: 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
-
-  initialUrlState: import('@/utils').ParsedMapUrlState | null;
-  readonly PANEL_ORDER_KEY: string;
-  readonly PANEL_SPANS_KEY: string;
+export interface TechHQ {
+  id: string;
+  company: string;
+  city: string;
+  country: string;
+  lat: number;
+  lon: number;
+  type: 'faang' | 'unicorn' | 'public';
+  employees?: number;
+  marketCap?: string;
 }
 
 export interface DeductContextDetail {
@@ -139,7 +100,7 @@ export interface NewsItem {
   locationName?: string;
   lang?: string;
   // Happy variant: positive content category
-  happyCategory?: import('@/services/positive-classifier').HappyContentCategory;
+  happyCategory?: HappyContentCategory;
   // Image URL extracted from RSS media/enclosure tags
   imageUrl?: string;
 }
@@ -1433,7 +1394,7 @@ export interface MapTechHQCluster {
   lat: number;
   lon: number;
   count: number;
-  items: import('@/config/tech-geo').TechHQ[];
+  items: TechHQ[];
   city: string;
   country: string;
   primaryType: 'faang' | 'unicorn' | 'public';

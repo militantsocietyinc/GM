@@ -127,6 +127,10 @@ function normalize(value, min, max) {
   return Math.max(0, Math.min(1, (value - min) / (max - min)));
 }
 
+function confidenceFromSources(sourceCount, maxSources = 4) {
+  return Math.max(0.3, normalize(sourceCount, 0, maxSources));
+}
+
 function makePrediction(domain, region, title, probability, confidence, timeHorizon, signals) {
   const now = Date.now();
   return {
@@ -148,19 +152,43 @@ function makePrediction(domain, region, title, probability, confidence, timeHori
   };
 }
 
+// Normalize CII data from sebuf proto format (server-side) to uniform shape.
+// Server writes: { ciiScores: [{ region, combinedScore, trend: 'TREND_DIRECTION_RISING', components: {...} }] }
+// Frontend computes: [{ code, name, score, level, trend: 'rising', components: { unrest, conflict, ... } }]
+function normalizeCiiEntry(c) {
+  const score = c.combinedScore ?? c.score ?? c.dynamicScore ?? 0;
+  const code = c.region || c.code || '';
+  const rawTrend = (c.trend || '').toLowerCase();
+  const trend = rawTrend.includes('rising') ? 'rising'
+    : rawTrend.includes('falling') ? 'falling'
+    : 'stable';
+  const level = score >= 81 ? 'critical' : score >= 66 ? 'high' : score >= 51 ? 'elevated' : score >= 31 ? 'normal' : 'low';
+  // Unrest component: try both sebuf proto shape and frontend shape
+  const unrest = c.components?.unrest ?? c.components?.protest ?? c.components?.geoConvergence ?? 0;
+  return { code, name: c.name || code, score, level, trend, change24h: c.change24h ?? 0, components: { ...c.components, unrest } };
+}
+
+function extractCiiScores(inputs) {
+  const raw = inputs.ciiScores;
+  if (!raw) return [];
+  // sebuf proto: { ciiScores: [...] }, frontend: array or { scores: [...] }
+  const arr = Array.isArray(raw) ? raw : raw.ciiScores || raw.scores || [];
+  return arr.map(normalizeCiiEntry);
+}
+
 function detectConflictScenarios(inputs) {
   const predictions = [];
-  const scores = Array.isArray(inputs.ciiScores) ? inputs.ciiScores : inputs.ciiScores?.scores || [];
+  const scores = extractCiiScores(inputs);
   const theaters = inputs.theaterPosture?.theaters || [];
   const iran = Array.isArray(inputs.iranEvents) ? inputs.iranEvents : inputs.iranEvents?.events || [];
   const ucdp = Array.isArray(inputs.ucdpEvents) ? inputs.ucdpEvents : inputs.ucdpEvents?.events || [];
 
   for (const c of scores) {
-    if (!c?.score || c.score <= 70) continue;
+    if (!c.score || c.score <= 70) continue;
     if (c.trend !== 'rising' && c.level !== 'critical') continue;
 
     const signals = [
-      { type: 'cii', value: `${c.name || c.code} CII ${c.score} (${c.level})`, weight: 0.4 },
+      { type: 'cii', value: `${c.name} CII ${c.score} (${c.level})`, weight: 0.4 },
     ];
     let sourceCount = 1;
 
@@ -169,7 +197,7 @@ function detectConflictScenarios(inputs) {
       sourceCount++;
     }
 
-    const countryName = (c.name || c.code || '').toLowerCase();
+    const countryName = c.name.toLowerCase();
     const matchingIran = iran.filter(e => (e.country || e.location || '').toLowerCase().includes(countryName));
     if (matchingIran.length > 0) {
       signals.push({ type: 'conflict_events', value: `${matchingIran.length} Iran-related events`, weight: 0.2 });
@@ -185,12 +213,11 @@ function detectConflictScenarios(inputs) {
     const ciiNorm = normalize(c.score, 50, 100);
     const eventBoost = (matchingIran.length + matchingUcdp.length) > 0 ? 0.1 : 0;
     const prob = Math.min(0.9, ciiNorm * 0.6 + eventBoost + (c.trend === 'rising' ? 0.1 : 0));
-    const confidence = normalize(sourceCount, 1, 4);
-    const region = c.name || c.code || 'Unknown';
+    const confidence = confidenceFromSources(sourceCount);
 
     predictions.push(makePrediction(
-      'conflict', region,
-      `Escalation risk: ${c.name || c.code}`,
+      'conflict', c.name,
+      `Escalation risk: ${c.name}`,
       prob, confidence, '7d', signals,
     ));
   }
@@ -221,7 +248,7 @@ function detectConflictScenarios(inputs) {
 function detectMarketScenarios(inputs) {
   const predictions = [];
   const chokepoints = inputs.chokepoints?.routes || inputs.chokepoints?.chokepoints || [];
-  const scores = Array.isArray(inputs.ciiScores) ? inputs.ciiScores : inputs.ciiScores?.scores || [];
+  const scores = extractCiiScores(inputs);
 
   const affectedRegions = new Set();
 
@@ -250,8 +277,8 @@ function detectMarketScenarios(inputs) {
   }
 
   for (const c of scores) {
-    if (!c?.score || c.score <= 75) continue;
-    const countryName = c.name || c.code || '';
+    if (!c.score || c.score <= 75) continue;
+    const countryName = c.name;
     const matchedRegion = Object.entries(THEATER_REGIONS).find(([, r]) => r.toLowerCase().includes(countryName.toLowerCase()));
     const region = matchedRegion?.[1];
     if (!region || affectedRegions.has(region)) continue;
@@ -313,7 +340,7 @@ function detectSupplyChainScenarios(inputs) {
 
     const riskNorm = normalize(cp.riskScore || 70, 40, 100);
     const prob = Math.min(0.85, riskNorm * 0.7 + (aisGaps.length > 0 ? 0.1 : 0) + (nearbyJam.length > 0 ? 0.05 : 0));
-    const confidence = normalize(sourceCount, 1, 3);
+    const confidence = confidenceFromSources(sourceCount);
 
     predictions.push(makePrediction(
       'supply_chain', cp.region || route,
@@ -327,18 +354,18 @@ function detectSupplyChainScenarios(inputs) {
 
 function detectPoliticalScenarios(inputs) {
   const predictions = [];
-  const scores = Array.isArray(inputs.ciiScores) ? inputs.ciiScores : inputs.ciiScores?.scores || [];
+  const scores = extractCiiScores(inputs);
   const anomalies = Array.isArray(inputs.temporalAnomalies) ? inputs.temporalAnomalies : inputs.temporalAnomalies?.anomalies || [];
 
   for (const c of scores) {
-    if (!c?.components) continue;
-    const unrestComp = c.components.unrest ?? c.components.protest ?? 0;
+    if (!c.components) continue;
+    const unrestComp = c.components.unrest ?? 0;
     if (unrestComp <= 50) continue;
     if (c.score >= 80) continue;
 
-    const countryName = (c.name || c.code || '').toLowerCase();
+    const countryName = c.name.toLowerCase();
     const signals = [
-      { type: 'unrest', value: `${c.name || c.code} unrest component: ${unrestComp}`, weight: 0.4 },
+      { type: 'unrest', value: `${c.name} unrest component: ${unrestComp}`, weight: 0.4 },
     ];
     let sourceCount = 1;
 
@@ -355,11 +382,11 @@ function detectPoliticalScenarios(inputs) {
     const unrestNorm = normalize(unrestComp, 30, 100);
     const anomalyBoost = protestAnomalies.length > 0 ? 0.1 : 0;
     const prob = Math.min(0.8, unrestNorm * 0.6 + anomalyBoost);
-    const confidence = normalize(sourceCount, 1, 3);
+    const confidence = confidenceFromSources(sourceCount);
 
     predictions.push(makePrediction(
-      'political', c.name || c.code || 'Unknown',
-      `Political instability: ${c.name || c.code}`,
+      'political', c.name,
+      `Political instability: ${c.name}`,
       prob, confidence, '30d', signals,
     ));
   }
@@ -404,7 +431,7 @@ function detectMilitaryScenarios(inputs) {
     const baseLine = posture === 'critical' ? 0.6 : 0.35;
     const flightBoost = milFlights.length > 0 ? 0.1 : 0;
     const prob = Math.min(0.85, baseLine + flightBoost);
-    const confidence = normalize(sourceCount, 1, 3);
+    const confidence = confidenceFromSources(sourceCount);
 
     predictions.push(makePrediction(
       'military', region,
@@ -423,7 +450,13 @@ function detectInfraScenarios(inputs) {
   const jamming = Array.isArray(inputs.gpsJamming) ? inputs.gpsJamming : inputs.gpsJamming?.zones || [];
 
   for (const o of outages) {
-    const severity = (o.severity || o.type || '').toLowerCase();
+    const rawSev = (o.severity || o.type || '').toLowerCase();
+    // Handle both plain strings and proto enums (SEVERITY_LEVEL_HIGH, SEVERITY_LEVEL_CRITICAL)
+    const severity = rawSev.includes('critical') ? 'critical'
+      : rawSev.includes('high') ? 'major'
+      : rawSev.includes('total') ? 'total'
+      : rawSev.includes('major') ? 'major'
+      : rawSev;
     if (severity !== 'major' && severity !== 'total' && severity !== 'critical') continue;
 
     const country = o.country || o.region || o.name || '';
@@ -455,7 +488,7 @@ function detectInfraScenarios(inputs) {
     const jamBoost = nearbyJam.length > 0 ? 0.05 : 0;
     const baseLine = severity === 'total' ? 0.55 : 0.4;
     const prob = Math.min(0.85, baseLine + cyberBoost + jamBoost);
-    const confidence = normalize(sourceCount, 1, 3);
+    const confidence = confidenceFromSources(sourceCount);
 
     predictions.push(makePrediction(
       'infrastructure', country,
@@ -580,7 +613,10 @@ if (_isDirectRun) {
 export {
   forecastId,
   normalize,
+  confidenceFromSources,
   makePrediction,
+  normalizeCiiEntry,
+  extractCiiScores,
   resolveCascades,
   calibrateWithMarkets,
   computeTrends,

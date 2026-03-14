@@ -297,7 +297,14 @@ export function installRuntimeFetchPatch(): void {
       if (!allowCloudFallback) {
         throw new Error(`Cloud fallback blocked for ${target}`);
       }
-      const cloudUrl = `${getRemoteApiBaseUrl()}${target}`;
+      const remoteBase = getRemoteApiBaseUrl();
+      // On desktop the remote base is often empty (no cloud configured). A relative
+      // URL would resolve to tauri://localhost/api/... which WKWebView cannot fetch
+      // and throws "The string did not match the expected pattern". Block that path.
+      if (!remoteBase || !/^https?:\/\//i.test(remoteBase)) {
+        throw new Error(`No valid remote API base configured for desktop (${target})`);
+      }
+      const cloudUrl = `${remoteBase}${target}`;
       if (debug) console.log(`[fetch] cloud fallback → ${cloudUrl}`);
       const cloudHeaders = new Headers(init?.headers);
       return nativeFetch(cloudUrl, { ...init, headers: cloudHeaders });

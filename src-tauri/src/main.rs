@@ -1321,8 +1321,8 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
     *slot = Some(child);
     drop(slot);
 
-    // Wait for sidecar to write confirmed port (up to 5s)
-    if let Some(confirmed_port) = read_port_file(&port_file, 5000) {
+    // Wait for sidecar to write confirmed port (up to 15s — Node.js ESM startup can be slow)
+    if let Some(confirmed_port) = read_port_file(&port_file, 15000) {
         append_desktop_log(
             app,
             "INFO",

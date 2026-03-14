@@ -2280,8 +2280,31 @@ export async function createLocalApiServer(options = {}) {
         await tryListen(context.port);
       } catch (err) {
         if (err?.code === 'EADDRINUSE') {
-          context.logger.log(`[local-api] port ${context.port} busy, falling back to OS-assigned port`);
-          await tryListen(0);
+          // Port is occupied — likely an orphaned sidecar from a previous session
+          // (e.g. force-quit left a child process alive). Kill it and reclaim the port
+          // so the new session token stays consistent.
+          let reclaimed = false;
+          try {
+            const { execFileSync } = await import('node:child_process');
+            const raw = execFileSync('lsof',
+              ['-t', '-i', `TCP:${context.port}`, '-sTCP:LISTEN'],
+              { timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] }
+            ).toString().trim();
+            const pids = raw.split('\n').map(s => parseInt(s, 10)).filter(n => n && n !== process.pid);
+            for (const pid of pids) {
+              try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
+            }
+            context.logger.log(`[local-api] reclaimed port ${context.port} from orphan pid(s): ${pids.join(',')}`);
+            // Give the OS ~500 ms to fully release the socket before rebinding.
+            await new Promise(r => setTimeout(r, 500));
+            await tryListen(context.port);
+            reclaimed = true;
+          } catch (reclaimErr) {
+            context.logger.log(`[local-api] port reclaim failed (${reclaimErr.message}), falling back to OS-assigned port`);
+          }
+          if (!reclaimed) {
+            await tryListen(0);
+          }
         } else {
           throw err;
         }

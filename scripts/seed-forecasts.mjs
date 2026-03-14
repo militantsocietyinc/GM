@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { loadEnvFile, runSeed, CHROME_UA } from './_seed-utils.mjs';
 import { tagRegions } from './_prediction-scoring.mjs';
 
@@ -501,26 +502,90 @@ function detectInfraScenarios(inputs) {
   return predictions;
 }
 
-const CASCADE_RULES = [
-  { from: 'conflict', to: 'supply_chain', coupling: 0.6, mechanism: 'chokepoint disruption', condition: (p) => CHOKEPOINT_COMMODITIES[p.region] },
-  { from: 'conflict', to: 'market', coupling: 0.5, mechanism: 'commodity price shock', condition: (p) => CHOKEPOINT_COMMODITIES[p.region] },
-  { from: 'political', to: 'conflict', coupling: 0.4, mechanism: 'instability escalation', condition: (p) => p.probability > 0.6 },
-  { from: 'military', to: 'conflict', coupling: 0.5, mechanism: 'force deployment', condition: (p) => p.signals.some(s => s.type === 'theater' && s.value.includes('critical')) },
+// ── Phase 3: Data-driven cascade rules ─────────────────────
+const DEFAULT_CASCADE_RULES = [
+  { from: 'conflict', to: 'supply_chain', coupling: 0.6, mechanism: 'chokepoint disruption', requiresChokepoint: true },
+  { from: 'conflict', to: 'market', coupling: 0.5, mechanism: 'commodity price shock', requiresChokepoint: true },
+  { from: 'political', to: 'conflict', coupling: 0.4, mechanism: 'instability escalation', minProbability: 0.6 },
+  { from: 'military', to: 'conflict', coupling: 0.5, mechanism: 'force deployment', requiresCriticalPosture: true },
   { from: 'supply_chain', to: 'market', coupling: 0.4, mechanism: 'supply shortage pricing' },
 ];
 
-function resolveCascades(predictions) {
+const PREDICATE_EVALUATORS = {
+  requiresChokepoint: (pred) => !!CHOKEPOINT_COMMODITIES[pred.region],
+  requiresCriticalPosture: (pred) => pred.signals.some(s => s.type === 'theater' && s.value.includes('critical')),
+  minProbability: (pred, val) => pred.probability >= val,
+  requiresSeverity: (pred, val) => pred.signals.some(s => s.type === 'outage' && s.value.toLowerCase().includes(val)),
+};
+
+function evaluateRuleConditions(rule, pred) {
+  for (const [key, val] of Object.entries(rule)) {
+    if (['from', 'to', 'coupling', 'mechanism'].includes(key)) continue;
+    const evaluator = PREDICATE_EVALUATORS[key];
+    if (!evaluator) continue;
+    if (!evaluator(pred, val)) return false;
+  }
+  return true;
+}
+
+function loadCascadeRules() {
+  try {
+    const rulesPath = new URL('./data/cascade-rules.json', import.meta.url);
+    const raw = JSON.parse(readFileSync(rulesPath, 'utf8'));
+    if (!Array.isArray(raw)) throw new Error('cascade rules must be array');
+    const KNOWN_FIELDS = new Set(['from', 'to', 'coupling', 'mechanism', ...Object.keys(PREDICATE_EVALUATORS)]);
+    for (const r of raw) {
+      if (!r.from || !r.to || typeof r.coupling !== 'number' || !r.mechanism) {
+        throw new Error(`invalid rule: ${JSON.stringify(r)}`);
+      }
+      for (const key of Object.keys(r)) {
+        if (!KNOWN_FIELDS.has(key)) throw new Error(`unknown predicate '${key}' in rule: ${r.mechanism}`);
+      }
+    }
+    console.log(`  [Cascade] Loaded ${raw.length} rules from JSON`);
+    return raw;
+  } catch (err) {
+    console.warn(`  [Cascade] Failed to load rules: ${err.message}, using defaults`);
+    return DEFAULT_CASCADE_RULES;
+  }
+}
+
+function resolveCascades(predictions, rules) {
   const seen = new Set();
-  for (const rule of CASCADE_RULES) {
+  for (const rule of rules) {
     const sources = predictions.filter(p => p.domain === rule.from);
     for (const src of sources) {
-      if (rule.condition && !rule.condition(src)) continue;
+      if (!evaluateRuleConditions(rule, src)) continue;
       const cascadeProb = Math.min(0.8, src.probability * rule.coupling);
       const key = `${src.id}:${rule.to}:${rule.mechanism}`;
       if (seen.has(key)) continue;
       seen.add(key);
       src.cascades.push({ domain: rule.to, effect: rule.mechanism, probability: +cascadeProb.toFixed(3) });
     }
+  }
+}
+
+// ── Phase 3: Probability projections ───────────────────────
+const PROJECTION_CURVES = {
+  conflict:       { h24: 0.91, d7: 1.0, d30: 0.78 },
+  market:         { h24: 1.0, d7: 0.58, d30: 0.42 },
+  supply_chain:   { h24: 0.91, d7: 1.0, d30: 0.64 },
+  political:      { h24: 0.83, d7: 0.87, d30: 1.0 },
+  military:       { h24: 1.0, d7: 0.91, d30: 0.65 },
+  infrastructure: { h24: 1.0, d7: 0.5, d30: 0.25 },
+};
+
+function computeProjections(predictions) {
+  for (const pred of predictions) {
+    const curve = PROJECTION_CURVES[pred.domain] || { h24: 1, d7: 1, d30: 1 };
+    const anchor = pred.timeHorizon === '24h' ? 'h24' : pred.timeHorizon === '30d' ? 'd30' : 'd7';
+    const anchorMult = curve[anchor] || 1;
+    const base = anchorMult > 0 ? pred.probability / anchorMult : pred.probability;
+    pred.projections = {
+      h24: Math.round(Math.min(0.95, Math.max(0.01, base * curve.h24)) * 1000) / 1000,
+      d7:  Math.round(Math.min(0.95, Math.max(0.01, base * curve.d7)) * 1000) / 1000,
+      d30: Math.round(Math.min(0.95, Math.max(0.01, base * curve.d30)) * 1000) / 1000,
+    };
   }
 }
 
@@ -626,6 +691,36 @@ BAD EXAMPLE (too generic, no signal values):
 
 Respond with ONLY a JSON array: [{"index": 0, "scenario": "..."}, ...]`;
 
+// Phase 3: Combined scenario + perspectives prompt for top-2 predictions
+const COMBINED_SYSTEM_PROMPT = `You are a senior geopolitical intelligence analyst. For each prediction:
+
+1. Write a SCENARIO (2-3 sentences, evidence-grounded, citing signal values)
+2. Write 3 PERSPECTIVES (1-2 sentences each):
+   - STRATEGIC: Neutral analysis of what signals indicate
+   - REGIONAL: What this means for actors in the affected region
+   - CONTRARIAN: What factors could prevent or reverse this outcome
+
+RULES:
+- Every sentence MUST cite a specific signal value from the data
+- Base everything on provided data, not your knowledge
+- Do NOT use hedging without a data point
+
+Output JSON array:
+[{"index": 0, "scenario": "...", "strategic": "...", "regional": "...", "contrarian": "..."}, ...]`;
+
+function validatePerspectives(items, predictions) {
+  if (!Array.isArray(items)) return [];
+  return items.filter(item => {
+    if (typeof item.index !== 'number' || item.index < 0 || item.index >= predictions.length) return false;
+    for (const key of ['strategic', 'regional', 'contrarian']) {
+      if (typeof item[key] !== 'string') return false;
+      item[key] = item[key].replace(/<[^>]*>/g, '').trim().slice(0, 300);
+      if (item[key].length < 20) return false;
+    }
+    return true;
+  });
+}
+
 function sanitizeForPrompt(text) {
   return (text || '').replace(/[\n\r]/g, ' ').replace(/[<>{}\x00-\x1f]/g, '').slice(0, 200).trim();
 }
@@ -715,60 +810,113 @@ async function redisSet(url, token, key, data, ttlSeconds) {
   } catch { /* non-fatal cache write */ }
 }
 
-async function enrichScenariosWithLLM(predictions) {
-  const top = predictions.slice(0, 4);
-  if (top.length === 0) return;
-
-  const { url, token } = getRedisCredentials();
-  const inputHash = crypto.createHash('sha256')
-    .update(JSON.stringify(top.map(p => ({ id: p.id, d: p.domain, r: p.region, p: p.probability }))))
+function buildCacheHash(preds) {
+  return crypto.createHash('sha256')
+    .update(JSON.stringify(preds.map(p => ({
+      id: p.id, d: p.domain, r: p.region, p: p.probability,
+      s: p.signals.map(s => s.value).join(','),
+      c: p.calibration?.drift,
+      n: (p.newsContext || []).join(','),
+    }))))
     .digest('hex').slice(0, 16);
-  const cacheKey = `forecast:llm-scenarios:${inputHash}`;
+}
 
-  const cached = await redisGet(url, token, cacheKey);
-  if (cached?.scenarios) {
-    let applied = 0;
-    for (const s of cached.scenarios) {
-      if (s.index >= 0 && s.index < top.length && s.scenario) {
-        top[s.index].scenario = s.scenario;
-        applied++;
-      }
-    }
-    console.log(JSON.stringify({ event: 'llm_scenario', cached: true, applied, inputHash }));
-    return;
-  }
-
-  const t0 = Date.now();
-  const headlines = (top[0]?.newsContext || []).map(h => `- ${sanitizeForPrompt(h)}`).join('\n');
-  const predsText = top.map((p, i) => {
+function buildUserPrompt(preds) {
+  const headlines = (preds[0]?.newsContext || []).map(h => `- ${sanitizeForPrompt(h)}`).join('\n');
+  const predsText = preds.map((p, i) => {
     const sigs = p.signals.map(s => `[SIGNAL] ${sanitizeForPrompt(s.value)}`).join('\n');
     const cal = p.calibration ? `\n[CALIBRATION] ${sanitizeForPrompt(p.calibration.marketTitle)} at ${Math.round(p.calibration.marketPrice * 100)}%` : '';
     return `[${i}] "${sanitizeForPrompt(p.title)}" (${p.domain}, ${p.region})\nProbability: ${Math.round(p.probability * 100)}% | Horizon: ${p.timeHorizon}\n${sigs}${cal}`;
   }).join('\n\n');
+  return headlines ? `Current top headlines:\n${headlines}\n\nPredictions to analyze:\n\n${predsText}` : `Predictions to analyze:\n\n${predsText}`;
+}
 
-  const userPrompt = headlines ? `Current top headlines:\n${headlines}\n\nPredictions to analyze:\n\n${predsText}` : `Predictions to analyze:\n\n${predsText}`;
+async function enrichScenariosWithLLM(predictions) {
+  if (predictions.length === 0) return;
+  const { url, token } = getRedisCredentials();
 
-  const result = await callForecastLLM(SCENARIO_SYSTEM_PROMPT, userPrompt);
-  if (!result) {
-    console.warn('  [LLM] All providers failed, scenarios will be empty');
-    return;
+  // Phase 3: Top-2 get combined scenario + perspectives
+  const topWithPerspectives = predictions.slice(0, 2);
+  const scenarioOnly = predictions.slice(2, 4);
+
+  // Call 1: Combined scenario + perspectives for top-2
+  if (topWithPerspectives.length > 0) {
+    const hash = buildCacheHash(topWithPerspectives);
+    const cacheKey = `forecast:llm-combined:${hash}`;
+    const cached = await redisGet(url, token, cacheKey);
+
+    if (cached?.items) {
+      for (const item of cached.items) {
+        if (item.index >= 0 && item.index < topWithPerspectives.length) {
+          if (item.scenario) topWithPerspectives[item.index].scenario = item.scenario;
+          if (item.strategic) topWithPerspectives[item.index].perspectives = { strategic: item.strategic, regional: item.regional, contrarian: item.contrarian };
+        }
+      }
+      console.log(JSON.stringify({ event: 'llm_combined', cached: true, count: cached.items.length, hash }));
+    } else {
+      const t0 = Date.now();
+      const result = await callForecastLLM(COMBINED_SYSTEM_PROMPT, buildUserPrompt(topWithPerspectives));
+      if (result) {
+        const raw = parseLLMScenarios(result.text);
+        const validScenarios = validateScenarios(raw, topWithPerspectives);
+        const validPerspectives = validatePerspectives(raw, topWithPerspectives);
+
+        for (const s of validScenarios) {
+          topWithPerspectives[s.index].scenario = s.scenario;
+        }
+        for (const p of validPerspectives) {
+          topWithPerspectives[p.index].perspectives = { strategic: p.strategic, regional: p.regional, contrarian: p.contrarian };
+        }
+
+        const items = (raw || []).filter(r => typeof r.index === 'number').map(r => ({
+          index: r.index, scenario: r.scenario,
+          strategic: r.strategic, regional: r.regional, contrarian: r.contrarian,
+        }));
+
+        console.log(JSON.stringify({
+          event: 'llm_combined', provider: result.provider, model: result.model,
+          hash, count: topWithPerspectives.length,
+          scenarios: validScenarios.length, perspectives: validPerspectives.length,
+          latencyMs: Math.round(Date.now() - t0), cached: false,
+        }));
+
+        if (items.length > 0) await redisSet(url, token, cacheKey, { items }, 3600);
+      } else {
+        console.warn('  [LLM] Combined call failed');
+      }
+    }
   }
 
-  const raw = parseLLMScenarios(result.text);
-  const valid = validateScenarios(raw, top);
+  // Call 2: Scenario-only for predictions 3-4
+  if (scenarioOnly.length > 0) {
+    const hash = buildCacheHash(scenarioOnly);
+    const cacheKey = `forecast:llm-scenarios:${hash}`;
+    const cached = await redisGet(url, token, cacheKey);
 
-  for (const s of valid) {
-    top[s.index].scenario = s.scenario;
-  }
+    if (cached?.scenarios) {
+      for (const s of cached.scenarios) {
+        if (s.index >= 0 && s.index < scenarioOnly.length && s.scenario) {
+          scenarioOnly[s.index].scenario = s.scenario;
+        }
+      }
+      console.log(JSON.stringify({ event: 'llm_scenario', cached: true, count: cached.scenarios.length, hash }));
+    } else {
+      const t0 = Date.now();
+      const result = await callForecastLLM(SCENARIO_SYSTEM_PROMPT, buildUserPrompt(scenarioOnly));
+      if (result) {
+        const raw = parseLLMScenarios(result.text);
+        const valid = validateScenarios(raw, scenarioOnly);
+        for (const s of valid) { scenarioOnly[s.index].scenario = s.scenario; }
 
-  console.log(JSON.stringify({
-    event: 'llm_scenario', provider: result.provider, model: result.model,
-    inputHash, predictionsCount: top.length, scenariosProduced: valid.length,
-    latencyMs: Math.round(Date.now() - t0), cached: false,
-  }));
+        console.log(JSON.stringify({
+          event: 'llm_scenario', provider: result.provider, model: result.model,
+          hash, count: scenarioOnly.length, scenarios: valid.length,
+          latencyMs: Math.round(Date.now() - t0), cached: false,
+        }));
 
-  if (valid.length > 0) {
-    await redisSet(url, token, cacheKey, { scenarios: valid }, 3600);
+        if (valid.length > 0) await redisSet(url, token, cacheKey, { scenarios: valid }, 3600);
+      }
+    }
   }
 }
 
@@ -793,7 +941,9 @@ async function fetchForecasts() {
   attachNewsContext(predictions, inputs.newsInsights);
   calibrateWithMarkets(predictions, inputs.predictionMarkets);
   computeConfidence(predictions);
-  resolveCascades(predictions);
+  computeProjections(predictions);
+  const cascadeRules = loadCascadeRules();
+  resolveCascades(predictions, cascadeRules);
   computeTrends(predictions, prior);
 
   predictions.sort((a, b) => (b.probability * b.confidence) - (a.probability * a.confidence));
@@ -836,11 +986,17 @@ export {
   detectPoliticalScenarios,
   detectMilitaryScenarios,
   detectInfraScenarios,
-  CASCADE_RULES,
   attachNewsContext,
   computeConfidence,
   sanitizeForPrompt,
   parseLLMScenarios,
   validateScenarios,
+  validatePerspectives,
+  computeProjections,
+  loadCascadeRules,
+  evaluateRuleConditions,
   SIGNAL_TO_SOURCE,
+  PREDICATE_EVALUATORS,
+  DEFAULT_CASCADE_RULES,
+  PROJECTION_CURVES,
 };

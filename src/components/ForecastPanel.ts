@@ -49,6 +49,10 @@ function injectStyles(): void {
     .fc-bar { height: 3px; border-radius: 1.5px; margin-top: 3px; background: var(--border-color, #333); }
     .fc-bar-fill { height: 100%; border-radius: 1.5px; }
     .fc-empty { padding: 20px; text-align: center; color: var(--text-secondary, #888); }
+    .fc-projections { font-size: 10px; color: var(--text-secondary, #777); margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .fc-perspectives { margin-top: 4px; }
+    .fc-perspective { font-size: 11px; color: var(--text-secondary, #999); padding: 2px 0; line-height: 1.4; }
+    .fc-perspective strong { color: var(--text-primary, #ccc); font-weight: 600; }
   `;
   document.head.appendChild(style);
 }
@@ -137,6 +141,21 @@ export class ForecastPanel extends Panel {
       ? `<div class="fc-calibration">Market: ${escapeHtml(f.calibration.marketTitle)} (${Math.round((f.calibration.marketPrice || 0) * 100)}%)</div>`
       : '';
 
+    const proj = (f as any).projections;
+    const projectionsHtml = proj
+      ? `<div class="fc-projections">24h: ${Math.round(proj.h24 * 100)}% | 7d: ${Math.round(proj.d7 * 100)}% | 30d: ${Math.round(proj.d30 * 100)}%</div>`
+      : '';
+
+    const persp = (f as any).perspectives;
+    const perspectivesHtml = persp?.strategic
+      ? `<span class="fc-toggle" data-fc-toggle>Perspectives</span>
+         <div class="fc-perspectives fc-hidden">
+           <div class="fc-perspective"><strong>Strategic:</strong> ${escapeHtml(persp.strategic)}</div>
+           <div class="fc-perspective"><strong>Regional:</strong> ${escapeHtml(persp.regional || '')}</div>
+           <div class="fc-perspective"><strong>Contrarian:</strong> ${escapeHtml(persp.contrarian || '')}</div>
+         </div>`
+      : '';
+
     return `
       <div class="fc-card">
         <div class="fc-header">
@@ -144,8 +163,10 @@ export class ForecastPanel extends Panel {
           <span class="fc-prob ${probClass}">${pct}%</span>
         </div>
         <div class="fc-bar"><div class="fc-bar-fill" style="width:${pct}%;background:${probColor}"></div></div>
+        ${projectionsHtml}
         <div class="fc-meta">${escapeHtml(f.region)} | ${escapeHtml(f.timeHorizon || '7d')} | <span class="${trendClass}">${f.trend || 'stable'}</span></div>
         ${scenarioHtml}
+        ${perspectivesHtml}
         <span class="fc-toggle" data-fc-toggle>Signals (${(f.signals || []).length})</span>
         <div class="fc-signals fc-hidden">${signalsHtml}</div>
         ${cascadesHtml}

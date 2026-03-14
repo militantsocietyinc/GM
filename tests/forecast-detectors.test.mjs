@@ -19,7 +19,14 @@ import {
   sanitizeForPrompt,
   parseLLMScenarios,
   validateScenarios,
+  validatePerspectives,
+  computeProjections,
+  loadCascadeRules,
+  evaluateRuleConditions,
   SIGNAL_TO_SOURCE,
+  PREDICATE_EVALUATORS,
+  DEFAULT_CASCADE_RULES,
+  PROJECTION_CURVES,
 } from '../scripts/seed-forecasts.mjs';
 
 describe('forecastId', () => {
@@ -83,7 +90,7 @@ describe('resolveCascades', () => {
       0.7, 0.6, '7d', [{ type: 'cii', value: 'Iran CII 85', weight: 0.4 }],
     );
     const predictions = [pred];
-    resolveCascades(predictions);
+    resolveCascades(predictions, DEFAULT_CASCADE_RULES);
     const domains = pred.cascades.map(c => c.domain);
     assert.ok(domains.includes('supply_chain'), 'should have supply_chain cascade');
     assert.ok(domains.includes('market'), 'should have market cascade');
@@ -94,7 +101,7 @@ describe('resolveCascades', () => {
       'conflict', 'Middle East', 'Escalation risk: Iran',
       0.99, 0.9, '7d', [{ type: 'cii', value: 'high', weight: 0.4 }],
     );
-    resolveCascades([pred]);
+    resolveCascades([pred], DEFAULT_CASCADE_RULES);
     for (const c of pred.cascades) {
       assert.ok(c.probability <= 0.8, `cascade probability ${c.probability} should be <= 0.8`);
     }
@@ -105,7 +112,7 @@ describe('resolveCascades', () => {
       'conflict', 'Middle East', 'Escalation risk: Iran',
       0.7, 0.6, '7d', [{ type: 'cii', value: 'test', weight: 0.4 }],
     );
-    resolveCascades([pred]);
+    resolveCascades([pred], DEFAULT_CASCADE_RULES);
     const keys = pred.cascades.map(c => `${c.domain}:${c.effect}`);
     const unique = new Set(keys);
     assert.equal(keys.length, unique.size, 'no duplicate cascade entries within one resolution');
@@ -116,7 +123,7 @@ describe('resolveCascades', () => {
       'conflict', 'Middle East', 'Escalation',
       0.7, 0.6, '7d', [{ type: 'cii', value: 'test', weight: 0.4 }],
     );
-    resolveCascades([pred]);
+    resolveCascades([pred], DEFAULT_CASCADE_RULES);
     for (const c of pred.cascades) {
       assert.notEqual(c.domain, pred.domain, `cascade domain ${c.domain} should differ from source ${pred.domain}`);
     }
@@ -127,7 +134,7 @@ describe('resolveCascades', () => {
       'political', 'Iran', 'Political instability',
       0.65, 0.5, '30d', [{ type: 'unrest', value: 'unrest', weight: 0.4 }],
     );
-    resolveCascades([pred]);
+    resolveCascades([pred], DEFAULT_CASCADE_RULES);
     const domains = pred.cascades.map(c => c.domain);
     assert.ok(domains.includes('conflict'), 'political instability should cascade to conflict');
   });
@@ -137,7 +144,7 @@ describe('resolveCascades', () => {
       'political', 'Iran', 'Political instability',
       0.5, 0.5, '30d', [{ type: 'unrest', value: 'unrest', weight: 0.4 }],
     );
-    resolveCascades([pred]);
+    resolveCascades([pred], DEFAULT_CASCADE_RULES);
     assert.equal(pred.cascades.length, 0);
   });
 });
@@ -588,5 +595,153 @@ describe('validateScenarios', () => {
   it('handles null/non-array input', () => {
     assert.deepEqual(validateScenarios(null, preds), []);
     assert.deepEqual(validateScenarios('not array', preds), []);
+  });
+});
+
+// ── Phase 3 Tests ──────────────────────────────────────────
+
+describe('computeProjections', () => {
+  it('anchors projection to timeHorizon', () => {
+    const p = makePrediction('conflict', 'Iran', 'test', 0.5, 0.5, '7d', []);
+    computeProjections([p]);
+    assert.ok(p.projections);
+    // probability should equal the d7 projection (anchored to 7d)
+    assert.equal(p.projections.d7, p.probability);
+  });
+
+  it('different domains produce different curves', () => {
+    const conflict = makePrediction('conflict', 'A', 'a', 0.5, 0.5, '7d', []);
+    const infra = makePrediction('infrastructure', 'B', 'b', 0.5, 0.5, '24h', []);
+    computeProjections([conflict, infra]);
+    assert.notEqual(conflict.projections.d30, infra.projections.d30);
+  });
+
+  it('caps at 0.95', () => {
+    const p = makePrediction('conflict', 'Iran', 'test', 0.9, 0.5, '7d', []);
+    computeProjections([p]);
+    assert.ok(p.projections.h24 <= 0.95);
+    assert.ok(p.projections.d7 <= 0.95);
+    assert.ok(p.projections.d30 <= 0.95);
+  });
+
+  it('floors at 0.01', () => {
+    const p = makePrediction('infrastructure', 'A', 'test', 0.02, 0.5, '24h', []);
+    computeProjections([p]);
+    assert.ok(p.projections.d30 >= 0.01);
+  });
+
+  it('unknown domain defaults to multiplier 1', () => {
+    const p = makePrediction('unknown_domain', 'X', 'test', 0.5, 0.5, '7d', []);
+    computeProjections([p]);
+    assert.equal(p.projections.h24, 0.5);
+    assert.equal(p.projections.d7, 0.5);
+    assert.equal(p.projections.d30, 0.5);
+  });
+});
+
+describe('validatePerspectives', () => {
+  const preds = [makePrediction('conflict', 'Iran', 'test', 0.5, 0.5, '7d', [
+    { type: 'cii', value: 'Iran CII 87', weight: 0.4 },
+  ])];
+
+  it('accepts valid perspectives', () => {
+    const items = [{
+      index: 0,
+      strategic: 'The CII data shows critical instability with a score of 87 in the conflict region.',
+      regional: 'Regional actors face mounting pressure from the elevated CII threat level.',
+      contrarian: 'Despite CII readings, diplomatic channels remain open and could defuse tensions.',
+    }];
+    const valid = validatePerspectives(items, preds);
+    assert.equal(valid.length, 1);
+  });
+
+  it('rejects too-short perspectives', () => {
+    const items = [{ index: 0, strategic: 'Short.', regional: 'Also short.', contrarian: 'Nope.' }];
+    assert.equal(validatePerspectives(items, preds).length, 0);
+  });
+
+  it('strips HTML before length check', () => {
+    const items = [{
+      index: 0,
+      strategic: '<b><i><span>x</span></i></b>',
+      regional: 'Valid regional perspective with enough characters here.',
+      contrarian: 'Valid contrarian perspective with enough characters here.',
+    }];
+    assert.equal(validatePerspectives(items, preds).length, 0);
+  });
+
+  it('handles null input', () => {
+    assert.deepEqual(validatePerspectives(null, preds), []);
+  });
+
+  it('rejects out-of-bounds index', () => {
+    const items = [{
+      index: 5,
+      strategic: 'Valid strategic perspective with sufficient length.',
+      regional: 'Valid regional perspective with sufficient length too.',
+      contrarian: 'Valid contrarian perspective with sufficient length too.',
+    }];
+    assert.equal(validatePerspectives(items, preds).length, 0);
+  });
+});
+
+describe('loadCascadeRules', () => {
+  it('loads rules from JSON file', () => {
+    const rules = loadCascadeRules();
+    assert.ok(Array.isArray(rules));
+    assert.ok(rules.length >= 5);
+  });
+
+  it('each rule has required fields', () => {
+    const rules = loadCascadeRules();
+    for (const r of rules) {
+      assert.ok(r.from, 'missing from');
+      assert.ok(r.to, 'missing to');
+      assert.ok(typeof r.coupling === 'number', 'coupling must be number');
+      assert.ok(r.mechanism, 'missing mechanism');
+    }
+  });
+
+  it('includes new Phase 3 rules', () => {
+    const rules = loadCascadeRules();
+    const infraToSupply = rules.find(r => r.from === 'infrastructure' && r.to === 'supply_chain');
+    assert.ok(infraToSupply, 'infrastructure -> supply_chain rule missing');
+    assert.equal(infraToSupply.requiresSeverity, 'total');
+  });
+});
+
+describe('evaluateRuleConditions', () => {
+  it('requiresChokepoint passes for chokepoint region', () => {
+    const pred = makePrediction('conflict', 'Middle East', 'test', 0.5, 0.5, '7d', []);
+    assert.ok(evaluateRuleConditions({ requiresChokepoint: true }, pred));
+  });
+
+  it('requiresChokepoint fails for non-chokepoint region', () => {
+    const pred = makePrediction('conflict', 'Northern Europe', 'test', 0.5, 0.5, '7d', []);
+    assert.ok(!evaluateRuleConditions({ requiresChokepoint: true }, pred));
+  });
+
+  it('minProbability passes when above threshold', () => {
+    const pred = makePrediction('political', 'Iran', 'test', 0.7, 0.5, '7d', []);
+    assert.ok(evaluateRuleConditions({ minProbability: 0.6 }, pred));
+  });
+
+  it('minProbability fails when below threshold', () => {
+    const pred = makePrediction('political', 'Iran', 'test', 0.3, 0.5, '7d', []);
+    assert.ok(!evaluateRuleConditions({ minProbability: 0.6 }, pred));
+  });
+
+  it('requiresSeverity checks outage signal value', () => {
+    const pred = makePrediction('infrastructure', 'Iran', 'test', 0.5, 0.5, '24h', [
+      { type: 'outage', value: 'Iran total outage', weight: 0.4 },
+    ]);
+    assert.ok(evaluateRuleConditions({ requiresSeverity: 'total' }, pred));
+  });
+
+  it('requiresSeverity fails for non-matching severity', () => {
+    const pred = makePrediction('infrastructure', 'Iran', 'test', 0.5, 0.5, '24h', [
+      { type: 'outage', value: 'Iran minor outage', weight: 0.4 },
+    ]);
+    assert.ok(!evaluateRuleConditions({ requiresSeverity: 'total' }, pred));
   });
 });

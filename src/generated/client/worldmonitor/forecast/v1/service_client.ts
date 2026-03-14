@@ -28,6 +28,8 @@ export interface Forecast {
   calibration?: CalibrationInfo;
   createdAt: number;
   updatedAt: number;
+  perspectives?: Perspectives;
+  projections?: Projections;
 }
 
 export interface ForecastSignal {
@@ -47,6 +49,18 @@ export interface CalibrationInfo {
   marketPrice: number;
   drift: number;
   source: string;
+}
+
+export interface Perspectives {
+  strategic: string;
+  regional: string;
+  contrarian: string;
+}
+
+export interface Projections {
+  h24: number;
+  d7: number;
+  d30: number;
 }
 
 export interface FieldViolation {

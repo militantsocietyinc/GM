@@ -134,6 +134,10 @@ components:
                     type: integer
                     format: int64
                     description: 'Warning: Values > 2^53 may lose precision in JavaScript'
+                perspectives:
+                    $ref: '#/components/schemas/Perspectives'
+                projections:
+                    $ref: '#/components/schemas/Projections'
         ForecastSignal:
             type: object
             properties:
@@ -167,3 +171,24 @@ components:
                     format: double
                 source:
                     type: string
+        Perspectives:
+            type: object
+            properties:
+                strategic:
+                    type: string
+                regional:
+                    type: string
+                contrarian:
+                    type: string
+        Projections:
+            type: object
+            properties:
+                h24:
+                    type: number
+                    format: double
+                d7:
+                    type: number
+                    format: double
+                d30:
+                    type: number
+                    format: double

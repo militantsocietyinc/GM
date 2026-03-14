@@ -23,6 +23,18 @@ message CalibrationInfo {
   string source = 4;
 }
 
+message Perspectives {
+  string strategic = 1;
+  string regional = 2;
+  string contrarian = 3;
+}
+
+message Projections {
+  double h24 = 1;
+  double d7 = 2;
+  double d30 = 3;
+}
+
 message Forecast {
   string id = 1;
   string domain = 2;
@@ -39,4 +51,6 @@ message Forecast {
   CalibrationInfo calibration = 13;
   int64 created_at = 14 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
   int64 updated_at = 15 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  Perspectives perspectives = 16;
+  Projections projections = 17;
 }

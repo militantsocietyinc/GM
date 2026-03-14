@@ -830,30 +830,67 @@ function computeTrends(predictions, prior) {
 }
 
 // ── Phase 2: News Context + Entity Matching ────────────────
+let _countryCodes = null;
+function loadCountryCodes() {
+  if (_countryCodes) return _countryCodes;
+  try {
+    const codePath = new URL('./data/country-codes.json', import.meta.url);
+    _countryCodes = JSON.parse(readFileSync(codePath, 'utf8'));
+    return _countryCodes;
+  } catch { return {}; }
+}
+
 const NEWS_MATCHABLE_TYPES = new Set(['country', 'theater']);
+
+function getSearchTermsForRegion(region) {
+  const terms = [region];
+  const codes = loadCountryCodes();
+  const graph = loadEntityGraph();
+
+  // 1. Country codes JSON: resolve ISO codes to names + keywords
+  const countryEntry = codes[region];
+  if (countryEntry) {
+    terms.push(countryEntry.name);
+    terms.push(...countryEntry.keywords);
+  }
+
+  // 2. Reverse lookup: if region is a full name, find the code and its keywords
+  if (!countryEntry) {
+    for (const [, entry] of Object.entries(codes)) {
+      if (entry.name.toLowerCase() === region.toLowerCase()) {
+        terms.push(...entry.keywords);
+        break;
+      }
+    }
+  }
+
+  // 3. Entity graph: add linked country/theater names (not commodities)
+  const nodeId = graph.aliases?.[region];
+  const node = nodeId ? graph.nodes?.[nodeId] : null;
+  if (node) {
+    if (node.name !== region) terms.push(node.name);
+    for (const linkId of node.links || []) {
+      const linked = graph.nodes?.[linkId];
+      if (linked && NEWS_MATCHABLE_TYPES.has(linked.type) && linked.name.length > 2) {
+        terms.push(linked.name);
+      }
+    }
+  }
+
+  // Dedupe and filter short terms
+  return [...new Set(terms)].filter(t => t && t.length > 2);
+}
 
 function attachNewsContext(predictions, newsInsights) {
   if (!newsInsights?.topStories?.length) return;
-  const graph = loadEntityGraph();
   const allHeadlines = newsInsights.topStories.slice(0, 8).map(s => s.primaryTitle);
 
   for (const pred of predictions) {
-    const nodeId = graph.aliases?.[pred.region];
-    const node = nodeId ? graph.nodes?.[nodeId] : null;
-    const searchTerms = [pred.region];
-    if (node) {
-      if (node.name !== pred.region) searchTerms.push(node.name);
-      for (const linkId of node.links || []) {
-        const linked = graph.nodes?.[linkId];
-        if (linked && NEWS_MATCHABLE_TYPES.has(linked.type) && linked.name.length > 2) {
-          searchTerms.push(linked.name);
-        }
-      }
-    }
+    const searchTerms = getSearchTermsForRegion(pred.region);
 
     const matched = allHeadlines.filter(h => {
       const lower = h.toLowerCase();
-      return searchTerms.some(t => t && t.length > 2 && lower.includes(t.toLowerCase()));
+      return searchTerms.some(t => lower.includes(t.toLowerCase()));
     });
 
     pred.newsContext = matched.length > 0 ? matched.slice(0, 3) : allHeadlines.slice(0, 3);
@@ -1251,4 +1288,6 @@ export {
   discoverGraphCascades,
   MARITIME_REGIONS,
   MARKET_TAG_TO_REGION,
+  loadCountryCodes,
+  getSearchTermsForRegion,
 };

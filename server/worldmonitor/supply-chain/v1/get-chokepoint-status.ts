@@ -19,7 +19,7 @@ import type { PortWatchData } from './_portwatch-upstream';
 import type { CorridorRiskData } from './_corridorrisk-upstream';
 import { CANONICAL_CHOKEPOINTS } from './_chokepoint-ids';
 // @ts-expect-error — .mjs module, no declaration file
-import { computeDisruptionScore, scoreToStatus, SEVERITY_SCORE, THREAT_LEVEL } from './_scoring.mjs';
+import { computeDisruptionScore, scoreToStatus, SEVERITY_SCORE, THREAT_LEVEL, detectTrafficAnomaly } from './_scoring.mjs';
 
 const REDIS_CACHE_KEY = 'supply_chain:chokepoints:v4';
 const PORTWATCH_REDIS_KEY = 'supply_chain:portwatch:v1';
@@ -241,29 +241,6 @@ function buildRelayLookup(transitData: RelayTransitPayload | null): Map<string, 
   return map;
 }
 
-/**
- * Detect abnormal traffic drops.
- * Compares the most recent 7 days against the 30-day trailing average.
- * A >50% drop in a war_zone/critical chokepoint signals vessels going dark
- * (AIS transponders off), which is intelligence, not absence of data.
- */
-function detectTrafficAnomaly(
-  history: import('./_portwatch-upstream').TransitDayCount[],
-  threatLevel: ThreatLevel,
-): { dropPct: number; signal: boolean } {
-  if (history.length < 30) return { dropPct: 0, signal: false };
-  const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
-  let recent7 = 0;
-  let baseline30 = 0;
-  for (let i = 0; i < 7 && i < sorted.length; i++) recent7 += sorted[i]!.total;
-  for (let i = 7; i < 37 && i < sorted.length; i++) baseline30 += sorted[i]!.total;
-  const baselineAvg7 = (baseline30 / Math.min(30, sorted.length - 7)) * 7;
-  if (baselineAvg7 < 14) return { dropPct: 0, signal: false }; // too little baseline data
-  const dropPct = Math.round(((baselineAvg7 - recent7) / baselineAvg7) * 100);
-  const isHighThreat = threatLevel === 'war_zone' || threatLevel === 'critical';
-  return { dropPct, signal: dropPct >= 50 && isHighThreat };
-}
-
 function buildTransitSummary(
   cp: ChokepointConfig,
   portwatch: PortWatchData | null,
@@ -321,8 +298,8 @@ async function fetchChokepointData(): Promise<ChokepointFetchResult> {
     const pw = portwatchData?.[cp.id];
     const anomaly = detectTrafficAnomaly(pw?.history ?? [], cp.threatLevel);
     const anomalyBonus = anomaly.signal ? 10 : 0;
-    const disruptionScore = computeDisruptionScore(threatScore, matchedWarnings.length, maxSeverity) + anomalyBonus;
-    const status = scoreToStatus(Math.min(100, disruptionScore));
+    const disruptionScore = Math.min(100, computeDisruptionScore(threatScore, matchedWarnings.length, maxSeverity) + anomalyBonus);
+    const status = scoreToStatus(disruptionScore);
 
     const congestionLevel = maxSeverity >= 3 ? 'high' : maxSeverity >= 2 ? 'elevated' : maxSeverity >= 1 ? 'low' : 'normal';
 

@@ -128,20 +128,7 @@ describe('computeWowChangePct', () => {
   });
 });
 
-// Mirror of detectTrafficAnomaly from get-chokepoint-status.ts
-function detectTrafficAnomaly(history, threatLevel) {
-  if (history.length < 30) return { dropPct: 0, signal: false };
-  const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
-  let recent7 = 0;
-  let baseline30 = 0;
-  for (let i = 0; i < 7 && i < sorted.length; i++) recent7 += sorted[i].total;
-  for (let i = 7; i < 37 && i < sorted.length; i++) baseline30 += sorted[i].total;
-  const baselineAvg7 = (baseline30 / Math.min(30, sorted.length - 7)) * 7;
-  if (baselineAvg7 < 14) return { dropPct: 0, signal: false };
-  const dropPct = Math.round(((baselineAvg7 - recent7) / baselineAvg7) * 100);
-  const isHighThreat = threatLevel === 'war_zone' || threatLevel === 'critical';
-  return { dropPct, signal: dropPct >= 50 && isHighThreat };
-}
+import { detectTrafficAnomaly } from '../server/worldmonitor/supply-chain/v1/_scoring.mjs';
 
 describe('detectTrafficAnomaly', () => {
   it('flags >50% drop in war_zone as signal', () => {

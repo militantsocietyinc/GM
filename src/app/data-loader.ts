@@ -372,7 +372,7 @@ export class DataLoaderManager implements AppModule {
       if (shouldLoad('polymarket')) {
         tasks.push({ name: 'predictions', task: runGuarded('predictions', () => this.loadPredictions()) });
       }
-      if (getSecretState('WORLDMONITOR_API_KEY').present && shouldLoad('forecast')) {
+      if (shouldLoad('forecast')) {
         tasks.push({ name: 'forecasts', task: runGuarded('forecasts', () => this.loadForecasts()) });
       }
       tasks.push({ name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) });

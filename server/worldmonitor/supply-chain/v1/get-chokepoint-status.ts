@@ -241,6 +241,29 @@ function buildRelayLookup(transitData: RelayTransitPayload | null): Map<string, 
   return map;
 }
 
+/**
+ * Detect abnormal traffic drops.
+ * Compares the most recent 7 days against the 30-day trailing average.
+ * A >50% drop in a war_zone/critical chokepoint signals vessels going dark
+ * (AIS transponders off), which is intelligence, not absence of data.
+ */
+function detectTrafficAnomaly(
+  history: import('./_portwatch-upstream').TransitDayCount[],
+  threatLevel: ThreatLevel,
+): { dropPct: number; signal: boolean } {
+  if (history.length < 30) return { dropPct: 0, signal: false };
+  const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
+  let recent7 = 0;
+  let baseline30 = 0;
+  for (let i = 0; i < 7 && i < sorted.length; i++) recent7 += sorted[i]!.total;
+  for (let i = 7; i < 37 && i < sorted.length; i++) baseline30 += sorted[i]!.total;
+  const baselineAvg7 = (baseline30 / Math.min(30, sorted.length - 7)) * 7;
+  if (baselineAvg7 < 14) return { dropPct: 0, signal: false }; // too little baseline data
+  const dropPct = Math.round(((baselineAvg7 - recent7) / baselineAvg7) * 100);
+  const isHighThreat = threatLevel === 'war_zone' || threatLevel === 'critical';
+  return { dropPct, signal: dropPct >= 50 && isHighThreat };
+}
+
 function buildTransitSummary(
   cp: ChokepointConfig,
   portwatch: PortWatchData | null,
@@ -295,8 +318,11 @@ async function fetchChokepointData(): Promise<ChokepointFetchResult> {
     }, 0);
 
     const threatScore = (THREAT_LEVEL as Record<string, number>)[cp.threatLevel] ?? 0;
-    const disruptionScore = computeDisruptionScore(threatScore, matchedWarnings.length, maxSeverity);
-    const status = scoreToStatus(disruptionScore);
+    const pw = portwatchData?.[cp.id];
+    const anomaly = detectTrafficAnomaly(pw?.history ?? [], cp.threatLevel);
+    const anomalyBonus = anomaly.signal ? 10 : 0;
+    const disruptionScore = computeDisruptionScore(threatScore, matchedWarnings.length, maxSeverity) + anomalyBonus;
+    const status = scoreToStatus(Math.min(100, disruptionScore));
 
     const congestionLevel = maxSeverity >= 3 ? 'high' : maxSeverity >= 2 ? 'elevated' : maxSeverity >= 1 ? 'low' : 'normal';
 
@@ -304,13 +330,16 @@ async function fetchChokepointData(): Promise<ChokepointFetchResult> {
     if (cp.threatDescription) {
       descriptions.push(cp.threatDescription);
     }
+    if (anomaly.signal) {
+      descriptions.push(`Traffic down ${anomaly.dropPct}% vs 30-day baseline — vessels may be transiting dark (AIS off)`);
+    }
     if (!threatConfigFresh) {
       descriptions.push(THREAT_CONFIG_STALE_NOTE);
     }
     if (matchedWarnings.length > 0 || matchedDisruptions.length > 0) {
       descriptions.push(`Navigational warnings: ${matchedWarnings.length}`);
       descriptions.push(`AIS vessel disruptions: ${matchedDisruptions.length}`);
-    } else if (!cp.threatDescription) {
+    } else if (!cp.threatDescription && !anomaly.signal) {
       descriptions.push('No active disruptions');
     }
 

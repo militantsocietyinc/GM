@@ -127,3 +127,58 @@ describe('computeWowChangePct', () => {
     assert.equal(computeWowChangePct(makeDays(10, 50, 0)), 0);
   });
 });
+
+// Mirror of detectTrafficAnomaly from get-chokepoint-status.ts
+function detectTrafficAnomaly(history, threatLevel) {
+  if (history.length < 30) return { dropPct: 0, signal: false };
+  const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
+  let recent7 = 0;
+  let baseline30 = 0;
+  for (let i = 0; i < 7 && i < sorted.length; i++) recent7 += sorted[i].total;
+  for (let i = 7; i < 37 && i < sorted.length; i++) baseline30 += sorted[i].total;
+  const baselineAvg7 = (baseline30 / Math.min(30, sorted.length - 7)) * 7;
+  if (baselineAvg7 < 14) return { dropPct: 0, signal: false };
+  const dropPct = Math.round(((baselineAvg7 - recent7) / baselineAvg7) * 100);
+  const isHighThreat = threatLevel === 'war_zone' || threatLevel === 'critical';
+  return { dropPct, signal: dropPct >= 50 && isHighThreat };
+}
+
+describe('detectTrafficAnomaly', () => {
+  it('flags >50% drop in war_zone as signal', () => {
+    // 7 recent days at 5/day, 30 baseline days at 100/day
+    const history = [...makeDays(7, 5, 0), ...makeDays(30, 100, 7)];
+    const result = detectTrafficAnomaly(history, 'war_zone');
+    assert.ok(result.signal, 'should flag as signal');
+    assert.ok(result.dropPct >= 90, `expected >90% drop, got ${result.dropPct}%`);
+  });
+
+  it('does NOT flag >50% drop in normal threat chokepoint', () => {
+    const history = [...makeDays(7, 5, 0), ...makeDays(30, 100, 7)];
+    const result = detectTrafficAnomaly(history, 'normal');
+    assert.equal(result.signal, false);
+  });
+
+  it('does NOT flag when drop is <50%', () => {
+    // 7 days at 60/day, 30 baseline at 100/day = 40% drop
+    const history = [...makeDays(7, 60, 0), ...makeDays(30, 100, 7)];
+    const result = detectTrafficAnomaly(history, 'war_zone');
+    assert.equal(result.signal, false);
+  });
+
+  it('returns no signal with <30 days of history', () => {
+    const result = detectTrafficAnomaly(makeDays(20, 100, 0), 'war_zone');
+    assert.equal(result.signal, false);
+    assert.equal(result.dropPct, 0);
+  });
+
+  it('flags critical threat level same as war_zone', () => {
+    const history = [...makeDays(7, 5, 0), ...makeDays(30, 100, 7)];
+    assert.ok(detectTrafficAnomaly(history, 'critical').signal);
+  });
+
+  it('ignores low-baseline chokepoints (< 2 vessels/day avg)', () => {
+    const history = [...makeDays(7, 0, 0), ...makeDays(30, 1, 7)];
+    const result = detectTrafficAnomaly(history, 'war_zone');
+    assert.equal(result.signal, false);
+  });
+});

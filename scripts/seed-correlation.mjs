@@ -134,12 +134,57 @@ const ISO3_TO_ISO2 = {
   'VNM': 'VN', 'YEM': 'YE', 'ZMB': 'ZM', 'ZWE': 'ZW',
 };
 
-function normalizeToCode(country) {
-  if (!country) return undefined;
-  const t = country.trim();
-  if (t.length === 2) return t.toUpperCase();
-  if (t.length === 3) return ISO3_TO_ISO2[t.toUpperCase()] ?? undefined;
-  return COUNTRY_NAME_TO_ISO2[t.toLowerCase()] ?? undefined;
+const COUNTRY_CENTROIDS = {
+  'AF':[33.9,67.7],'AL':[41.2,20.2],'DZ':[28.0,1.7],'AO':[-11.2,17.9],'AR':[-38.4,-63.6],
+  'AM':[40.1,45.0],'AU':[-25.3,133.8],'AT':[47.5,14.6],'AZ':[40.1,47.6],'BH':[26.0,50.6],
+  'BD':[23.7,90.4],'BY':[53.7,28.0],'BE':[50.5,4.5],'BO':[-16.3,-63.6],'BA':[43.9,17.7],
+  'BR':[-14.2,-51.9],'BG':[42.7,25.5],'BF':[12.2,-1.6],'KH':[12.6,105.0],'CM':[7.4,12.4],
+  'CA':[56.1,-106.3],'CF':[6.6,20.9],'TD':[15.5,18.7],'CL':[-35.7,-71.5],'CN':[35.9,104.2],
+  'CO':[4.6,-74.3],'CD':[-4.0,21.8],'CG':[-0.2,15.8],'HR':[45.1,15.2],'CU':[21.5,-78.0],
+  'CZ':[49.8,15.5],'DK':[56.3,9.5],'DJ':[11.6,43.1],'DO':[18.7,-70.2],'EC':[-1.8,-78.2],
+  'EG':[26.8,30.8],'SV':[13.8,-88.9],'ER':[15.2,39.8],'EE':[58.6,25.0],'ET':[9.1,40.5],
+  'FI':[61.9,25.7],'FR':[46.2,2.2],'GE':[42.3,43.4],'DE':[51.2,10.5],'GH':[7.9,-1.0],
+  'GR':[39.1,21.8],'GT':[15.8,-90.2],'GN':[9.9,-9.7],'HT':[19.0,-72.3],'HN':[15.2,-86.2],
+  'HU':[47.2,19.5],'IN':[20.6,79.0],'ID':[-0.8,113.9],'IR':[32.4,53.7],'IQ':[33.2,43.7],
+  'IE':[53.1,-7.7],'IL':[31.0,34.9],'IT':[41.9,12.6],'JM':[18.1,-77.3],'JP':[36.2,138.3],
+  'JO':[30.6,36.2],'KZ':[48.0,68.0],'KE':[-0.0,37.9],'KW':[29.3,47.5],'KG':[41.2,74.8],
+  'LV':[56.9,24.1],'LB':[33.9,35.9],'LY':[26.3,17.2],'LT':[55.2,23.9],'MG':[-18.8,46.9],
+  'MW':[-13.3,34.3],'MY':[4.2,101.9],'ML':[17.6,-4.0],'MR':[21.0,-10.9],'MX':[23.6,-102.6],
+  'MD':[47.4,28.4],'MN':[46.9,103.8],'ME':[42.7,19.4],'MA':[31.8,-7.1],'MZ':[-18.7,35.5],
+  'MM':[21.9,95.9],'NA':[-22.6,17.1],'NP':[28.4,84.1],'NL':[52.1,5.3],'NZ':[-40.9,174.9],
+  'NI':[12.9,-85.2],'NE':[17.6,8.1],'NG':[9.1,8.7],'KP':[40.3,127.5],'MK':[41.5,21.7],
+  'NO':[60.5,8.5],'OM':[21.5,55.9],'PK':[30.4,69.3],'PS':[31.9,35.2],'PA':[9.0,-79.5],
+  'PG':[-6.3,143.9],'PY':[-23.4,-58.4],'PE':[-9.2,-75.0],'PH':[12.9,121.8],'PL':[51.9,19.1],
+  'PT':[39.4,-8.2],'QA':[25.4,51.2],'RO':[45.9,25.0],'RU':[61.5,105.3],'RW':[-1.9,29.9],
+  'SA':[23.9,45.1],'SN':[14.5,-14.5],'RS':[44.0,21.0],'SL':[8.5,-11.8],'SG':[1.4,103.8],
+  'SK':[48.7,19.7],'SI':[46.2,14.6],'SO':[5.2,46.2],'ZA':[-30.6,22.9],'KR':[35.9,127.8],
+  'SS':[6.9,31.3],'ES':[40.5,-3.7],'LK':[7.9,80.8],'SD':[12.9,30.2],'SE':[60.1,18.6],
+  'CH':[46.8,8.2],'SY':[35.0,38.5],'TW':[23.7,121.0],'TJ':[38.9,71.3],'TZ':[-6.4,34.9],
+  'TH':[15.9,100.9],'TG':[8.6,1.2],'TN':[34.0,9.5],'TR':[39.0,35.2],'TM':[39.0,59.6],
+  'UG':[1.4,32.3],'UA':[48.4,31.2],'AE':[23.4,53.8],'GB':[55.4,-3.4],'US':[37.1,-95.7],
+  'UY':[-32.5,-55.8],'UZ':[41.4,64.6],'VE':[6.4,-66.6],'VN':[14.1,108.3],'YE':[15.6,48.5],
+  'ZM':[-13.1,27.8],'ZW':[-19.0,29.2],
+};
+
+function nearestCountryByCoords(lat, lon) {
+  if (lat == null || lon == null || (lat === 0 && lon === 0)) return undefined;
+  let bestCode, bestDist = Infinity;
+  for (const [code, [clat, clon]] of Object.entries(COUNTRY_CENTROIDS)) {
+    const d = haversineKm(lat, lon, clat, clon);
+    if (d < bestDist) { bestDist = d; bestCode = code; }
+  }
+  return bestDist < 800 ? bestCode : undefined;
+}
+
+function normalizeToCode(country, lat, lon) {
+  if (country) {
+    const t = country.trim();
+    if (t.length === 2) return t.toUpperCase();
+    if (t.length === 3) return ISO3_TO_ISO2[t.toUpperCase()] ?? undefined;
+    const fromName = COUNTRY_NAME_TO_ISO2[t.toLowerCase()];
+    if (fromName) return fromName;
+  }
+  return nearestCountryByCoords(lat, lon);
 }
 
 const COUNTRY_NAME_ENTRIES = Object.entries(COUNTRY_NAME_TO_ISO2)
@@ -213,7 +258,7 @@ function collectEscalationSignals(protests, outages, newsClusters) {
   for (const p of protests) {
     const ts = typeof p.time === 'number' ? p.time : (p.time ? new Date(p.time).getTime() : now);
     if (now - ts > windowMs) continue;
-    const code = normalizeToCode(p.country);
+    const code = normalizeToCode(p.country, p.lat, p.lon);
     if (!code) continue;
     const severityMap = { high: 85, medium: 55, low: 30 };
     signals.push({
@@ -232,7 +277,7 @@ function collectEscalationSignals(protests, outages, newsClusters) {
     const ts = typeof o.pubDate === 'number' ? o.pubDate : (o.pubDate ? new Date(o.pubDate).getTime() : now);
     if (now - ts > windowMs) continue;
     if (o.lat != null && o.lon != null && o.lat === 0 && o.lon === 0) continue;
-    const code = normalizeToCode(o.country);
+    const code = normalizeToCode(o.country, o.lat, o.lon);
     if (!code) continue;
     const severityMap = { total: 90, major: 70, partial: 40 };
     signals.push({
@@ -254,7 +299,7 @@ function collectEscalationSignals(protests, outages, newsClusters) {
     if (!ESCALATION_KEYWORDS.test(c.primaryTitle)) continue;
     const severity = c.threat.level === 'critical' ? 85 : c.threat.level === 'high' ? 65 : 45;
     const matched = matchCountryNamesInText(c.primaryTitle);
-    const code = normalizeToCode(matched[0]);
+    const code = normalizeToCode(matched[0], c.lat, c.lon);
     if (!code) continue;
     signals.push({
       type: 'news_severity',
@@ -685,7 +730,7 @@ async function computeCorrelation() {
   const newsClusters = (insights?.topStories ?? []).map(s => ({
     primaryTitle: s.primaryTitle,
     threat: { level: s.threatLevel ?? 'moderate' },
-    lastUpdated: s.publishedAt ?? insights?.fetchedAt ?? Date.now(),
+    lastUpdated: s.pubDate ? new Date(s.pubDate).getTime() : (insights?.generatedAt ? new Date(insights.generatedAt).getTime() : Date.now()),
     lat: s.lat,
     lon: s.lon,
   }));

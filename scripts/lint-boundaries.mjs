@@ -9,7 +9,8 @@
  * Lines with "boundary-ignore" comments are excluded.
  *
  * Also checks:
- *   - api/ must not import from src/ or server/ (Edge Function self-containment)
+ *   - api/ legacy .js: must not import from src/ or server/ (self-contained)
+ *   - api/ RPC .ts: may import server/ and src/generated/, but not src/ app code
  *   - server/ must not import from src/components/ or src/app/
  *
  * Exit code 1 if violations found. Agent-readable output.
@@ -112,13 +113,16 @@ for (const file of serverFiles) {
   }
 }
 
-// --- Check 3: api/ must not import from src/ or server/ (Edge Function self-containment) ---
-const apiFiles = walkDir(join(ROOT, 'api'), ['.js', '.mjs']);
+// --- Check 3: api/ boundary rules ---
+// Legacy api/*.js: fully self-contained (no ../server/ or ../src/ imports)
+// Sebuf RPC api/**/*.ts: may import server/ and src/generated/ (bundled at deploy),
+//   but must NOT import src/ non-generated paths (components, services, config, etc.)
+const apiFiles = walkDir(join(ROOT, 'api'), ['.js', '.mjs', '.ts']);
 for (const file of apiFiles) {
-  // Skip helper files (prefixed with _) and test files
   const basename = file.split('/').pop();
   if (basename.startsWith('_') || basename.includes('.test.')) continue;
 
+  const isTs = file.endsWith('.ts');
   const content = readFileSync(file, 'utf8');
   const lines = content.split('\n');
 
@@ -127,15 +131,30 @@ for (const file of apiFiles) {
     if (line.includes('boundary-ignore')) continue;
     if (i > 0 && lines[i - 1].includes('boundary-ignore')) continue;
 
-    if (line.match(/from\s+['"]\.\.\/(?:src|server)\//)) {
-      violations.push({
-        file: relative(ROOT, file),
-        line: i + 1,
-        from: 'api',
-        to: line.match(/\.\.\/(\w+)/)[1],
-        text: line.trim(),
-        remedy: 'Edge Functions must be self-contained. Only same-directory _*.js helpers and npm packages are allowed. See AGENTS.md "API Layer Constraints".',
-      });
+    if (isTs) {
+      // RPC .ts files: allow server/ and src/generated/, block src/ non-generated
+      if (line.match(/from\s+['"]\.\..*\/src\//) && !line.match(/\/src\/generated\//)) {
+        violations.push({
+          file: relative(ROOT, file),
+          line: i + 1,
+          from: 'api (RPC)',
+          to: 'src (non-generated)',
+          text: line.trim(),
+          remedy: 'RPC Edge Functions may import from server/ and src/generated/, but not from src/ application code (components, services, config).',
+        });
+      }
+    } else {
+      // Legacy .js files: fully self-contained
+      if (line.match(/from\s+['"]\.\.\/(?:src|server)\//)) {
+        violations.push({
+          file: relative(ROOT, file),
+          line: i + 1,
+          from: 'api (legacy)',
+          to: line.match(/\.\.\/(\w+)/)[1],
+          text: line.trim(),
+          remedy: 'Legacy Edge Functions must be self-contained. Only same-directory _*.js helpers and npm packages are allowed.',
+        });
+      }
     }
   }
 }

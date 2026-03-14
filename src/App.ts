@@ -43,6 +43,14 @@ import { DataLoaderManager } from '@/app/data-loader';
 import { EventHandlerManager } from '@/app/event-handlers';
 import { resolveUserRegion, resolvePreciseUserCoordinates, type PreciseCoordinates } from '@/utils/user-location';
 import { showProBanner } from '@/components/ProBanner';
+import {
+  CorrelationEngine,
+  militaryAdapter,
+  escalationAdapter,
+  economicAdapter,
+  disasterAdapter,
+} from '@/services/correlation-engine';
+import type { CorrelationPanel } from '@/components/CorrelationPanel';
 
 const CYBER_LAYER_ENABLED = import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true';
 
@@ -202,6 +210,29 @@ export class App {
         STORAGE_KEYS.panels,
         DEFAULT_PANELS
       );
+
+      // One-time migration: preserve user preferences across panel key renames.
+      const PANEL_KEY_RENAMES_MIGRATION_KEY = 'worldmonitor-panel-key-renames-v2.6';
+      if (!localStorage.getItem(PANEL_KEY_RENAMES_MIGRATION_KEY)) {
+        const keyRenames: Array<[string, string]> = [
+          ['live-youtube', 'live-webcams'],
+          ['pinned-webcams', 'windy-webcams'],
+        ];
+        let migrated = false;
+        for (const [legacyKey, nextKey] of keyRenames) {
+          if (!panelSettings[legacyKey] || panelSettings[nextKey]) continue;
+          panelSettings[nextKey] = {
+            ...DEFAULT_PANELS[nextKey],
+            ...panelSettings[legacyKey],
+            name: DEFAULT_PANELS[nextKey]?.name ?? panelSettings[legacyKey].name,
+          };
+          delete panelSettings[legacyKey];
+          migrated = true;
+        }
+        if (migrated) saveToStorage(STORAGE_KEYS.panels, panelSettings);
+        localStorage.setItem(PANEL_KEY_RENAMES_MIGRATION_KEY, 'done');
+      }
+
       // Merge in any new panels that didn't exist when settings were saved
       for (const [key, config] of Object.entries(DEFAULT_PANELS)) {
         if (!(key in panelSettings)) {
@@ -374,6 +405,8 @@ export class App {
       exportPanel: null,
       unifiedSettings: null,
       pizzintIndicator: null,
+      correlationEngine: null,
+      llmStatusIndicator: null,
       countryBriefPage: null,
       countryTimeline: null,
       positivePanel: null,
@@ -555,7 +588,16 @@ export class App {
     this.eventHandlers.setupPlaybackControl();
     this.eventHandlers.setupStatusPanel();
     this.eventHandlers.setupPizzIntIndicator();
+    this.eventHandlers.setupLlmStatusIndicator();
     this.eventHandlers.setupExportPanel();
+
+    // Correlation engine
+    const correlationEngine = new CorrelationEngine();
+    correlationEngine.registerAdapter(militaryAdapter);
+    correlationEngine.registerAdapter(escalationAdapter);
+    correlationEngine.registerAdapter(economicAdapter);
+    correlationEngine.registerAdapter(disasterAdapter);
+    this.state.correlationEngine = correlationEngine;
     this.eventHandlers.setupUnifiedSettings();
 
     // Phase 4: SearchManager, MapLayerHandlers, CountryIntel
@@ -594,6 +636,16 @@ export class App {
       this.dataLoader.loadAllData(true),
       this.primeVisiblePanelData(true),
     ]);
+
+    // Initial correlation engine run
+    if (this.state.correlationEngine) {
+      void this.state.correlationEngine.run(this.state).then(() => {
+        for (const domain of ['military', 'escalation', 'economic', 'disaster'] as const) {
+          const panel = this.state.panels[`${domain}-correlation`] as CorrelationPanel | undefined;
+          panel?.updateCards(this.state.correlationEngine!.getCards(domain));
+        }
+      });
+    }
 
     startLearning();
 
@@ -820,5 +872,20 @@ export class App {
         return this.dataLoader.loadIntelligenceSignals();
       }, 15 * 60 * 1000);
     }
+
+    // Correlation engine refresh
+    this.refreshScheduler.scheduleRefresh(
+      'correlation-engine',
+      async () => {
+        const engine = this.state.correlationEngine;
+        if (!engine) return;
+        await engine.run(this.state);
+        for (const domain of ['military', 'escalation', 'economic', 'disaster'] as const) {
+          const panel = this.state.panels[`${domain}-correlation`] as CorrelationPanel | undefined;
+          panel?.updateCards(engine.getCards(domain));
+        }
+      },
+      5 * 60 * 1000,
+    );
   }
 }

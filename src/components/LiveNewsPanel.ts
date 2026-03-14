@@ -114,7 +114,7 @@ export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'ntv-turkey', name: 'NTV', handle: '@NTV', fallbackVideoId: 'pqq5c6k70kk' },
   { id: 'cnn-turk', name: 'CNN TURK', handle: '@cnnturk', fallbackVideoId: 'lsY4GFoj_xY' },
   { id: 'tv-rain', name: 'TV Rain', handle: '@tvrain' },
-  { id: 'rt', name: 'RT', handle: '' },
+  { id: 'rt', name: 'RT', handle: '@RT_com' },
   { id: 'tvp-info', name: 'TVP Info', handle: '@tvpinfo', fallbackVideoId: '3jKb-uThfrg' },
   { id: 'telewizja-republika', name: 'Telewizja Republika', handle: '@Telewizja_Republika', fallbackVideoId: 'dzntyCTgJMQ' },
   // Latin America & Portuguese
@@ -300,7 +300,9 @@ if (import.meta.env.DEV) {
   for (const id of Object.keys(DIRECT_HLS_MAP)) {
     const ch = allChannels.find(c => c.id === id);
     if (!ch) console.error(`[LiveNews] DIRECT_HLS_MAP key '${id}' has no matching channel`);
-    else if (!ch.fallbackVideoId && !ch.hlsUrl) console.error(`[LiveNews] Channel '${id}' in DIRECT_HLS_MAP lacks fallbackVideoId`);
+    else if (!ch.fallbackVideoId && !ch.hlsUrl && !ch.handle) {
+      console.error(`[LiveNews] Channel '${id}' in DIRECT_HLS_MAP lacks fallback (videoId/hlsUrl/handle)`);
+    }
   }
 }
 
@@ -402,13 +404,16 @@ export class LiveNewsPanel extends Panel {
   private idleCallbackId: number | ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    super({ id: 'live-news', title: t('panels.liveNews'), className: 'panel-wide', closable: false });
+    // allow users to close the live news panel
+    super({ id: 'live-news', title: t('panels.liveNews'), className: 'panel-wide', closable: true });
     this.insertLiveCountBadge(OPTIONAL_LIVE_CHANNELS.length);
     this.youtubeOrigin = LiveNewsPanel.resolveYouTubeOrigin();
     this.playerElementId = `live-news-player-${Date.now()}`;
     this.channels = loadChannelsFromStorage();
     if (this.channels.length === 0) this.channels = getDefaultLiveChannels();
-    this.activeChannel = this.channels[0]!;
+    const savedChannelId = loadFromStorage<string>(STORAGE_KEYS.activeChannel, '');
+    const savedChannel = savedChannelId ? this.channels.find(c => c.id === savedChannelId) : null;
+    this.activeChannel = savedChannel ?? this.channels[0]!;
     this.createLiveButton();
     this.createMuteButton();
     this.createChannelSwitcher();
@@ -983,6 +988,7 @@ export class LiveNewsPanel extends Panel {
     if (channel.id === this.activeChannel.id) return;
 
     this.activeChannel = channel;
+    saveToStorage(STORAGE_KEYS.activeChannel, channel.id);
 
     this.channelSwitcher?.querySelectorAll('.live-channel-btn').forEach(btn => {
       const btnEl = btn as HTMLElement;

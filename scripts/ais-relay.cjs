@@ -188,6 +188,34 @@ function upstashSet(key, value, ttlSeconds) {
   });
 }
 
+function upstashExpire(key, ttlSeconds) {
+  return new Promise((resolve) => {
+    if (!UPSTASH_ENABLED) return resolve(false);
+    const url = new URL('/', UPSTASH_REDIS_REST_URL);
+    const body = JSON.stringify(['EXPIRE', key, String(ttlSeconds)]);
+    const req = https.request(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 5000,
+    }, (resp) => {
+      let data = '';
+      resp.on('data', (chunk) => { data += chunk; });
+      resp.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve(parsed?.result === 1);
+        } catch { resolve(false); }
+      });
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.end(body);
+  });
+}
+
 function upstashMGet(keys) {
   return new Promise((resolve) => {
     if (!UPSTASH_ENABLED || keys.length === 0) return resolve([]);
@@ -1820,6 +1848,7 @@ async function seedAviationDelays() {
   }
 
   const ok = await upstashSet(AVIATION_REDIS_KEY, { alerts }, AVIATION_SEED_TTL);
+  await upstashSet('seed-meta:aviation:intl', { fetchedAt: Date.now(), recordCount: alerts.length }, 604800);
   console.log(`[Aviation] Seeded ${alerts.length} alerts (${succeeded} ok, ${failed} failed, redis: ${ok ? 'OK' : 'FAIL'}) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 }
 
@@ -1837,6 +1866,131 @@ async function startAviationSeedLoop() {
   setInterval(() => {
     seedAviationDelays().catch((e) => console.warn('[Aviation] Seed error:', e?.message || e));
   }, AVIATION_SEED_INTERVAL_MS).unref?.();
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTAM Closures Seed — Railway fetches ICAO NOTAMs → writes to Redis
+// so Vercel handler and map layer serve from cache (ICAO API times out from edge)
+// ─────────────────────────────────────────────────────────────
+const NOTAM_SEED_INTERVAL_MS = 30 * 60 * 1000; // 30min
+const NOTAM_SEED_TTL = 3600; // 1h — survives 1 missed cycle
+const NOTAM_REDIS_KEY = 'aviation:notam:closures:v2';
+const NOTAM_CLOSURE_QCODES = new Set(['FA', 'AH', 'AL', 'AW', 'AC', 'AM']);
+const NOTAM_MONITORED_ICAO = [
+  // MENA
+  'OEJN', 'OERK', 'OEMA', 'OEDF', 'OMDB', 'OMAA', 'OMSJ',
+  'OTHH', 'OBBI', 'OOMS', 'OKBK', 'OLBA', 'OJAI', 'OSDI',
+  'ORBI', 'OIIE', 'OISS', 'OIMM', 'OIKB', 'HECA', 'GMMN',
+  'DTTA', 'DAAG', 'HLLT',
+  // Europe
+  'EGLL', 'LFPG', 'EDDF', 'EHAM', 'LEMD', 'LIRF', 'LTFM',
+  'LSZH', 'LOWW', 'EKCH', 'ENGM', 'ESSA', 'EFHK', 'EPWA',
+  // Americas
+  'KJFK', 'KLAX', 'KORD', 'KATL', 'KDFW', 'KDEN', 'KSFO',
+  'CYYZ', 'MMMX', 'SBGR', 'SCEL', 'SKBO',
+  // APAC
+  'RJTT', 'RKSI', 'VHHH', 'WSSS', 'VTBS', 'VIDP', 'YSSY',
+  'ZBAA', 'ZPPP', 'WMKK',
+  // Africa
+  'FAOR', 'DNMM', 'HKJK', 'GABS',
+];
+
+function fetchIcaoNotams() {
+  return new Promise((resolve) => {
+    if (!ICAO_API_KEY) return resolve([]);
+    const locations = NOTAM_MONITORED_ICAO.join(',');
+    const apiUrl = `https://dataservices.icao.int/api/notams-realtime-list?api_key=${ICAO_API_KEY}&format=json&locations=${locations}`;
+    const req = https.get(apiUrl, {
+      headers: { 'User-Agent': CHROME_UA },
+      timeout: 30000,
+    }, (resp) => {
+      if (resp.statusCode !== 200) {
+        console.warn(`[NOTAM-Seed] ICAO HTTP ${resp.statusCode}`);
+        resp.resume();
+        return resolve([]);
+      }
+      const ct = resp.headers['content-type'] || '';
+      if (ct.includes('text/html')) {
+        console.warn('[NOTAM-Seed] ICAO returned HTML (challenge page)');
+        resp.resume();
+        return resolve([]);
+      }
+      const chunks = [];
+      resp.on('data', (c) => chunks.push(c));
+      resp.on('end', () => {
+        try {
+          const data = JSON.parse(Buffer.concat(chunks).toString());
+          resolve(Array.isArray(data) ? data : []);
+        } catch {
+          console.warn('[NOTAM-Seed] Invalid JSON from ICAO');
+          resolve([]);
+        }
+      });
+    });
+    req.on('error', (err) => { console.warn(`[NOTAM-Seed] Fetch error: ${err.message}`); resolve([]); });
+    req.on('timeout', () => { req.destroy(); console.warn('[NOTAM-Seed] Timeout (30s)'); resolve([]); });
+  });
+}
+
+async function seedNotamClosures() {
+  if (!ICAO_API_KEY) {
+    console.log('[NOTAM-Seed] No ICAO_API_KEY — skipping');
+    return;
+  }
+
+  const t0 = Date.now();
+  const notams = await fetchIcaoNotams();
+  if (notams.length === 0) {
+    await upstashExpire(NOTAM_REDIS_KEY, NOTAM_SEED_TTL);
+    await upstashSet('seed-meta:aviation:notam', { fetchedAt: Date.now(), recordCount: 0 }, 604800);
+    console.log('[NOTAM-Seed] No NOTAMs received — refreshed data key TTL, preserving existing cache');
+    return;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const closedSet = new Set();
+  const reasons = {};
+
+  for (const n of notams) {
+    const icao = n.itema || n.location || '';
+    if (!icao || !NOTAM_MONITORED_ICAO.includes(icao)) continue;
+    if (n.endvalidity && n.endvalidity < now) continue;
+
+    const code23 = (n.code23 || '').toUpperCase();
+    const code45 = (n.code45 || '').toUpperCase();
+    const text = (n.iteme || '').toUpperCase();
+    const isClosureCode = NOTAM_CLOSURE_QCODES.has(code23) &&
+      (code45 === 'LC' || code45 === 'AS' || code45 === 'AU' || code45 === 'XX' || code45 === 'AW');
+    const isClosureText = /\b(AD CLSD|AIRPORT CLOSED|AIRSPACE CLOSED|AD NOT AVBL|CLSD TO ALL)\b/.test(text);
+
+    if (isClosureCode || isClosureText) {
+      closedSet.add(icao);
+      reasons[icao] = n.iteme || 'Airport closure (NOTAM)';
+    }
+  }
+
+  const closedIcaos = [...closedSet];
+  const payload = { closedIcaos, reasons };
+  const ok = await upstashSet(NOTAM_REDIS_KEY, payload, NOTAM_SEED_TTL);
+  await upstashSet('seed-meta:aviation:notam', { fetchedAt: Date.now(), recordCount: closedIcaos.length }, 604800);
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log(`[NOTAM-Seed] ${notams.length} raw NOTAMs, ${closedIcaos.length} closures (redis: ${ok ? 'OK' : 'FAIL'}) in ${elapsed}s`);
+}
+
+function startNotamSeedLoop() {
+  if (!UPSTASH_ENABLED) {
+    console.log('[NOTAM-Seed] Disabled (no Upstash Redis)');
+    return;
+  }
+  if (!ICAO_API_KEY) {
+    console.log('[NOTAM-Seed] Disabled (no ICAO_API_KEY)');
+    return;
+  }
+  console.log(`[NOTAM-Seed] Seed loop starting (interval ${NOTAM_SEED_INTERVAL_MS / 1000 / 60}min, airports: ${NOTAM_MONITORED_ICAO.length})`);
+  seedNotamClosures().catch((e) => console.warn('[NOTAM-Seed] Initial seed error:', e?.message || e));
+  setInterval(() => {
+    seedNotamClosures().catch((e) => console.warn('[NOTAM-Seed] Seed error:', e?.message || e));
+  }, NOTAM_SEED_INTERVAL_MS).unref?.();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2701,7 +2855,10 @@ async function fetchTheaterFlightsFromOpenSky() {
 
 async function fetchTheaterFlightsFromWingbits() {
   const apiKey = process.env.WINGBITS_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.warn('[Wingbits] WINGBITS_API_KEY not set — skipped');
+    return null;
+  }
   const areas = POSTURE_THEATERS.map((t) => ({
     alias: t.id,
     by: 'box',
@@ -2718,7 +2875,10 @@ async function fetchTheaterFlightsFromWingbits() {
       body: JSON.stringify(areas),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      console.warn(`[Wingbits] API error: ${resp.status} ${resp.statusText}`);
+      return null;
+    }
     const data = await resp.json();
     const flights = [];
     const seenIds = new Set();
@@ -2743,8 +2903,10 @@ async function fetchTheaterFlightsFromWingbits() {
         });
       }
     }
+    console.log(`[Wingbits] Fetched ${flights.length} military flights from ${data.length} areas`);
     return flights;
-  } catch {
+  } catch (err) {
+    console.warn(`[Wingbits] Fetch failed: ${err?.message || err}`);
     return null;
   }
 }
@@ -3453,6 +3615,216 @@ async function startWorldBankSeedLoop() {
   }, WB_SEED_INTERVAL_MS).unref?.();
 }
 
+const PORTWATCH_ARCGIS_BASE = 'https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0/query';
+const PORTWATCH_PAGE_SIZE = 2000;
+const PORTWATCH_FETCH_TIMEOUT_MS = 30000;
+const PORTWATCH_REDIS_KEY = 'supply_chain:portwatch:v1';
+const PORTWATCH_TTL = 43200;
+const PORTWATCH_SEED_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const PORTWATCH_CHOKEPOINT_NAMES = [
+  { name: 'Suez Canal', id: 'suez' },
+  { name: 'Malacca Strait', id: 'malacca_strait' },
+  { name: 'Strait of Hormuz', id: 'hormuz_strait' },
+  { name: 'Bab el-Mandeb Strait', id: 'bab_el_mandeb' },
+  { name: 'Panama Canal', id: 'panama' },
+  { name: 'Taiwan Strait', id: 'taiwan_strait' },
+  { name: 'Cape of Good Hope', id: 'cape_of_good_hope' },
+  { name: 'Gibraltar Strait', id: 'gibraltar' },
+  { name: 'Bosporus Strait', id: 'bosphorus' },
+  { name: 'Korea Strait', id: 'korea_strait' },
+  { name: 'Dover Strait', id: 'dover_strait' },
+  { name: 'Kerch Strait', id: 'kerch_strait' },
+  { name: 'Lombok Strait', id: 'lombok_strait' },
+];
+let portwatchSeedInFlight = false;
+
+function pwFormatDate(ts) {
+  const d = new Date(ts);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+function pwComputeWowChangePct(history) {
+  if (history.length < 14) return 0;
+  const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
+  let thisWeek = 0;
+  let lastWeek = 0;
+  for (let i = 0; i < 7 && i < sorted.length; i++) thisWeek += sorted[i].total;
+  for (let i = 7; i < 14 && i < sorted.length; i++) lastWeek += sorted[i].total;
+  if (lastWeek === 0) return 0;
+  return Math.round(((thisWeek - lastWeek) / lastWeek) * 1000) / 10;
+}
+
+async function pwFetchAllPages(portname, sinceEpoch) {
+  const all = [];
+  let offset = 0;
+  for (;;) {
+    const params = new URLSearchParams({
+      where: `portname='${portname.replace(/'/g, "''")}' AND date >= ${sinceEpoch}`,
+      outFields: 'date,n_tanker,n_cargo,n_total',
+      f: 'json',
+      resultOffset: String(offset),
+      resultRecordCount: String(PORTWATCH_PAGE_SIZE),
+    });
+    const resp = await fetch(`${PORTWATCH_ARCGIS_BASE}?${params}`, {
+      headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' },
+      signal: AbortSignal.timeout(PORTWATCH_FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn(`[PortWatch] ArcGIS error ${resp.status} for ${portname}`);
+      return [];
+    }
+    const body = await resp.json();
+    if (body.error) {
+      console.warn(`[PortWatch] ArcGIS query error for ${portname}: ${body.error.message}`);
+      return [];
+    }
+    if (body.features?.length) all.push(...body.features);
+    if (!body.exceededTransferLimit) break;
+    offset += PORTWATCH_PAGE_SIZE;
+  }
+  return all;
+}
+
+function pwBuildHistory(features) {
+  return features
+    .filter(f => f.attributes?.date)
+    .map(f => {
+      const a = f.attributes;
+      const tanker = Number(a.n_tanker ?? 0);
+      const cargo = Number(a.n_cargo ?? 0);
+      const total = Number(a.n_total ?? tanker + cargo);
+      return { date: pwFormatDate(a.date), tanker, cargo, other: Math.max(0, total - tanker - cargo), total };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+async function seedPortWatch() {
+  if (portwatchSeedInFlight) return;
+  portwatchSeedInFlight = true;
+  const t0 = Date.now();
+  try {
+    const sinceEpoch = Date.now() - 180 * 24 * 60 * 60 * 1000;
+    const result = {};
+    const CONCURRENCY = 3;
+    for (let i = 0; i < PORTWATCH_CHOKEPOINT_NAMES.length; i += CONCURRENCY) {
+      const batch = PORTWATCH_CHOKEPOINT_NAMES.slice(i, i + CONCURRENCY);
+      const settled = await Promise.allSettled(batch.map(cp => pwFetchAllPages(cp.name, sinceEpoch)));
+      for (let j = 0; j < batch.length; j++) {
+        const outcome = settled[j];
+        if (outcome.status !== 'fulfilled' || !outcome.value.length) continue;
+        const history = pwBuildHistory(outcome.value);
+        result[batch[j].id] = { history, wowChangePct: pwComputeWowChangePct(history) };
+      }
+    }
+    if (Object.keys(result).length === 0) {
+      console.warn('[PortWatch] No data fetched — skipping');
+      return;
+    }
+    const ok = await upstashSet(PORTWATCH_REDIS_KEY, result, PORTWATCH_TTL);
+    await upstashSet('seed-meta:supply_chain:portwatch', { fetchedAt: Date.now(), recordCount: Object.keys(result).length }, 604800);
+    console.log(`[PortWatch] Seeded ${Object.keys(result).length} chokepoints (redis: ${ok ? 'OK' : 'FAIL'}) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  } catch (e) {
+    console.warn('[PortWatch] Seed error:', e?.message || e);
+  } finally {
+    portwatchSeedInFlight = false;
+  }
+}
+
+async function startPortWatchSeedLoop() {
+  if (!UPSTASH_ENABLED) {
+    console.log('[PortWatch] Disabled (no Upstash Redis)');
+    return;
+  }
+  console.log(`[PortWatch] Seed loop starting (interval ${PORTWATCH_SEED_INTERVAL_MS / 1000 / 60 / 60}h)`);
+  seedPortWatch().catch(e => console.warn('[PortWatch] Initial seed error:', e?.message || e));
+  setInterval(() => {
+    seedPortWatch().catch(e => console.warn('[PortWatch] Seed error:', e?.message || e));
+  }, PORTWATCH_SEED_INTERVAL_MS).unref?.();
+}
+
+const CORRIDOR_RISK_API_KEY = process.env.CORRIDOR_RISK_API_KEY || '';
+const CORRIDOR_RISK_BASE_URL = 'https://api.corridorrisk.io/v1/corridors';
+const CORRIDOR_RISK_REDIS_KEY = 'supply_chain:corridorrisk:v1';
+const CORRIDOR_RISK_TTL = 7200;
+const CORRIDOR_RISK_SEED_INTERVAL_MS = 60 * 60 * 1000;
+const CORRIDOR_RISK_NAMES = [
+  { name: 'Suez', id: 'suez' },
+  { name: 'Malacca', id: 'malacca_strait' },
+  { name: 'Hormuz', id: 'hormuz_strait' },
+  { name: 'Bab el-Mandeb', id: 'bab_el_mandeb' },
+  { name: 'Panama', id: 'panama' },
+  { name: 'Taiwan', id: 'taiwan_strait' },
+  { name: 'Cape of Good Hope', id: 'cape_of_good_hope' },
+];
+let corridorRiskSeedInFlight = false;
+
+async function seedCorridorRisk() {
+  if (!CORRIDOR_RISK_API_KEY) return;
+  if (corridorRiskSeedInFlight) return;
+  corridorRiskSeedInFlight = true;
+  const t0 = Date.now();
+  try {
+    const resp = await fetch(CORRIDOR_RISK_BASE_URL, {
+      headers: {
+        Authorization: `Bearer ${CORRIDOR_RISK_API_KEY}`,
+        Accept: 'application/json',
+        'User-Agent': CHROME_UA,
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!resp.ok) {
+      console.warn(`[CorridorRisk] HTTP ${resp.status}`);
+      return;
+    }
+    const body = await resp.json();
+    const corridors = Array.isArray(body) ? body : body.data;
+    if (!corridors?.length) {
+      console.warn('[CorridorRisk] No corridors returned — skipping');
+      return;
+    }
+    const crNameMap = new Map(CORRIDOR_RISK_NAMES.map(c => [c.name.toLowerCase(), c.id]));
+    const result = {};
+    for (const corridor of corridors) {
+      const name = corridor.name;
+      if (!name) continue;
+      const id = crNameMap.get(name.toLowerCase());
+      if (!id) continue;
+      result[id] = {
+        riskLevel: String(corridor.risk_level ?? ''),
+        incidentCount7d: Number(corridor.incident_count_7d ?? 0),
+        disruptionPct: Number(corridor.disruption_pct ?? 0),
+      };
+    }
+    if (Object.keys(result).length === 0) {
+      console.warn('[CorridorRisk] No matching corridors — skipping');
+      return;
+    }
+    const ok = await upstashSet(CORRIDOR_RISK_REDIS_KEY, result, CORRIDOR_RISK_TTL);
+    await upstashSet('seed-meta:supply_chain:corridorrisk', { fetchedAt: Date.now(), recordCount: Object.keys(result).length }, 604800);
+    console.log(`[CorridorRisk] Seeded ${Object.keys(result).length} corridors (redis: ${ok ? 'OK' : 'FAIL'}) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  } catch (e) {
+    console.warn('[CorridorRisk] Seed error:', e?.message || e);
+  } finally {
+    corridorRiskSeedInFlight = false;
+  }
+}
+
+async function startCorridorRiskSeedLoop() {
+  if (!UPSTASH_ENABLED) {
+    console.log('[CorridorRisk] Disabled (no Upstash Redis)');
+    return;
+  }
+  if (!CORRIDOR_RISK_API_KEY) {
+    console.log('[CorridorRisk] Disabled (no CORRIDOR_RISK_API_KEY)');
+    return;
+  }
+  console.log(`[CorridorRisk] Seed loop starting (interval ${CORRIDOR_RISK_SEED_INTERVAL_MS / 1000 / 60}min)`);
+  seedCorridorRisk().catch(e => console.warn('[CorridorRisk] Initial seed error:', e?.message || e));
+  setInterval(() => {
+    seedCorridorRisk().catch(e => console.warn('[CorridorRisk] Seed error:', e?.message || e));
+  }, CORRIDOR_RISK_SEED_INTERVAL_MS).unref?.();
+}
+
 function gzipSyncBuffer(body) {
   try {
     return zlib.gzipSync(typeof body === 'string' ? Buffer.from(body) : body);
@@ -3735,13 +4107,36 @@ const vesselChokepoints = new Map(); // key: MMSI -> Set of chokepoint names
 const CHOKEPOINTS = [
   { name: 'Strait of Hormuz', lat: 26.5, lon: 56.5, radius: 2 },
   { name: 'Suez Canal', lat: 30.0, lon: 32.5, radius: 1 },
-  { name: 'Strait of Malacca', lat: 2.5, lon: 101.5, radius: 2 },
-  { name: 'Bab el-Mandeb', lat: 12.5, lon: 43.5, radius: 1.5 },
+  { name: 'Malacca Strait', lat: 2.5, lon: 101.5, radius: 2 },
+  { name: 'Bab el-Mandeb Strait', lat: 12.5, lon: 43.5, radius: 1.5 },
   { name: 'Panama Canal', lat: 9.0, lon: -79.5, radius: 1 },
   { name: 'Taiwan Strait', lat: 24.5, lon: 119.5, radius: 2 },
   { name: 'South China Sea', lat: 15.0, lon: 115.0, radius: 5 },
   { name: 'Black Sea', lat: 43.5, lon: 34.0, radius: 3 },
+  { name: 'Cape of Good Hope', lat: -34.36, lon: 18.49, radius: 2 },
+  { name: 'Gibraltar Strait', lat: 35.96, lon: -5.35, radius: 1 },
+  { name: 'Bosporus Strait', lat: 40.70, lon: 28.0, radius: 1.5 },
+  { name: 'Korea Strait', lat: 34.0, lon: 129.0, radius: 1.5 },
+  { name: 'Dover Strait', lat: 51.05, lon: 1.45, radius: 0.5 },
+  { name: 'Kerch Strait', lat: 45.33, lon: 36.60, radius: 0.5 },
+  { name: 'Lombok Strait', lat: -8.47, lon: 115.72, radius: 0.5 },
 ];
+
+function classifyVesselType(shipType) {
+  if (shipType >= 80 && shipType <= 89) return 'tanker';
+  if (shipType >= 70 && shipType <= 79) return 'cargo';
+  return 'other';
+}
+
+const chokepointCrossings = new Map();
+const transitCooldowns = new Map();
+const transitPendingEntry = new Map();
+const TRANSIT_COOLDOWN_MS = 30 * 60 * 1000;
+const TRANSIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const MIN_DWELL_MS = 5 * 60 * 1000;
+const CHOKEPOINT_TRANSIT_KEY = 'supply_chain:chokepoint_transits:v1';
+const CHOKEPOINT_TRANSIT_TTL = 900;
+const CHOKEPOINT_TRANSIT_INTERVAL_MS = 10 * 60 * 1000;
 
 const NAVAL_PREFIX_RE = /^(USS|USNS|HMS|HMAS|HMCS|INS|JS|ROKS|TCG|FS|BNS|RFS|PLAN|PLA|CGC|PNS|KRI|ITS|SNS|MMSI)/i;
 
@@ -3835,15 +4230,36 @@ function updateVesselChokepoints(mmsi, lat, lon) {
   }
 
   const previous = vesselChokepoints.get(mmsi) || new Set();
+  const now = Date.now();
+
   for (const cpName of previous) {
     if (next.has(cpName)) continue;
     const bucket = chokepointBuckets.get(cpName);
     if (!bucket) continue;
     bucket.delete(mmsi);
     if (bucket.size === 0) chokepointBuckets.delete(cpName);
+
+    const pendingKey = mmsi + ':' + cpName;
+    const entryTs = transitPendingEntry.get(pendingKey);
+    if (entryTs !== undefined && now - entryTs >= MIN_DWELL_MS) {
+      const cooldownKey = mmsi + ':' + cpName;
+      const lastCrossing = transitCooldowns.get(cooldownKey);
+      if (!lastCrossing || now - lastCrossing >= TRANSIT_COOLDOWN_MS) {
+        const vessel = vessels.get(mmsi);
+        const vType = classifyVesselType(vessel?.shipType);
+        let crossings = chokepointCrossings.get(cpName);
+        if (!crossings) { crossings = []; chokepointCrossings.set(cpName, crossings); }
+        crossings.push({ mmsi, type: vType, ts: now });
+        transitCooldowns.set(cooldownKey, now);
+      }
+    }
+    transitPendingEntry.delete(pendingKey);
   }
 
   for (const cpName of next) {
+    if (!previous.has(cpName)) {
+      transitPendingEntry.set(mmsi + ':' + cpName, now);
+    }
     let bucket = chokepointBuckets.get(cpName);
     if (!bucket) {
       bucket = new Set();
@@ -4020,6 +4436,25 @@ function cleanupAggregates() {
     }
     if (bucket.size === 0) chokepointBuckets.delete(cpName);
   }
+
+  for (const [cpName, crossings] of chokepointCrossings) {
+    const filtered = crossings.filter(c => now - c.ts < TRANSIT_WINDOW_MS);
+    if (filtered.length === 0) chokepointCrossings.delete(cpName);
+    else chokepointCrossings.set(cpName, filtered);
+  }
+  for (const [key, ts] of transitCooldowns) {
+    if (now - ts > TRANSIT_COOLDOWN_MS) transitCooldowns.delete(key);
+  }
+  const pendingCutoff = 48 * 60 * 60 * 1000;
+  for (const [key, ts] of transitPendingEntry) {
+    if (now - ts > pendingCutoff) {
+      const sep = key.indexOf(':');
+      const pmsi = key.substring(0, sep);
+      const cpN = key.substring(sep + 1);
+      const memberships = vesselChokepoints.get(pmsi);
+      if (!memberships || !memberships.has(cpN)) transitPendingEntry.delete(key);
+    }
+  }
 }
 
 function detectDisruptions() {
@@ -4178,6 +4613,33 @@ setInterval(() => {
     buildSnapshot();
   }
 }, SNAPSHOT_INTERVAL_MS);
+
+async function seedChokepointTransits() {
+  const now = Date.now();
+  const transits = {};
+  for (const cp of CHOKEPOINTS) {
+    const crossings = chokepointCrossings.get(cp.name) || [];
+    const recent = crossings.filter(c => now - c.ts < TRANSIT_WINDOW_MS);
+    chokepointCrossings.set(cp.name, recent);
+    transits[cp.name] = {
+      tanker: recent.filter(c => c.type === 'tanker').length,
+      cargo: recent.filter(c => c.type === 'cargo').length,
+      other: recent.filter(c => c.type === 'other').length,
+      total: recent.length,
+    };
+  }
+  const payload = { transits, fetchedAt: now };
+  await upstashSet(CHOKEPOINT_TRANSIT_KEY, payload, CHOKEPOINT_TRANSIT_TTL);
+  await upstashSet('seed-meta:supply_chain:chokepoint_transits', { fetchedAt: now, recordCount: Object.keys(transits).length }, 604800);
+  console.log(`[Transit] Seeded ${Object.keys(transits).length} chokepoint transit counts`);
+}
+
+setTimeout(() => {
+  seedChokepointTransits().catch(err => console.error('[Transit] Initial seed error:', err.message));
+}, 30_000);
+setInterval(() => {
+  seedChokepointTransits().catch(err => console.error('[Transit] Seed error:', err.message));
+}, CHOKEPOINT_TRANSIT_INTERVAL_MS).unref?.();
 
 // UCDP GED Events cache (persistent in-memory — Railway advantage)
 const UCDP_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
@@ -5654,7 +6116,7 @@ function handleNotamProxyRequest(req, res) {
     }, notamCache.data);
   }
 
-  const apiUrl = `https://dataservices.icao.int/api/notams-realtime-list?api_key=${ICAO_API_KEY}&format=json&locations=${encodeURIComponent(locations)}`;
+  const apiUrl = `https://dataservices.icao.int/api/notams-realtime-list?api_key=${ICAO_API_KEY}&format=json&locations=${locations}`;
 
   const request = https.get(apiUrl, {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
@@ -6369,6 +6831,7 @@ server.listen(PORT, () => {
   startUcdpSeedLoop();
   startMarketDataSeedLoop();
   startAviationSeedLoop();
+  startNotamSeedLoop();
   // Cyber seed disabled — standalone cron seed-cyber-threats.mjs handles this
   // (avoids burning 12 extra AbuseIPDB calls/day from duplicate relay loop)
   startCiiWarmPingLoop();
@@ -6382,6 +6845,8 @@ server.listen(PORT, () => {
   startWorldBankSeedLoop();
   startSatelliteSeedLoop();
   startTechEventsSeedLoop();
+  startPortWatchSeedLoop();
+  startCorridorRiskSeedLoop();
 });
 
 wss.on('connection', (ws, req) => {

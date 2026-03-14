@@ -564,6 +564,7 @@ export interface MapLayers {
   miningSites: boolean;
   processingPlants: boolean;
   commodityPorts: boolean;
+  webcams: boolean;
 }
 
 export interface AIDataCenter {
@@ -819,6 +820,7 @@ export interface MilitaryVessel {
   note?: string;
   usniRegion?: string;
   usniDeploymentStatus?: USNIDeploymentStatus;
+  usniHomePort?: string;
   usniStrikeGroup?: string;
   usniActivityDescription?: string;
   usniArticleUrl?: string;

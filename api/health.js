@@ -39,7 +39,7 @@ const STANDALONE_KEYS = {
   bisExchange:           'economic:bis:eer:v1',
   bisCredit:             'economic:bis:credit:v1',
   shippingRates:         'supply_chain:shipping:v2',
-  chokepoints:           'supply_chain:chokepoints:v2',
+  chokepoints:           'supply_chain:chokepoints:v4',
   minerals:              'supply_chain:minerals:v2',
   giving:                'giving:summary:v1',
   gpsjam:                'intelligence:gpsjam:v2',
@@ -61,6 +61,8 @@ const STANDALONE_KEYS = {
   temporalAnomalies:     'temporal:anomalies:v1',
   displacement:          `displacement:summary:v1:${new Date().getFullYear()}`,
   satellites:            'intelligence:satellites:tle:v1',
+  portwatch:             'supply_chain:portwatch:v1',
+  corridorrisk:          'supply_chain:corridorrisk:v1',
 };
 
 const SEED_META = {
@@ -111,6 +113,8 @@ const SEED_META = {
   faaDelays:        { key: 'seed-meta:aviation:faa',            maxStaleMin: 60 },
   theaterPosture:   { key: 'seed-meta:theater-posture',         maxStaleMin: 60 },
   correlationCards: { key: 'seed-meta:correlation:cards',       maxStaleMin: 15 },
+  portwatch:        { key: 'seed-meta:supply_chain:portwatch',   maxStaleMin: 720 },
+  corridorrisk:     { key: 'seed-meta:supply_chain:corridorrisk', maxStaleMin: 120 },
 };
 
 // Standalone keys that are populated on-demand by RPC handlers (not seeds).

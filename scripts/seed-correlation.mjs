@@ -259,17 +259,19 @@ function collectEscalationSignals(protests, outages, newsClusters) {
   const windowMs = 48 * 60 * 60 * 1000;
 
   for (const p of protests) {
-    const ts = typeof p.time === 'number' ? p.time : (p.time ? new Date(p.time).getTime() : now);
+    const ts = typeof p.occurredAt === 'number' ? p.occurredAt : (p.occurredAt ? new Date(p.occurredAt).getTime() : now);
     if (now - ts > windowMs) continue;
-    const code = normalizeToCode(p.country, p.lat, p.lon);
+    const pLat = p.location?.latitude ?? p.lat;
+    const pLon = p.location?.longitude ?? p.lon;
+    const code = normalizeToCode(p.country, pLat, pLon);
     if (!code) continue;
-    const severityMap = { high: 85, medium: 55, low: 30 };
+    const severityMap = { SEVERITY_LEVEL_HIGH: 85, SEVERITY_LEVEL_MEDIUM: 55, SEVERITY_LEVEL_LOW: 30, high: 85, medium: 55, low: 30 };
     signals.push({
       type: 'conflict_event',
       source: 'signal-aggregator',
       severity: severityMap[p.severity] ?? 40,
-      lat: p.lat,
-      lon: p.lon,
+      lat: pLat,
+      lon: pLon,
       country: code,
       timestamp: ts,
       label: `${p.eventType || 'event'}: ${p.title || ''}`,
@@ -277,18 +279,20 @@ function collectEscalationSignals(protests, outages, newsClusters) {
   }
 
   for (const o of outages) {
-    const ts = typeof o.pubDate === 'number' ? o.pubDate : (o.pubDate ? new Date(o.pubDate).getTime() : now);
+    const ts = typeof o.detectedAt === 'number' ? o.detectedAt : (o.detectedAt ? new Date(o.detectedAt).getTime() : now);
     if (now - ts > windowMs) continue;
-    if (o.lat != null && o.lon != null && o.lat === 0 && o.lon === 0) continue;
-    const code = normalizeToCode(o.country, o.lat, o.lon);
+    const oLat = o.location?.latitude ?? o.lat;
+    const oLon = o.location?.longitude ?? o.lon;
+    if (oLat != null && oLon != null && oLat === 0 && oLon === 0) continue;
+    const code = normalizeToCode(o.country, oLat, oLon);
     if (!code) continue;
-    const severityMap = { total: 90, major: 70, partial: 40 };
+    const severityMap = { OUTAGE_SEVERITY_TOTAL: 90, OUTAGE_SEVERITY_MAJOR: 70, OUTAGE_SEVERITY_PARTIAL: 40, total: 90, major: 70, partial: 40 };
     signals.push({
       type: 'escalation_outage',
       source: 'signal-aggregator',
       severity: severityMap[o.severity] ?? 30,
-      lat: o.lat,
-      lon: o.lon,
+      lat: oLat,
+      lon: oLon,
       country: code,
       timestamp: ts,
       label: `${o.severity || ''} outage: ${o.title || ''}`,
@@ -455,7 +459,7 @@ function collectDisasterSignals(earthquakes, outages, protests) {
   const conflictCountries = new Set(
     (protests ?? [])
       .filter(p => {
-        const ts = typeof p.time === 'number' ? p.time : (p.time ? new Date(p.time).getTime() : now);
+        const ts = typeof p.occurredAt === 'number' ? p.occurredAt : (p.occurredAt ? new Date(p.occurredAt).getTime() : now);
         return (now - ts) <= windowMs;
       })
       .map(p => p.country)
@@ -463,17 +467,19 @@ function collectDisasterSignals(earthquakes, outages, protests) {
   );
 
   for (const o of outages) {
-    const ts = typeof o.pubDate === 'number' ? o.pubDate : (o.pubDate ? new Date(o.pubDate).getTime() : now);
+    const ts = typeof o.detectedAt === 'number' ? o.detectedAt : (o.detectedAt ? new Date(o.detectedAt).getTime() : now);
     if (now - ts > windowMs) continue;
     if (o.country && conflictCountries.has(o.country)) continue;
-    if (o.lat == null || o.lon == null || (o.lat === 0 && o.lon === 0)) continue;
-    const severityMap = { total: 90, major: 70, partial: 40 };
+    const oLat = o.location?.latitude ?? o.lat;
+    const oLon = o.location?.longitude ?? o.lon;
+    if (oLat == null || oLon == null || (oLat === 0 && oLon === 0)) continue;
+    const severityMap = { OUTAGE_SEVERITY_TOTAL: 90, OUTAGE_SEVERITY_MAJOR: 70, OUTAGE_SEVERITY_PARTIAL: 40, total: 90, major: 70, partial: 40 };
     signals.push({
       type: 'infra_outage',
       source: 'signal-aggregator',
       severity: severityMap[o.severity] ?? 30,
-      lat: o.lat,
-      lon: o.lon,
+      lat: oLat,
+      lon: oLon,
       country: o.country,
       timestamp: ts,
       label: `Infra outage: ${o.title || ''}`,

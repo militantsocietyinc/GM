@@ -4719,7 +4719,10 @@ const TRANSIT_SUMMARY_REDIS_KEY = 'supply_chain:transit-summaries:v1';
 const TRANSIT_SUMMARY_TTL = 900; // 15 min
 const TRANSIT_SUMMARY_INTERVAL_MS = 10 * 60 * 1000;
 
-// Threat levels for anomaly detection (mirrors _scoring.mjs)
+// Threat levels for anomaly detection.
+// IMPORTANT: Must stay in sync with CHOKEPOINTS[].threatLevel in
+// server/worldmonitor/supply-chain/v1/get-chokepoint-status.ts
+// Only war_zone and critical trigger anomaly signals.
 const CHOKEPOINT_THREAT_LEVELS = {
   suez: 'high', malacca_strait: 'normal', hormuz_strait: 'war_zone',
   bab_el_mandeb: 'critical', panama: 'normal', taiwan_strait: 'elevated',
@@ -4740,6 +4743,8 @@ const RELAY_NAME_TO_ID = {
   'South China Sea': null, 'Black Sea': null, // area geofences, not chokepoints
 };
 
+// Duplicated from server/worldmonitor/supply-chain/v1/_scoring.mjs because
+// ais-relay.cjs is CJS and cannot import .mjs modules. Keep in sync.
 function detectTrafficAnomalyRelay(history, threatLevel) {
   if (!history || history.length < 37) return { dropPct: 0, signal: false };
   const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));

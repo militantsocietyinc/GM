@@ -3668,7 +3668,7 @@ async function pwFetchAllPages(chokepoint, since) {
       headers: { 'User-Agent': CHROME_UA, Accept: 'application/json' },
       signal: AbortSignal.timeout(PORTWATCH_FETCH_TIMEOUT_MS),
     });
-    if (!resp.ok) return all;
+    if (!resp.ok) return [];
     const body = await resp.json();
     if (body.features?.length) all.push(...body.features);
     if (!body.exceededTransferLimit) break;
@@ -4629,6 +4629,9 @@ async function seedChokepointTransits() {
   console.log(`[Transit] Seeded ${Object.keys(transits).length} chokepoint transit counts`);
 }
 
+setTimeout(() => {
+  seedChokepointTransits().catch(err => console.error('[Transit] Initial seed error:', err.message));
+}, 30_000);
 setInterval(() => {
   seedChokepointTransits().catch(err => console.error('[Transit] Seed error:', err.message));
 }, CHOKEPOINT_TRANSIT_INTERVAL_MS).unref?.();

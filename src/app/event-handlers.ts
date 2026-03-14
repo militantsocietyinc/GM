@@ -689,7 +689,7 @@ export class EventHandlerManager implements AppModule {
   private syncMapAfterLayoutChange(delayMs = 320): void {
     const sync = () => {
       this.ctx.map?.setIsResizing(false);
-      this.ctx.map?.render();
+      this.ctx.map?.resize();
     };
 
     requestAnimationFrame(sync);

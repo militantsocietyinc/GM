@@ -9,8 +9,9 @@ const root = resolve(__dirname, '..');
 const src = readFileSync(join(root, 'src', 'app', 'event-handlers.ts'), 'utf-8');
 
 describe('map fullscreen resize sync', () => {
-  it('defines a shared layout-sync helper for fullscreen transitions', () => {
+  it('defines a shared layout-sync helper that calls resize()', () => {
     assert.match(src, /private syncMapAfterLayoutChange\(delayMs = 320\): void \{/);
+    assert.match(src, /this\.ctx\.map\?\.resize\(\)/);
     assert.match(src, /requestAnimationFrame\(sync\)/);
     assert.match(src, /window\.setTimeout\(sync, delayMs\)/);
   });
@@ -22,8 +23,8 @@ describe('map fullscreen resize sync', () => {
   });
 
   it('re-syncs the map after map-panel fullscreen toggles', () => {
-    const mapFullscreenBlock = src.match(/const toggle = \(\) => \{([\s\S]*?)\n\s*\};/);
-    assert.ok(mapFullscreenBlock, 'Expected map fullscreen toggle block');
+    const mapFullscreenBlock = src.match(/setupMapFullscreen[\s\S]*?const toggle = \(\) => \{([\s\S]*?)\n\s*\};/);
+    assert.ok(mapFullscreenBlock, 'Expected map fullscreen toggle block inside setupMapFullscreen');
     assert.match(mapFullscreenBlock[1], /this\.syncMapAfterLayoutChange\(\)/);
   });
 });

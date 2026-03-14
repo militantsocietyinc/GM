@@ -58,6 +58,11 @@
   --font-body: var(--font-mono);
 }
 
+/* System font selection via data-font attribute */
+[data-font="system"] {
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
 [dir="rtl"] {
   --font-body: 'Tajawal', 'Geeza Pro', 'SF Arabic', 'Tahoma', system-ui, sans-serif;
 }

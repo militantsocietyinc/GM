@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { loadEnvFile, CHROME_UA, runSeed, writeExtraKey, sleep } from './_seed-utils.mjs';
+import { loadEnvFile, CHROME_UA, runSeed, writeExtraKeyWithMeta, sleep } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
@@ -374,15 +374,15 @@ async function fetchAll() {
   if (!ep && !fr && !ms) throw new Error('All economic fetches failed');
 
   // Write secondary keys BEFORE returning (runSeed calls process.exit after primary write)
-  if (ec?.series?.length > 0) await writeExtraKey(KEYS.energyCapacity, ec, CAPACITY_TTL);
+  if (ec?.series?.length > 0) await writeExtraKeyWithMeta(KEYS.energyCapacity, ec, CAPACITY_TTL, ec.series.length);
 
   if (fr) {
     for (const [seriesId, series] of Object.entries(fr)) {
-      await writeExtraKey(`${FRED_KEY_PREFIX}:${seriesId}:0`, { series }, FRED_TTL);
+      await writeExtraKeyWithMeta(`${FRED_KEY_PREFIX}:${seriesId}:0`, { series }, FRED_TTL, series.observations?.length ?? 0);
     }
   }
 
-  if (ms && !ms.unavailable) await writeExtraKey(KEYS.macroSignals, ms, MACRO_TTL);
+  if (ms && !ms.unavailable) await writeExtraKeyWithMeta(KEYS.macroSignals, ms, MACRO_TTL, ms.totalCount ?? 0);
 
   return ep || { prices: [] };
 }

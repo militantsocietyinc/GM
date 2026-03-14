@@ -12,7 +12,7 @@
  * - listAirportFlights (arbitrary airport + direction + limit combos)
  */
 
-import { loadEnvFile, CHROME_UA, runSeed, writeExtraKey, sleep } from './_seed-utils.mjs';
+import { loadEnvFile, CHROME_UA, runSeed, writeExtraKeyWithMeta, sleep } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
@@ -252,7 +252,7 @@ async function fetchAll() {
   if (!opsData && !newsData) throw new Error('All aviation fetches failed');
 
   // Write secondary keys BEFORE returning (runSeed calls process.exit after primary write)
-  if (newsData?.items?.length > 0) await writeExtraKey(NEWS_CACHE_KEY, newsData, NEWS_TTL);
+  if (newsData?.items?.length > 0) await writeExtraKeyWithMeta(NEWS_CACHE_KEY, newsData, NEWS_TTL, newsData.items.length);
 
   return opsData || { summaries: [] };
 }

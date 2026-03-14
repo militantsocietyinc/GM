@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { loadEnvFile, CHROME_UA, runSeed, writeExtraKey, sleep } from './_seed-utils.mjs';
+import { loadEnvFile, CHROME_UA, runSeed, writeExtraKeyWithMeta, sleep } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
@@ -310,10 +310,10 @@ async function fetchAll() {
   if (!sh && !ba && !re) throw new Error('All supply-chain/trade fetches failed');
 
   // Write secondary keys BEFORE returning (runSeed calls process.exit after primary write)
-  if (ba) await writeExtraKey(KEYS.barriers, ba, TRADE_TTL);
-  if (re) await writeExtraKey(KEYS.restrictions, re, TRADE_TTL);
-  if (fl) { for (const [key, data] of Object.entries(fl)) await writeExtraKey(key, data, TRADE_TTL); }
-  if (ta) { for (const [key, data] of Object.entries(ta)) await writeExtraKey(key, data, TRADE_TTL); }
+  if (ba) await writeExtraKeyWithMeta(KEYS.barriers, ba, TRADE_TTL, ba.barriers?.length ?? 0);
+  if (re) await writeExtraKeyWithMeta(KEYS.restrictions, re, TRADE_TTL, re.restrictions?.length ?? 0);
+  if (fl) { for (const [key, data] of Object.entries(fl)) await writeExtraKeyWithMeta(key, data, TRADE_TTL, data.flows?.length ?? 0); }
+  if (ta) { for (const [key, data] of Object.entries(ta)) await writeExtraKeyWithMeta(key, data, TRADE_TTL, data.datapoints?.length ?? 0); }
 
   return sh || { indices: [], fetchedAt: new Date().toISOString(), upstreamUnavailable: true };
 }

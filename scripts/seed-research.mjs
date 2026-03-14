@@ -8,7 +8,7 @@
  * - listTrendingRepos (python, javascript, typescript daily)
  */
 
-import { loadEnvFile, CHROME_UA, runSeed, writeExtraKey, sleep } from './_seed-utils.mjs';
+import { loadEnvFile, CHROME_UA, runSeed, writeExtraKeyWithMeta, sleep } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
@@ -293,12 +293,12 @@ async function fetchAll() {
   if (allData.arxiv) {
     for (const [key, data] of Object.entries(allData.arxiv)) {
       if (key === 'research:arxiv:v1:cs.AI::50') continue;
-      await writeExtraKey(key, data, ARXIV_TTL);
+      await writeExtraKeyWithMeta(key, data, ARXIV_TTL, data.papers?.length ?? 0);
     }
   }
-  if (allData.hn) { for (const [key, data] of Object.entries(allData.hn)) await writeExtraKey(key, data, HN_TTL); }
-  if (allData.techEvents?.events?.length > 0) await writeExtraKey('research:tech-events:v1', allData.techEvents, TECH_EVENTS_TTL);
-  if (allData.trending) { for (const [key, data] of Object.entries(allData.trending)) await writeExtraKey(key, data, TRENDING_TTL); }
+  if (allData.hn) { for (const [key, data] of Object.entries(allData.hn)) await writeExtraKeyWithMeta(key, data, HN_TTL, data.items?.length ?? 0); }
+  if (allData.techEvents?.events?.length > 0) await writeExtraKeyWithMeta('research:tech-events:v1', allData.techEvents, TECH_EVENTS_TTL, allData.techEvents.events.length);
+  if (allData.trending) { for (const [key, data] of Object.entries(allData.trending)) await writeExtraKeyWithMeta(key, data, TRENDING_TTL, data.repos?.length ?? 0); }
 
   const primaryKey = allData.arxiv?.['research:arxiv:v1:cs.AI::50'];
   return primaryKey || { papers: [], pagination: undefined };

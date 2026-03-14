@@ -209,6 +209,20 @@ export async function writeExtraKey(key, data, ttl) {
   else console.log(`  Extra key ${key}: written`);
 }
 
+export async function writeExtraKeyWithMeta(key, data, ttl, recordCount) {
+  await writeExtraKey(key, data, ttl);
+  const { url, token } = getRedisCredentials();
+  const metaKey = `seed-meta:${key}`;
+  const meta = { fetchedAt: Date.now(), recordCount: recordCount ?? 0 };
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(['SET', metaKey, JSON.stringify(meta), 'EX', 86400 * 7]),
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!resp.ok) console.warn(`  seed-meta ${metaKey}: write failed`);
+}
+
 export function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }

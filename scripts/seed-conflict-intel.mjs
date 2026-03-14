@@ -16,7 +16,7 @@
  * - searchGdeltDocuments: per-query GDELT search
  */
 
-import { loadEnvFile, CHROME_UA, runSeed, writeExtraKey, sleep } from './_seed-utils.mjs';
+import { loadEnvFile, CHROME_UA, runSeed, writeExtraKeyWithMeta, sleep } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
@@ -263,9 +263,9 @@ async function fetchAll() {
   if (!ac && !pi) throw new Error('All conflict/intel fetches failed');
 
   // Write secondary keys BEFORE returning (runSeed calls process.exit after primary write)
-  if (ha) { for (const [cc, data] of Object.entries(ha)) await writeExtraKey(`${HAPI_CACHE_KEY_PREFIX}:${cc}`, data, HAPI_TTL); }
-  if (pi) await writeExtraKey('intel:pizzint:v1:base', { pizzint: pi, tensionPairs: [] }, PIZZINT_TTL);
-  if (pi && gd) await writeExtraKey('intel:pizzint:v1:gdelt', { pizzint: pi, tensionPairs: gd }, PIZZINT_TTL);
+  if (ha) { for (const [cc, data] of Object.entries(ha)) await writeExtraKeyWithMeta(`${HAPI_CACHE_KEY_PREFIX}:${cc}`, data, HAPI_TTL, 1); }
+  if (pi) await writeExtraKeyWithMeta('intel:pizzint:v1:base', { pizzint: pi, tensionPairs: [] }, PIZZINT_TTL, pi.locationsMonitored ?? 0);
+  if (pi && gd) await writeExtraKeyWithMeta('intel:pizzint:v1:gdelt', { pizzint: pi, tensionPairs: gd }, PIZZINT_TTL, gd.length ?? 0);
 
   return ac || { events: [], pagination: undefined };
 }

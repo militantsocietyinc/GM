@@ -601,7 +601,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "crystal-ball"
+name = "worldmonitor-macos"
 version = "2.5.25"
 dependencies = [
  "getrandom 0.4.1",

@@ -685,8 +685,8 @@ async fn install_update(download_url: String) -> Result<(), String> {
         // 3. Verify the app bundle identifier and code signature before overwriting /Applications.
         //    This prevents a compromised GitHub account or MITM from replacing the app
         //    with a malicious binary that passes the host check but is not World Monitor.
-        let source = format!("{}/Crystal Ball.app", mount_point);
-        let dest = "/Applications/Crystal Ball.app";
+        let source = format!("{}/World Monitor.app", mount_point);
+        let dest = "/Applications/World Monitor.app";
 
         // 3a. Verify macOS code signature — ensures binary was signed by the legitimate developer.
         //     --deep checks all nested bundles/frameworks, --strict applies additional requirements.
@@ -710,7 +710,7 @@ async fn install_update(download_url: String) -> Result<(), String> {
             }
         }
 
-        const EXPECTED_BUNDLE_ID: &str = "com.bradleybond.crystalball";
+        const EXPECTED_BUNDLE_ID: &str = "com.bradleybond.worldmonitor";
         let plist = format!("{source}/Contents/Info.plist");
         let id_check = Command::new("plutil")
             .args(["-extract", "CFBundleIdentifier", "raw", "-o", "-", &plist])
@@ -948,15 +948,15 @@ fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     )?;
 
     let about_metadata = AboutMetadata {
-        name: Some("Crystal Ball".into()),
+        name: Some("World Monitor".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
         copyright: Some("\u{00a9} 2024\u{2013}2026 Elie Habib. Modifications \u{00a9} 2026 Bradley Bond.".into()),
-        website: Some("https://github.com/bradleybond512/crystal-ball".into()),
+        website: Some("https://github.com/bradleybond512/worldmonitor-macos".into()),
         website_label: Some("GitHub Repository".into()),
         ..Default::default()
     };
     let about_item =
-        PredefinedMenuItem::about(handle, Some("About Crystal Ball"), Some(about_metadata))?;
+        PredefinedMenuItem::about(handle, Some("About World Monitor"), Some(about_metadata))?;
     let github_item = MenuItem::with_id(
         handle,
         MENU_HELP_GITHUB_ID,
@@ -1046,7 +1046,7 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             }
         }
         MENU_HELP_GITHUB_ID => {
-            let _ = open_in_shell("https://github.com/bradleybond512/crystal-ball");
+            let _ = open_in_shell("https://github.com/bradleybond512/worldmonitor-macos");
         }
         MENU_HELP_CHECK_UPDATES_ID => {
             if let Some(win) = app.get_webview_window("main") {
@@ -1631,7 +1631,7 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while running crystal-ball tauri application")
+        .expect("error while running worldmonitor-macos tauri application")
         .run(|app, event| {
             match &event {
                 // macOS: hide window on close instead of quitting (standard behavior)

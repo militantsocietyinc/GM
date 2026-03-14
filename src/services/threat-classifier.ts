@@ -1,5 +1,5 @@
+export type { ThreatLevel, EventCategory, ThreatClassification } from '@/types';
 import type { ThreatLevel, EventCategory, ThreatClassification } from '@/types';
-export type { ThreatLevel, EventCategory, ThreatClassification };
 
 import { getCSSColor } from '@/utils';
 import { getRpcBaseUrl } from '@/services/rpc-client';

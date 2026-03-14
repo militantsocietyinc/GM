@@ -99,9 +99,7 @@ export interface NewsItem {
   lon?: number;
   locationName?: string;
   lang?: string;
-  // Happy variant: positive content category
   happyCategory?: HappyContentCategory;
-  // Image URL extracted from RSS media/enclosure tags
   imageUrl?: string;
 }
 

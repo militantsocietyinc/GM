@@ -1,5 +1,5 @@
+export type { PortType, Port } from '@/types';
 import type { Port, PortType } from '@/types';
-export type { Port, PortType };
 
 export const PORTS: Port[] = [
   // Top Container Ports

@@ -434,15 +434,55 @@ describe('detectInfraScenarios', () => {
 // ── Phase 2 Tests ──────────────────────────────────────────
 
 describe('attachNewsContext', () => {
-  it('attaches top-5 headlines to all predictions', () => {
+  it('matches headlines mentioning prediction region', () => {
     const preds = [makePrediction('conflict', 'Iran', 'test', 0.5, 0.5, '7d', [])];
     const news = { topStories: [
-      { primaryTitle: 'H1' }, { primaryTitle: 'H2' }, { primaryTitle: 'H3' },
-      { primaryTitle: 'H4' }, { primaryTitle: 'H5' }, { primaryTitle: 'H6' },
+      { primaryTitle: 'Iran tensions escalate after military action' },
+      { primaryTitle: 'Stock market rallies on tech earnings' },
+      { primaryTitle: 'Iran nuclear deal negotiations resume' },
     ]};
     attachNewsContext(preds, news);
-    assert.equal(preds[0].newsContext.length, 5);
-    assert.equal(preds[0].newsContext[0], 'H1');
+    assert.equal(preds[0].newsContext.length, 2); // only Iran headlines
+    assert.ok(preds[0].newsContext[0].includes('Iran'));
+  });
+
+  it('adds news_corroboration signal when headlines match', () => {
+    const preds = [makePrediction('conflict', 'Iran', 'test', 0.5, 0.5, '7d', [])];
+    const news = { topStories: [{ primaryTitle: 'Iran military strikes reported' }] };
+    attachNewsContext(preds, news);
+    const corr = preds[0].signals.find(s => s.type === 'news_corroboration');
+    assert.ok(corr, 'should have news_corroboration signal');
+    assert.equal(corr.weight, 0.15);
+  });
+
+  it('does NOT add signal when no headlines match', () => {
+    const preds = [makePrediction('conflict', 'Iran', 'test', 0.5, 0.5, '7d', [])];
+    const news = { topStories: [{ primaryTitle: 'Local weather forecast sunny' }] };
+    attachNewsContext(preds, news);
+    const corr = preds[0].signals.find(s => s.type === 'news_corroboration');
+    assert.equal(corr, undefined);
+  });
+
+  it('falls back to generic headlines when no match', () => {
+    const preds = [makePrediction('conflict', 'Iran', 'test', 0.5, 0.5, '7d', [])];
+    const news = { topStories: [
+      { primaryTitle: 'Unrelated headline about sports' },
+      { primaryTitle: 'Another unrelated story' },
+      { primaryTitle: 'Third unrelated story' },
+      { primaryTitle: 'Fourth unrelated story' },
+    ]};
+    attachNewsContext(preds, news);
+    assert.equal(preds[0].newsContext.length, 3); // fallback top-3
+  });
+
+  it('excludes commodity node names from matching (no false positives)', () => {
+    // Iran links to "Oil" in entity graph, but "Oil" should NOT match headlines
+    const preds = [makePrediction('conflict', 'Iran', 'test', 0.5, 0.5, '7d', [])];
+    const news = { topStories: [{ primaryTitle: 'Oil prices rise on global demand' }] };
+    attachNewsContext(preds, news);
+    // "Oil" is a commodity node, not country/theater, so should NOT match
+    const corr = preds[0].signals.find(s => s.type === 'news_corroboration');
+    assert.equal(corr, undefined, 'commodity names should not trigger corroboration');
   });
 
   it('handles null newsInsights', () => {

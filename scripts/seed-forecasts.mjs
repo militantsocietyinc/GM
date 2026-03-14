@@ -829,12 +829,42 @@ function computeTrends(predictions, prior) {
   }
 }
 
-// ── Phase 2: News Context ──────────────────────────────────
+// ── Phase 2: News Context + Entity Matching ────────────────
+const NEWS_MATCHABLE_TYPES = new Set(['country', 'theater']);
+
 function attachNewsContext(predictions, newsInsights) {
   if (!newsInsights?.topStories?.length) return;
-  const headlines = newsInsights.topStories.slice(0, 5).map(s => s.primaryTitle);
+  const graph = loadEntityGraph();
+  const allHeadlines = newsInsights.topStories.slice(0, 8).map(s => s.primaryTitle);
+
   for (const pred of predictions) {
-    pred.newsContext = headlines;
+    const nodeId = graph.aliases?.[pred.region];
+    const node = nodeId ? graph.nodes?.[nodeId] : null;
+    const searchTerms = [pred.region];
+    if (node) {
+      if (node.name !== pred.region) searchTerms.push(node.name);
+      for (const linkId of node.links || []) {
+        const linked = graph.nodes?.[linkId];
+        if (linked && NEWS_MATCHABLE_TYPES.has(linked.type) && linked.name.length > 2) {
+          searchTerms.push(linked.name);
+        }
+      }
+    }
+
+    const matched = allHeadlines.filter(h => {
+      const lower = h.toLowerCase();
+      return searchTerms.some(t => t && t.length > 2 && lower.includes(t.toLowerCase()));
+    });
+
+    pred.newsContext = matched.length > 0 ? matched.slice(0, 3) : allHeadlines.slice(0, 3);
+
+    if (matched.length > 0) {
+      pred.signals.push({
+        type: 'news_corroboration',
+        value: `${matched.length} headline(s) mention ${pred.region} or linked entities`,
+        weight: 0.15,
+      });
+    }
   }
 }
 
@@ -851,6 +881,7 @@ const SIGNAL_TO_SOURCE = {
   outage: 'outages',
   cyber: 'cyber_threats',
   prediction_market: 'prediction_markets',
+  news_corroboration: 'news_insights',
 };
 
 function computeConfidence(predictions) {
@@ -1019,7 +1050,14 @@ function buildCacheHash(preds) {
 }
 
 function buildUserPrompt(preds) {
-  const headlines = (preds[0]?.newsContext || []).map(h => `- ${sanitizeForPrompt(h)}`).join('\n');
+  const seen = new Set();
+  const mergedHeadlines = [];
+  for (const p of preds) {
+    for (const h of p.newsContext || []) {
+      if (!seen.has(h)) { seen.add(h); mergedHeadlines.push(h); }
+    }
+  }
+  const headlines = mergedHeadlines.slice(0, 5).map(h => `- ${sanitizeForPrompt(h)}`).join('\n');
   const predsText = preds.map((p, i) => {
     const sigs = p.signals.map(s => `[SIGNAL] ${sanitizeForPrompt(s.value)}`).join('\n');
     const cal = p.calibration ? `\n[CALIBRATION] ${sanitizeForPrompt(p.calibration.marketTitle)} at ${Math.round(p.calibration.marketPrice * 100)}%` : '';

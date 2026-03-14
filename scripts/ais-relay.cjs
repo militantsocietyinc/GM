@@ -3707,7 +3707,8 @@ function pwComputeWowChangePct(history) {
 
 function pwEpochToTimestamp(epochMs) {
   const d = new Date(epochMs);
-  return `timestamp '${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} 00:00:00'`;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `timestamp '${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}'`;
 }
 
 async function pwFetchAllPages(portname, sinceEpoch) {

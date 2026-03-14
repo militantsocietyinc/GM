@@ -55,7 +55,7 @@ async function warmPing() {
   if (verifyData.result) {
     console.log('  Verified: data present in Redis');
   } else {
-    console.warn('  WARNING: verification read returned null');
+    throw new Error('Verification failed: Redis key empty after successful RPC');
   }
 
   const durationMs = Date.now() - startMs;

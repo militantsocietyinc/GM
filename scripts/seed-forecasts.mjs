@@ -120,6 +120,7 @@ async function readInputKeys() {
     'cyber:threats-bootstrap:v2',
     'intelligence:gpsjam:v2',
     'news:insights:v1',
+    'news:digest:v1:full:en',
   ];
   const pipeline = keys.map(k => ['GET', k]);
   const resp = await fetch(`${url}/pipeline`, {
@@ -148,6 +149,7 @@ async function readInputKeys() {
     cyberThreats: parse(9),
     gpsJamming: normalizeGpsJamming(parse(10)),
     newsInsights: parse(11),
+    newsDigest: parse(12),
   };
 }
 
@@ -881,9 +883,29 @@ function getSearchTermsForRegion(region) {
   return [...new Set(terms)].filter(t => t && t.length > 2);
 }
 
-function attachNewsContext(predictions, newsInsights) {
-  if (!newsInsights?.topStories?.length) return;
-  const allHeadlines = newsInsights.topStories.slice(0, 8).map(s => s.primaryTitle);
+function extractAllHeadlines(newsInsights, newsDigest) {
+  const headlines = [];
+  const seen = new Set();
+  // 1. Digest has 300+ headlines across 16 categories
+  if (newsDigest?.categories) {
+    for (const bucket of Object.values(newsDigest.categories)) {
+      for (const item of bucket?.items || []) {
+        if (item?.title && !seen.has(item.title)) { seen.add(item.title); headlines.push(item.title); }
+      }
+    }
+  }
+  // 2. Fallback to topStories if digest is empty
+  if (headlines.length === 0 && newsInsights?.topStories) {
+    for (const s of newsInsights.topStories) {
+      if (s?.primaryTitle && !seen.has(s.primaryTitle)) { seen.add(s.primaryTitle); headlines.push(s.primaryTitle); }
+    }
+  }
+  return headlines;
+}
+
+function attachNewsContext(predictions, newsInsights, newsDigest) {
+  const allHeadlines = extractAllHeadlines(newsInsights, newsDigest);
+  if (allHeadlines.length === 0) return;
 
   for (const pred of predictions) {
     const searchTerms = getSearchTermsForRegion(pred.region);
@@ -1216,7 +1238,7 @@ async function fetchForecasts() {
 
   console.log(`  Generated ${predictions.length} predictions`);
 
-  attachNewsContext(predictions, inputs.newsInsights);
+  attachNewsContext(predictions, inputs.newsInsights, inputs.newsDigest);
   calibrateWithMarkets(predictions, inputs.predictionMarkets);
   computeConfidence(predictions);
   computeProjections(predictions);
@@ -1290,4 +1312,5 @@ export {
   MARKET_TAG_TO_REGION,
   loadCountryCodes,
   getSearchTermsForRegion,
+  extractAllHeadlines,
 };

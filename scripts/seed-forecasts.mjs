@@ -856,10 +856,14 @@ function getSearchTermsForRegion(region) {
     terms.push(...countryEntry.keywords);
   }
 
-  // 2. Reverse lookup: if region is a full name, find the code and its keywords
+  // 2. Reverse lookup: if region is a full name (or has parenthetical suffix like "Myanmar (Burma)")
   if (!countryEntry) {
+    const regionLower = region.toLowerCase();
+    const regionBase = region.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase(); // strip "(Zaire)", "(Burma)", etc.
     for (const [, entry] of Object.entries(codes)) {
-      if (entry.name.toLowerCase() === region.toLowerCase()) {
+      const nameLower = entry.name.toLowerCase();
+      if (nameLower === regionLower || nameLower === regionBase || regionLower.includes(nameLower)) {
+        terms.push(entry.name);
         terms.push(...entry.keywords);
         break;
       }

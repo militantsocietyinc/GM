@@ -94,8 +94,8 @@ async function fetchAllTopics() {
 
 function validate(data) {
   if (!Array.isArray(data?.topics) || data.topics.length !== INTEL_TOPICS.length) return false;
-  const military = data.topics.find((t) => t.id === 'military');
-  return military && Array.isArray(military.articles) && military.articles.length > 0;
+  const populated = data.topics.filter((t) => Array.isArray(t.articles) && t.articles.length > 0);
+  return populated.length >= 3;
 }
 
 runSeed('intelligence', 'gdelt-intel', CANONICAL_KEY, fetchAllTopics, {

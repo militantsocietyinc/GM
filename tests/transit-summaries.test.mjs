@@ -235,16 +235,16 @@ describe('get-chokepoint-status handler (source analysis)', () => {
     assert.match(handlerSrc, /getCachedJson\(TRANSIT_SUMMARIES_KEY/);
   });
 
-  it('does NOT import PortWatchData', () => {
-    assert.doesNotMatch(handlerSrc, /import.*PortWatchData/);
+  it('imports PortWatchData for fallback assembly', () => {
+    assert.match(handlerSrc, /import.*PortWatchData/);
   });
 
-  it('does NOT import CorridorRiskData', () => {
+  it('does NOT import CorridorRiskData (uses local interface)', () => {
     assert.doesNotMatch(handlerSrc, /import.*CorridorRiskData/);
   });
 
-  it('does NOT import CANONICAL_CHOKEPOINTS from _chokepoint-ids', () => {
-    assert.doesNotMatch(handlerSrc, /import.*CANONICAL_CHOKEPOINTS/);
+  it('imports CANONICAL_CHOKEPOINTS for fallback relay-name mapping', () => {
+    assert.match(handlerSrc, /import.*CANONICAL_CHOKEPOINTS/);
   });
 
   it('does NOT import portwatchNameToId or corridorRiskNameToId', () => {
@@ -475,22 +475,29 @@ describe('CHOKEPOINT_THREAT_LEVELS relay-handler sync', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 8. Handler does not fetch portwatch/corridorrisk directly
+// 8. Handler reads pre-built summaries first, falls back to raw keys
 // ---------------------------------------------------------------------------
-describe('handler does not fetch upstream data directly', () => {
-  it('does NOT reference portwatch Redis key', () => {
-    assert.doesNotMatch(handlerSrc, /supply_chain:portwatch:v1/);
+describe('handler transit data strategy', () => {
+  it('reads TRANSIT_SUMMARIES_KEY as primary source', () => {
+    assert.match(handlerSrc, /TRANSIT_SUMMARIES_KEY/);
   });
 
-  it('does NOT reference corridorrisk Redis key', () => {
-    assert.doesNotMatch(handlerSrc, /supply_chain:corridorrisk/);
+  it('has fallback keys for portwatch, corridorrisk, and transit counts', () => {
+    assert.match(handlerSrc, /PORTWATCH_FALLBACK_KEY/);
+    assert.match(handlerSrc, /CORRIDORRISK_FALLBACK_KEY/);
+    assert.match(handlerSrc, /TRANSIT_COUNTS_FALLBACK_KEY/);
   });
 
-  it('does NOT import _portwatch-upstream', () => {
-    assert.doesNotMatch(handlerSrc, /import.*_portwatch-upstream/);
+  it('fallback triggers only when pre-built summaries are empty', () => {
+    assert.match(handlerSrc, /Object\.keys\(summaries\)\.length === 0/);
   });
 
-  it('does NOT call getPortWatchTransits or fetchCorridorRisk', () => {
+  it('fallback builds summaries with detectTrafficAnomaly', () => {
+    assert.match(handlerSrc, /buildFallbackSummaries/);
+    assert.match(handlerSrc, /detectTrafficAnomaly/);
+  });
+
+  it('does NOT call getPortWatchTransits or fetchCorridorRisk (no upstream fetch)', () => {
     assert.doesNotMatch(handlerSrc, /getPortWatchTransits/);
     assert.doesNotMatch(handlerSrc, /fetchCorridorRisk/);
   });

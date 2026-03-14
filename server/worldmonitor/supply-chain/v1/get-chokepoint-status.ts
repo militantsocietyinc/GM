@@ -15,11 +15,16 @@ import type {
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 import { listNavigationalWarnings } from '../../maritime/v1/list-navigational-warnings';
 import { getVesselSnapshot } from '../../maritime/v1/get-vessel-snapshot';
+import type { PortWatchData } from './_portwatch-upstream';
+import { CANONICAL_CHOKEPOINTS } from './_chokepoint-ids';
 // @ts-expect-error — .mjs module, no declaration file
-import { computeDisruptionScore, scoreToStatus, SEVERITY_SCORE, THREAT_LEVEL } from './_scoring.mjs';
+import { computeDisruptionScore, scoreToStatus, SEVERITY_SCORE, THREAT_LEVEL, detectTrafficAnomaly } from './_scoring.mjs';
 
 const REDIS_CACHE_KEY = 'supply_chain:chokepoints:v4';
 const TRANSIT_SUMMARIES_KEY = 'supply_chain:transit-summaries:v1';
+const PORTWATCH_FALLBACK_KEY = 'supply_chain:portwatch:v1';
+const CORRIDORRISK_FALLBACK_KEY = 'supply_chain:corridorrisk:v1';
+const TRANSIT_COUNTS_FALLBACK_KEY = 'supply_chain:chokepoint_transits:v1';
 const REDIS_CACHE_TTL = 300; // 5 min
 const THREAT_CONFIG_MAX_AGE_DAYS = 120;
 const NEARBY_CHOKEPOINT_RADIUS_KM = 300;
@@ -232,6 +237,45 @@ interface ChokepointFetchResult {
   upstreamUnavailable: boolean;
 }
 
+interface CorridorRiskEntry { riskLevel: string; incidentCount7d: number; disruptionPct: number }
+interface RelayTransitEntry { tanker: number; cargo: number; other: number; total: number }
+interface RelayTransitPayload { transits: Record<string, RelayTransitEntry>; fetchedAt: number }
+
+function buildFallbackSummaries(
+  portwatch: PortWatchData | null,
+  corridorRisk: Record<string, CorridorRiskEntry> | null,
+  transitData: RelayTransitPayload | null,
+  chokepoints: ChokepointConfig[],
+): Record<string, PreBuiltTransitSummary> {
+  const summaries: Record<string, PreBuiltTransitSummary> = {};
+  const relayMap = new Map<string, RelayTransitEntry>();
+  if (transitData?.transits) {
+    for (const [relayName, entry] of Object.entries(transitData.transits)) {
+      const canonical = CANONICAL_CHOKEPOINTS.find(c => c.relayName === relayName);
+      if (canonical) relayMap.set(canonical.id, entry);
+    }
+  }
+  for (const cp of chokepoints) {
+    const pw = portwatch?.[cp.id];
+    const cr = corridorRisk?.[cp.id];
+    const relay = relayMap.get(cp.id);
+    const anomaly = detectTrafficAnomaly(pw?.history ?? [], cp.threatLevel);
+    summaries[cp.id] = {
+      todayTotal: relay?.total ?? 0,
+      todayTanker: relay?.tanker ?? 0,
+      todayCargo: relay?.cargo ?? 0,
+      todayOther: relay?.other ?? 0,
+      wowChangePct: pw?.wowChangePct ?? 0,
+      history: pw?.history ?? [],
+      riskLevel: cr?.riskLevel ?? '',
+      incidentCount7d: cr?.incidentCount7d ?? 0,
+      disruptionPct: cr?.disruptionPct ?? 0,
+      anomaly,
+    };
+  }
+  return summaries;
+}
+
 async function fetchChokepointData(): Promise<ChokepointFetchResult> {
   const ctx = makeInternalCtx();
 
@@ -244,7 +288,19 @@ async function fetchChokepointData(): Promise<ChokepointFetchResult> {
     getCachedJson(TRANSIT_SUMMARIES_KEY, true).catch(() => null) as Promise<TransitSummariesPayload | null>,
   ]);
 
-  const summaries = transitSummariesData?.summaries ?? {};
+  let summaries = transitSummariesData?.summaries ?? {};
+
+  // Fallback: if pre-built summaries are empty, read raw upstream keys directly
+  if (Object.keys(summaries).length === 0) {
+    const [portwatch, corridorRisk, transitCounts] = await Promise.all([
+      getCachedJson(PORTWATCH_FALLBACK_KEY, true).catch(() => null) as Promise<PortWatchData | null>,
+      getCachedJson(CORRIDORRISK_FALLBACK_KEY, true).catch(() => null) as Promise<Record<string, CorridorRiskEntry> | null>,
+      getCachedJson(TRANSIT_COUNTS_FALLBACK_KEY, true).catch(() => null) as Promise<RelayTransitPayload | null>,
+    ]);
+    if (portwatch && Object.keys(portwatch).length > 0) {
+      summaries = buildFallbackSummaries(portwatch, corridorRisk, transitCounts, CHOKEPOINTS);
+    }
+  }
   const warnings = navResult.warnings || [];
   const disruptions: AisDisruption[] = vesselResult.snapshot?.disruptions || [];
   const upstreamUnavailable = (navFailed && vesselFailed) || (navFailed && disruptions.length === 0) || (vesselFailed && warnings.length === 0);

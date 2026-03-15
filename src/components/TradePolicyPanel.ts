@@ -260,10 +260,11 @@ export class TradePolicyPanel extends Panel {
     const months = this.revenueData.months;
     const latest = months[months.length - 1]!;
     const latestFy = latest.fiscalYear;
-    const latestFm = latest.calendarMonth;
 
     const currentFyMonths = months.filter(m => m.fiscalYear === latestFy);
-    const priorFyMonths = months.filter(m => m.fiscalYear === latestFy - 1 && m.calendarMonth <= latestFm);
+    const currentFyCount = currentFyMonths.length;
+    const priorFyAll = months.filter(m => m.fiscalYear === latestFy - 1);
+    const priorFyMonths = priorFyAll.slice(0, currentFyCount);
     const currentFytd = currentFyMonths.reduce((s, m) => s + m.monthlyAmountBillions, 0);
     const priorFytd = priorFyMonths.reduce((s, m) => s + m.monthlyAmountBillions, 0);
     const yoyChange = priorFytd > 0 ? ((currentFytd - priorFytd) / priorFytd) * 100 : 0;

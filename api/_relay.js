@@ -29,6 +29,23 @@ export async function fetchWithTimeout(url, options, timeoutMs = 15000) {
   }
 }
 
+/** Build the final relay response — wraps non-JSON errors in a JSON envelope
+ *  so the client can always parse the body (guards against Cloudflare HTML 502s). */
+function buildRelayResponse(response, body, headers) {
+  const ct = (response.headers.get('content-type') || '').toLowerCase();
+  const isNonJsonError = !response.ok && !ct.includes('application/json');
+  return new Response(
+    isNonJsonError ? JSON.stringify({ error: 'Upstream error', status: response.status }) : body,
+    {
+      status: response.status,
+      headers: {
+        'Content-Type': isNonJsonError ? 'application/json' : (response.headers.get('content-type') || 'application/json'),
+        ...headers,
+      },
+    },
+  );
+}
+
 export function createRelayHandler(cfg) {
   return async function handler(req) {
     const corsHeaders = getCorsHeaders(req, 'GET, OPTIONS');
@@ -96,15 +113,7 @@ export function createRelayHandler(cfg) {
       const isSuccess = response.status >= 200 && response.status < 300;
       const cacheHeaders = cfg.cacheHeaders ? cfg.cacheHeaders(isSuccess) : {};
 
-      return new Response(body, {
-        status: response.status,
-        headers: {
-          'Content-Type': response.headers.get('content-type') || 'application/json',
-          ...cacheHeaders,
-          ...extraHeaders,
-          ...corsHeaders,
-        },
-      });
+      return buildRelayResponse(response, body, { ...cacheHeaders, ...extraHeaders, ...corsHeaders });
     } catch (error) {
       if (cfg.fallback) return cfg.fallback(req, corsHeaders);
       const isTimeout = error?.name === 'AbortError';

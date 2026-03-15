@@ -44,7 +44,7 @@ import {
 import { detectPlatform, allButtons, buttonsForPlatform } from '@/components/DownloadBanner';
 import type { Platform } from '@/components/DownloadBanner';
 import { invokeTauri } from '@/services/tauri-bridge';
-import { toggleGhostMode } from '@/services/mode-manager';
+import { toggleGhostMode, getMode, setMode } from '@/services/mode-manager';
 import { dataFreshness } from '@/services/data-freshness';
 import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
@@ -321,8 +321,82 @@ export class EventHandlerManager implements AppModule {
           e.preventDefault();
           toggleGhostMode();
         }
+        // Cmd+\ — toggle sidebar
+        if (e.metaKey && e.key === '\\' && !e.shiftKey && !e.altKey) {
+          const active = document.activeElement;
+          if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          this._toggleSidebar();
+        }
+        // Cmd+, — open settings
+        if (e.metaKey && e.key === ',' && !e.shiftKey && !e.altKey) {
+          const active = document.activeElement;
+          if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          (document.querySelector('#unifiedSettingsMount .mac-sidebar-footer-btn') as HTMLElement)?.click();
+        }
+        // Cmd+M — cycle through modes (Peace→Finance→War→Disaster→Peace)
+        if (e.metaKey && e.key === 'm' && !e.shiftKey && !e.altKey) {
+          const active = document.activeElement;
+          if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          const modes = ['peace', 'finance', 'war', 'disaster'] as const;
+          const cur = getMode();
+          const idx = modes.indexOf(cur as typeof modes[number]);
+          setMode(modes[(Math.max(idx, 0) + 1) % modes.length]!);
+        }
       });
+
+      // Wire sidebar collapse button + floating expand tab
+      this._initSidebarCollapse();
     }
+  }
+
+  private _toggleSidebar(): void {
+    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('worldmonitor-sidebar-collapsed', collapsed ? '1' : '0');
+    const btn = document.getElementById('sidebarCollapseBtn');
+    if (btn) btn.title = collapsed ? 'Show sidebar (⌘\\)' : 'Hide sidebar (⌘\\)';
+  }
+
+  private _initSidebarCollapse(): void {
+    // Restore persisted state
+    if (localStorage.getItem('worldmonitor-sidebar-collapsed') === '1') {
+      document.body.classList.add('sidebar-collapsed');
+    }
+
+    // Collapse button inside sidebar footer
+    document.getElementById('sidebarCollapseBtn')?.addEventListener('click', () => this._toggleSidebar());
+
+    // Floating expand tab (visible only when collapsed)
+    document.getElementById('sidebarExpandTab')?.addEventListener('click', () => this._toggleSidebar());
+
+    // Toolbar overflow — Settings button
+    document.getElementById('toolbarSettingsBtn')?.addEventListener('click', () => {
+      (document.querySelector('#unifiedSettingsMount .mac-sidebar-footer-btn') as HTMLElement)?.click();
+    });
+
+    // Toolbar overflow — Theme button
+    document.getElementById('toolbarThemeBtn')?.addEventListener('click', () => {
+      (document.getElementById('headerThemeToggle') as HTMLElement)?.click();
+    });
+
+    // Toolbar overflow — Mode cycle button
+    const toolbarModeBtn = document.getElementById('toolbarModeBtn');
+    const updateModeBtn = () => {
+      if (!toolbarModeBtn) return;
+      const modeIcons: Record<string, string> = { peace: '🕊', finance: '💰', war: '⚔', disaster: '🌋', ghost: '👻' };
+      toolbarModeBtn.textContent = modeIcons[getMode()] ?? '🕊';
+    };
+    updateModeBtn();
+    toolbarModeBtn?.addEventListener('click', () => {
+      const modes = ['peace', 'finance', 'war', 'disaster'] as const;
+      const cur = getMode();
+      const idx = modes.indexOf(cur as typeof modes[number]);
+      setMode(modes[(Math.max(idx, 0) + 1) % modes.length]!);
+      setTimeout(updateModeBtn, 50);
+    });
+    document.addEventListener('modechanged', updateModeBtn);
   }
 
   private showShareToast(message: string): void {

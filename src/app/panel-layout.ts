@@ -297,7 +297,7 @@ export class PanelLayoutManager implements AppModule {
             <button class="mac-ghost-mode-btn${getMode() === 'ghost' ? ' mac-ghost-mode-active' : ''}" id="ghostModeBtn" title="Ghost Mode — Reduce polling, suppress notifications (⌘⇧G)">👻 Ghost Mode</button>
           </div>` : ''}
 
-          <!-- Footer: theme, low-power, settings, version -->
+          <!-- Footer: theme, low-power, settings, version, collapse -->
           <div class="mac-sidebar-footer">
             <button class="mac-sidebar-footer-btn theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}">
               ${this.buildThemeIcon()}
@@ -305,8 +305,12 @@ export class PanelLayoutManager implements AppModule {
             <button class="mac-sidebar-footer-btn" id="lowPowerBtn" title="Low Power Mode — disable animations and spatial audio">⚡</button>
             <span id="unifiedSettingsMount"></span>
             <span class="mac-sidebar-version">v${__APP_VERSION__}${BETA_MODE ? ' β' : ''}</span>
+            <button class="mac-sidebar-collapse-btn" id="sidebarCollapseBtn" title="Hide sidebar (⌘\\)">‹</button>
           </div>
         </aside>
+
+        <!-- Floating tab to re-open sidebar when collapsed -->
+        <button class="mac-sidebar-collapse-tab" id="sidebarExpandTab" title="Show sidebar (⌘\\)" aria-label="Show sidebar">›</button>
 
         <!-- Main content: toolbar + map/panels -->
         <main class="mac-content">
@@ -331,6 +335,12 @@ export class PanelLayoutManager implements AppModule {
                 <option value="africa">${t('components.deckgl.views.africa')}</option>
                 <option value="oceania">${t('components.deckgl.views.oceania')}</option>
               </select>
+            </div>
+            <!-- Toolbar overflow — only visible when sidebar is collapsed -->
+            <div class="mac-toolbar-sidebar-overflow" id="toolbarSidebarOverflow">
+              <button class="mac-toolbar-overflow-btn" id="toolbarSettingsBtn" title="Settings (⌘,)">⚙</button>
+              <button class="mac-toolbar-overflow-btn" id="toolbarThemeBtn" title="Toggle theme">☀</button>
+              <button class="mac-toolbar-overflow-btn" id="toolbarModeBtn" title="Cycle mode (⌘M)">🕊</button>
             </div>
             <span class="header-clock" id="headerClock" data-tauri-drag-region></span>
             <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> ${t('header.search')}</button>

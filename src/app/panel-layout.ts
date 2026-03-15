@@ -305,17 +305,21 @@ export class PanelLayoutManager implements AppModule {
             <button class="mac-sidebar-footer-btn" id="lowPowerBtn" title="Low Power Mode — disable animations and spatial audio">⚡</button>
             <span id="unifiedSettingsMount"></span>
             <span class="mac-sidebar-version">v${__APP_VERSION__}${BETA_MODE ? ' β' : ''}</span>
-            <button class="mac-sidebar-collapse-btn" id="sidebarCollapseBtn" title="Hide sidebar (⌘\\)">‹</button>
           </div>
         </aside>
-
-        <!-- Floating tab to re-open sidebar when collapsed -->
-        <button class="mac-sidebar-collapse-tab" id="sidebarExpandTab" title="Show sidebar (⌘\\)" aria-label="Show sidebar">›</button>
 
         <!-- Main content: toolbar + map/panels -->
         <main class="mac-content">
           <!-- Draggable toolbar (title bar area) — drag via JS _setupToolbarDrag() -->
           <div class="mac-content-toolbar" data-tauri-drag-region>
+            <button class="mac-sidebar-toggle-btn" id="sidebarCollapseBtn" title="Toggle sidebar (⌘\\)" aria-label="Toggle sidebar">
+              <svg width="14" height="12" viewBox="0 0 14 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0" y="0" width="4" height="12" rx="1.5" fill="currentColor" opacity="0.5"/>
+                <rect x="6" y="0" width="8" height="2" rx="1" fill="currentColor"/>
+                <rect x="6" y="5" width="8" height="2" rx="1" fill="currentColor"/>
+                <rect x="6" y="10" width="8" height="2" rx="1" fill="currentColor"/>
+              </svg>
+            </button>
             <span class="mac-toolbar-title" data-tauri-drag-region>
               ${SITE_VARIANT === 'tech' ? 'Tech Monitor' : SITE_VARIANT === 'finance' ? 'Finance Monitor' : SITE_VARIANT === 'happy' ? 'Good News' : 'World Monitor'}
             </span>

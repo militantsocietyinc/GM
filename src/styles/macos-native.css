@@ -732,6 +732,38 @@ body.is-desktop-macos.sidebar-collapsed .mac-sidebar-collapse-tab {
   color: var(--mac-label);
 }
 
+/* Sidebar toggle button in toolbar — always visible, Finder/Xcode style */
+.mac-sidebar-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--mac-secondary-label);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+  -webkit-app-region: no-drag;
+}
+
+.mac-sidebar-toggle-btn:hover {
+  background: var(--mac-fill);
+  color: var(--mac-label);
+}
+
+body.is-desktop-macos.sidebar-collapsed .mac-sidebar-toggle-btn {
+  color: var(--mac-accent);
+  background: rgba(10, 132, 255, 0.1);
+}
+
+body.is-desktop-macos.sidebar-collapsed .mac-sidebar-toggle-btn:hover {
+  background: rgba(10, 132, 255, 0.18);
+}
+
 /* Toolbar overflow controls — shown when sidebar is collapsed */
 .mac-toolbar-sidebar-overflow {
   display: none;

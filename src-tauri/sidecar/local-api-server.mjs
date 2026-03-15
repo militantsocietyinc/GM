@@ -2187,6 +2187,36 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── AI Strategic Posture — proxy cloud API server-side (bypasses browser CORS) ─
+  if (requestUrl.pathname === '/api/military/v1/get-theater-posture') {
+    const now = Math.floor(Date.now() / 1000);
+    const THEATER_STUB = [
+      { theater: 'iran-theater',        postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+      { theater: 'taiwan-theater',      postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+      { theater: 'baltic-theater',      postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+      { theater: 'blacksea-theater',    postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+      { theater: 'korea-theater',       postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+      { theater: 'south-china-sea',     postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+      { theater: 'east-med-theater',    postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+      { theater: 'israel-gaza-theater', postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+      { theater: 'yemen-redsea-theater',postureLevel: 'normal', activeFlights: 0, trackedVessels: 0, activeOperations: [], assessedAt: now },
+    ];
+    try {
+      // Node.js is not subject to browser CORS — proxy directly to cloud API server-side
+      const cloudUrl = 'https://api.worldmonitor.app/api/military/v1/get-theater-posture' + requestUrl.search;
+      const cloudResp = await fetchWithTimeout(cloudUrl, {
+        headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+      }, 10000);
+      if (cloudResp.ok) {
+        const body = await cloudResp.json();
+        // Validate shape before forwarding
+        if (body && Array.isArray(body.theaters)) return json(body);
+      }
+    } catch { /* timeout / network error — fall through to stub */ }
+    // Return stub so panel renders all theaters at "normal" rather than spinning forever
+    return json({ theaters: THEATER_STUB });
+  }
+
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context);
     if (cloudResponse) return cloudResponse;

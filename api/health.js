@@ -30,6 +30,8 @@ const BOOTSTRAP_KEYS = {
   techEvents:        'research:tech-events-bootstrap:v1',
   gdeltIntel:        'intelligence:gdelt-intel:v1',
   correlationCards:   'correlation:cards-bootstrap:v1',
+  forecasts:         'forecast:predictions:v1',
+  securityAdvisories: 'intelligence:advisories-bootstrap:v1',
 };
 
 const STANDALONE_KEYS = {
@@ -64,6 +66,7 @@ const STANDALONE_KEYS = {
   portwatch:             'supply_chain:portwatch:v1',
   corridorrisk:          'supply_chain:corridorrisk:v1',
   chokepointTransits:    'supply_chain:chokepoint_transits:v1',
+  transitSummaries:      'supply_chain:transit-summaries:v1',
 };
 
 const SEED_META = {
@@ -71,7 +74,7 @@ const SEED_META = {
   wildfires:        { key: 'seed-meta:wildfire:fires',          maxStaleMin: 120 },
   outages:          { key: 'seed-meta:infra:outages',           maxStaleMin: 30 },
   climateAnomalies: { key: 'seed-meta:climate:anomalies',       maxStaleMin: 120 },
-  unrestEvents:     { key: 'seed-meta:unrest:events',           maxStaleMin: 30 },
+  unrestEvents:     { key: 'seed-meta:unrest:events',           maxStaleMin: 45 },
   cyberThreats:     { key: 'seed-meta:cyber:threats',           maxStaleMin: 480 },
   cryptoQuotes:     { key: 'seed-meta:market:crypto',           maxStaleMin: 30 },
   etfFlows:         { key: 'seed-meta:market:etf-flows',        maxStaleMin: 60 },
@@ -80,7 +83,7 @@ const SEED_META = {
   naturalEvents:    { key: 'seed-meta:natural:events',          maxStaleMin: 120 },
   flightDelays:     { key: 'seed-meta:aviation:faa',            maxStaleMin: 60 },
   notamClosures:    { key: 'seed-meta:aviation:notam',          maxStaleMin: 90 },
-  predictions:      { key: 'seed-meta:prediction:markets',      maxStaleMin: 15 },
+  predictions:      { key: 'seed-meta:prediction:markets',      maxStaleMin: 30 },
   insights:         { key: 'seed-meta:news:insights',           maxStaleMin: 30 },
   marketQuotes:     { key: 'seed-meta:market:stocks',         maxStaleMin: 30 },
   commodityQuotes:  { key: 'seed-meta:market:commodities',    maxStaleMin: 30 },
@@ -90,7 +93,7 @@ const SEED_META = {
   bisPolicy:        { key: 'seed-meta:economic:bis:policy',       maxStaleMin: 2880 },
   bisExchange:      { key: 'seed-meta:economic:bis:eer',          maxStaleMin: 2880 },
   bisCredit:        { key: 'seed-meta:economic:bis:credit',       maxStaleMin: 2880 },
-  shippingRates:    { key: 'seed-meta:supply_chain:shipping',     maxStaleMin: 240 },
+  shippingRates:    { key: 'seed-meta:supply_chain:shipping',     maxStaleMin: 420 },
   chokepoints:      { key: 'seed-meta:supply_chain:chokepoints',  maxStaleMin: 60 },
   minerals:         { key: 'seed-meta:supply_chain:minerals',     maxStaleMin: 10080 },
   giving:           { key: 'seed-meta:giving:summary',            maxStaleMin: 10080 },
@@ -106,6 +109,7 @@ const SEED_META = {
   spending:         { key: 'seed-meta:economic:spending',          maxStaleMin: 120 },
   techEvents:       { key: 'seed-meta:research:tech-events',       maxStaleMin: 420 },
   gdeltIntel:       { key: 'seed-meta:intelligence:gdelt-intel',   maxStaleMin: 120 },
+  forecasts:        { key: 'seed-meta:forecast:predictions',       maxStaleMin: 90 },
   sectors:          { key: 'seed-meta:market:sectors',             maxStaleMin: 30 },
   techReadiness:    { key: 'seed-meta:economic:worldbank-techreadiness:v1', maxStaleMin: 10080 },
   progressData:     { key: 'seed-meta:economic:worldbank-progress:v1',     maxStaleMin: 10080 },
@@ -117,13 +121,16 @@ const SEED_META = {
   portwatch:           { key: 'seed-meta:supply_chain:portwatch',            maxStaleMin: 720 },
   corridorrisk:        { key: 'seed-meta:supply_chain:corridorrisk',         maxStaleMin: 120 },
   chokepointTransits:  { key: 'seed-meta:supply_chain:chokepoint_transits',  maxStaleMin: 15 },
+  transitSummaries:    { key: 'seed-meta:supply_chain:transit-summaries',    maxStaleMin: 15 },
+  usniFleet:           { key: 'seed-meta:military:usni-fleet',               maxStaleMin: 420 },
+  securityAdvisories:  { key: 'seed-meta:intelligence:advisories',           maxStaleMin: 90 },
 };
 
 // Standalone keys that are populated on-demand by RPC handlers (not seeds).
 // Empty = WARN not CRIT since they only exist after first request.
 const ON_DEMAND_KEYS = new Set([
   'riskScoresLive',
-  'usniFleet', 'usniFleetStale', 'positiveEventsLive', 'cableHealth',
+  'usniFleetStale', 'positiveEventsLive', 'cableHealth',
   'bisPolicy', 'bisExchange', 'bisCredit',
   'macroSignals', 'shippingRates', 'chokepoints', 'minerals', 'giving',
   'cyberThreatsRpc', 'militaryBases', 'temporalAnomalies', 'displacement',
@@ -175,7 +182,7 @@ function dataSize(parsed) {
                       'chokepoints', 'minerals', 'anomalies', 'flows', 'bases', 'flights',
                       'theaters', 'fleets', 'warnings', 'closures', 'cables',
                       'airports', 'closedIcaos', 'categories', 'regions', 'entries', 'satellites',
-                      'sectors', 'statuses', 'scores', 'topics']) {
+                      'sectors', 'statuses', 'scores', 'topics', 'advisories']) {
       if (Array.isArray(parsed[k])) return parsed[k].length;
     }
     return Object.keys(parsed).length;

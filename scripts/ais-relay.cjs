@@ -2561,7 +2561,42 @@ function classifyCacheKey(title) {
   return `classify:sebuf:v1:${hash}`;
 }
 
-function classifyFetchLlm(titles, apiKey, apiUrl, model) {
+// LLM provider fallback chain — mirrors seed-insights.mjs LLM_PROVIDERS
+// Order: ollama → groq → openrouter (canonical chain, mirrors server/_shared/llm.ts)
+const CLASSIFY_LLM_PROVIDERS = [
+  {
+    name: 'ollama',
+    envKey: 'OLLAMA_API_URL',
+    apiUrlFn: (baseUrl) => new URL('/v1/chat/completions', baseUrl).toString(),
+    model: () => process.env.OLLAMA_MODEL || 'llama3.1:8b',
+    headers: (_key) => {
+      const h = { 'Content-Type': 'application/json', 'User-Agent': CHROME_UA };
+      const apiKey = process.env.OLLAMA_API_KEY;
+      if (apiKey) h.Authorization = `Bearer ${apiKey}`;
+      return h;
+    },
+    extraBody: { think: false },
+    timeout: 30000,
+  },
+  {
+    name: 'groq',
+    envKey: 'GROQ_API_KEY',
+    apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'llama-3.1-8b-instant',
+    headers: (key) => ({ Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'User-Agent': CHROME_UA }),
+    timeout: 30000,
+  },
+  {
+    name: 'openrouter',
+    envKey: 'OPENROUTER_API_KEY',
+    apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'google/gemini-2.5-flash',
+    headers: (key) => ({ Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://worldmonitor.app', 'X-Title': 'World Monitor', 'User-Agent': CHROME_UA }),
+    timeout: 30000,
+  },
+];
+
+function classifyFetchLlmSingle(titles, apiKey, apiUrl, model, headers, extraBody, timeout) {
   return new Promise((resolve) => {
     const sanitized = titles.map((t) => t.replace(/[\n\r]/g, ' ').replace(/\|/g, '/').slice(0, 200).trim());
     const prompt = sanitized.map((t, i) => `${i}|${t}`).join('\n');
@@ -2573,19 +2608,15 @@ function classifyFetchLlm(titles, apiKey, apiUrl, model) {
       ],
       temperature: 0,
       max_tokens: titles.length * 40,
+      ...extraBody,
     });
 
     const parsed = new URL(apiUrl);
     const transport = parsed.protocol === 'http:' ? http : https;
     const req = transport.request(parsed, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'User-Agent': CHROME_UA,
-        'Content-Length': Buffer.byteLength(bodyStr),
-      },
-      timeout: 30000,
+      headers: { ...headers, 'Content-Length': Buffer.byteLength(bodyStr) },
+      timeout,
     }, (resp) => {
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         resp.resume();
@@ -2610,9 +2641,27 @@ function classifyFetchLlm(titles, apiKey, apiUrl, model) {
   });
 }
 
+async function classifyFetchLlm(titles) {
+  for (const provider of CLASSIFY_LLM_PROVIDERS) {
+    const envVal = process.env[provider.envKey];
+    if (!envVal) continue;
+
+    const apiUrl = provider.apiUrlFn ? provider.apiUrlFn(envVal) : provider.apiUrl;
+    const model = typeof provider.model === 'function' ? provider.model() : provider.model;
+    const headers = provider.headers(envVal);
+
+    const result = await classifyFetchLlmSingle(titles, envVal, apiUrl, model, headers, provider.extraBody || {}, provider.timeout);
+    if (result) {
+      return result;
+    }
+    console.warn(`[Classify] ${provider.name} failed, trying next provider...`);
+  }
+  return null;
+}
+
 let classifyInFlight = false;
 
-async function seedClassifyForVariant(variant, apiKey, apiUrl, model) {
+async function seedClassifyForVariant(variant) {
   const digestUrl = `https://api.worldmonitor.app/api/news/v1/list-feed-digest?variant=${variant}&lang=en`;
   let digest;
   try {
@@ -2661,7 +2710,7 @@ async function seedClassifyForVariant(variant, apiKey, apiUrl, model) {
 
   for (let b = 0; b < misses.length; b += CLASSIFY_BATCH_SIZE) {
     const chunk = misses.slice(b, b + CLASSIFY_BATCH_SIZE);
-    const llmResult = await classifyFetchLlm(chunk, apiKey, apiUrl, model);
+    const llmResult = await classifyFetchLlm(chunk);
 
     if (!Array.isArray(llmResult)) {
       for (const title of chunk) {
@@ -2700,16 +2749,9 @@ async function seedClassify() {
   classifyInFlight = true;
   const t0 = Date.now();
   try {
-    const apiKey = process.env.LLM_API_KEY || process.env.GROQ_API_KEY;
-    const apiUrl = process.env.LLM_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
-    const model = process.env.LLM_MODEL || 'llama-3.1-8b-instant';
-    if (!apiKey) {
-      console.log('[Classify] Skipped — no LLM_API_KEY or GROQ_API_KEY');
-      return;
-    }
-    const isProd = process.env.RAILWAY_ENVIRONMENT === 'production';
-    if (isProd && !apiUrl.startsWith('https://') && !apiUrl.startsWith('http://localhost')) {
-      console.warn('[Classify] LLM_API_URL must be HTTPS in production — skipping');
+    const hasAnyProvider = CLASSIFY_LLM_PROVIDERS.some((p) => !!process.env[p.envKey]);
+    if (!hasAnyProvider) {
+      console.log('[Classify] Skipped — no LLM provider keys configured');
       return;
     }
 
@@ -2718,7 +2760,7 @@ async function seedClassify() {
     for (let v = 0; v < CLASSIFY_VARIANTS.length; v++) {
       if (v > 0) await new Promise((r) => setTimeout(r, CLASSIFY_VARIANT_STAGGER_MS));
       try {
-        const stats = await seedClassifyForVariant(CLASSIFY_VARIANTS[v], apiKey, apiUrl, model);
+        const stats = await seedClassifyForVariant(CLASSIFY_VARIANTS[v]);
         totalClassified += stats.classified;
         totalSkipped += stats.skipped;
         console.log(`[Classify] ${CLASSIFY_VARIANTS[v]}: ${stats.total} titles, ${stats.classified} classified, ${stats.skipped} skipped`);
@@ -2741,8 +2783,8 @@ async function startClassifySeedLoop() {
     console.log('[Classify] Disabled (no Upstash Redis)');
     return;
   }
-  const apiKey = process.env.LLM_API_KEY || process.env.GROQ_API_KEY;
-  console.log(`[Classify] Seed loop starting (interval ${CLASSIFY_SEED_INTERVAL_MS / 1000 / 60}min, apiKey:${apiKey ? 'yes' : 'no'})`);
+  const activeProviders = CLASSIFY_LLM_PROVIDERS.filter((p) => !!process.env[p.envKey]).map((p) => p.name);
+  console.log(`[Classify] Seed loop starting (interval ${CLASSIFY_SEED_INTERVAL_MS / 1000 / 60}min, providers:${activeProviders.length ? activeProviders.join(',') : 'none'})`);
   seedClassify().catch((e) => console.warn('[Classify] Initial seed error:', e?.message || e));
   setInterval(() => {
     seedClassify().catch((e) => console.warn('[Classify] Seed error:', e?.message || e));
@@ -3688,6 +3730,7 @@ const PORTWATCH_CHOKEPOINT_NAMES = [
   { name: 'Lombok Strait', id: 'lombok_strait' },
 ];
 let portwatchSeedInFlight = false;
+let latestPortwatchData = null;
 
 function pwFormatDate(ts) {
   const d = new Date(ts);
@@ -3777,9 +3820,11 @@ async function seedPortWatch() {
       console.warn('[PortWatch] No data fetched — skipping');
       return;
     }
+    latestPortwatchData = result;
     const ok = await upstashSet(PORTWATCH_REDIS_KEY, result, PORTWATCH_TTL);
     await upstashSet('seed-meta:supply_chain:portwatch', { fetchedAt: Date.now(), recordCount: Object.keys(result).length }, 604800);
     console.log(`[PortWatch] Seeded ${Object.keys(result).length} chokepoints (redis: ${ok ? 'OK' : 'FAIL'}) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    seedTransitSummaries().catch(e => console.warn('[TransitSummary] Post-PortWatch seed error:', e?.message || e));
   } catch (e) {
     console.warn('[PortWatch] Seed error:', e?.message || e);
   } finally {
@@ -3799,66 +3844,78 @@ async function startPortWatchSeedLoop() {
   }, PORTWATCH_SEED_INTERVAL_MS).unref?.();
 }
 
-const CORRIDOR_RISK_API_KEY = process.env.CORRIDOR_RISK_API_KEY || '';
-const CORRIDOR_RISK_BASE_URL = 'https://api.corridorrisk.io/v1/corridors';
+const CORRIDOR_RISK_BASE_URL = 'https://corridorrisk.io/api/corridors';
 const CORRIDOR_RISK_REDIS_KEY = 'supply_chain:corridorrisk:v1';
 const CORRIDOR_RISK_TTL = 7200;
 const CORRIDOR_RISK_SEED_INTERVAL_MS = 60 * 60 * 1000;
-const CORRIDOR_RISK_NAMES = [
-  { name: 'Suez', id: 'suez' },
-  { name: 'Malacca', id: 'malacca_strait' },
-  { name: 'Hormuz', id: 'hormuz_strait' },
-  { name: 'Bab el-Mandeb', id: 'bab_el_mandeb' },
-  { name: 'Panama', id: 'panama' },
-  { name: 'Taiwan', id: 'taiwan_strait' },
-  { name: 'Cape of Good Hope', id: 'cape_of_good_hope' },
+// API name -> canonical chokepoint ID (partial substring match)
+const CORRIDOR_RISK_NAME_MAP = [
+  { pattern: 'hormuz', id: 'hormuz_strait' },
+  { pattern: 'bab-el-mandeb', id: 'bab_el_mandeb' },
+  { pattern: 'red sea', id: 'bab_el_mandeb' },
+  { pattern: 'suez', id: 'suez' },
+  { pattern: 'south china sea', id: 'taiwan_strait' },
+  { pattern: 'black sea', id: 'bosphorus' },
 ];
 let corridorRiskSeedInFlight = false;
+let latestCorridorRiskData = null;
 
 async function seedCorridorRisk() {
-  if (!CORRIDOR_RISK_API_KEY) return;
-  if (corridorRiskSeedInFlight) return;
+  if (corridorRiskSeedInFlight) { console.log('[CorridorRisk] Skipped (already in-flight)'); return; }
   corridorRiskSeedInFlight = true;
+  console.log('[CorridorRisk] Fetching...');
   const t0 = Date.now();
   try {
     const resp = await fetch(CORRIDOR_RISK_BASE_URL, {
       headers: {
-        Authorization: `Bearer ${CORRIDOR_RISK_API_KEY}`,
         Accept: 'application/json',
         'User-Agent': CHROME_UA,
+        Referer: 'https://corridorrisk.io/dashboard.html',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(15000),
     });
     if (!resp.ok) {
-      console.warn(`[CorridorRisk] HTTP ${resp.status}`);
+      const body = await resp.text().catch(() => '');
+      console.warn(`[CorridorRisk] HTTP ${resp.status} (${resp.headers.get('content-type') || 'unknown'}) — ${body.slice(0, 200)}`);
       return;
     }
-    const body = await resp.json();
-    const corridors = Array.isArray(body) ? body : body.data;
-    if (!corridors?.length) {
+    const text = await resp.text();
+    if (text.startsWith('<')) {
+      console.warn(`[CorridorRisk] Got HTML instead of JSON (Cloudflare challenge?) — ${text.slice(0, 150)}`);
+      return;
+    }
+    const corridors = JSON.parse(text);
+    if (!Array.isArray(corridors) || !corridors.length) {
       console.warn('[CorridorRisk] No corridors returned — skipping');
       return;
     }
-    const crNameMap = new Map(CORRIDOR_RISK_NAMES.map(c => [c.name.toLowerCase(), c.id]));
     const result = {};
     for (const corridor of corridors) {
-      const name = corridor.name;
-      if (!name) continue;
-      const id = crNameMap.get(name.toLowerCase());
-      if (!id) continue;
-      result[id] = {
-        riskLevel: String(corridor.risk_level ?? ''),
+      const name = (corridor.name || '').toLowerCase();
+      const mapping = CORRIDOR_RISK_NAME_MAP.find(m => name.includes(m.pattern));
+      if (!mapping) continue;
+      const score = Number(corridor.score ?? 0);
+      const riskLevel = score >= 70 ? 'critical' : score >= 50 ? 'high' : score >= 30 ? 'elevated' : 'normal';
+      result[mapping.id] = {
+        riskLevel,
+        riskScore: score,
         incidentCount7d: Number(corridor.incident_count_7d ?? 0),
+        eventCount7d: Number(corridor.event_count_7d ?? 0),
         disruptionPct: Number(corridor.disruption_pct ?? 0),
+        vesselCount: Number(corridor.vessel_count ?? 0),
+        riskSummary: String(corridor.risk_summary || '').slice(0, 200),
+        riskReportAction: String((corridor.risk_report?.action) || '').slice(0, 500),
       };
     }
     if (Object.keys(result).length === 0) {
       console.warn('[CorridorRisk] No matching corridors — skipping');
       return;
     }
+    latestCorridorRiskData = result;
     const ok = await upstashSet(CORRIDOR_RISK_REDIS_KEY, result, CORRIDOR_RISK_TTL);
     await upstashSet('seed-meta:supply_chain:corridorrisk', { fetchedAt: Date.now(), recordCount: Object.keys(result).length }, 604800);
     console.log(`[CorridorRisk] Seeded ${Object.keys(result).length} corridors (redis: ${ok ? 'OK' : 'FAIL'}) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    seedTransitSummaries().catch(e => console.warn('[TransitSummary] Post-CorridorRisk seed error:', e?.message || e));
   } catch (e) {
     console.warn('[CorridorRisk] Seed error:', e?.message || e);
   } finally {
@@ -3871,16 +3928,18 @@ async function startCorridorRiskSeedLoop() {
     console.log('[CorridorRisk] Disabled (no Upstash Redis)');
     return;
   }
-  if (!CORRIDOR_RISK_API_KEY) {
-    console.log('[CorridorRisk] Disabled (no CORRIDOR_RISK_API_KEY)');
-    return;
-  }
   console.log(`[CorridorRisk] Seed loop starting (interval ${CORRIDOR_RISK_SEED_INTERVAL_MS / 1000 / 60}min)`);
   seedCorridorRisk().catch(e => console.warn('[CorridorRisk] Initial seed error:', e?.message || e));
   setInterval(() => {
     seedCorridorRisk().catch(e => console.warn('[CorridorRisk] Seed error:', e?.message || e));
   }, CORRIDOR_RISK_SEED_INTERVAL_MS).unref?.();
 }
+
+// ─────────────────────────────────────────────────────────────
+// USNI Fleet Tracker — MOVED to standalone seed-usni-fleet.mjs
+// USNI's Cloudflare blocks Railway IPs; standalone script uses proxy.
+// ─────────────────────────────────────────────────────────────
+
 
 function gzipSyncBuffer(body) {
   try {
@@ -4710,6 +4769,125 @@ setTimeout(() => {
 setInterval(() => {
   seedChokepointTransits().catch(err => console.error('[Transit] Seed error:', err.message));
 }, CHOKEPOINT_TRANSIT_INTERVAL_MS).unref?.();
+
+// --- Pre-assembled Transit Summaries (Railway advantage: avoids large Redis reads on Vercel) ---
+const TRANSIT_SUMMARY_REDIS_KEY = 'supply_chain:transit-summaries:v1';
+const TRANSIT_SUMMARY_TTL = 900; // 15 min
+const TRANSIT_SUMMARY_INTERVAL_MS = 10 * 60 * 1000;
+
+// Threat levels for anomaly detection.
+// IMPORTANT: Must stay in sync with CHOKEPOINTS[].threatLevel in
+// server/worldmonitor/supply-chain/v1/get-chokepoint-status.ts
+// Only war_zone and critical trigger anomaly signals.
+const CHOKEPOINT_THREAT_LEVELS = {
+  suez: 'high', malacca_strait: 'normal', hormuz_strait: 'war_zone',
+  bab_el_mandeb: 'critical', panama: 'normal', taiwan_strait: 'elevated',
+  cape_of_good_hope: 'normal', gibraltar: 'normal', bosphorus: 'elevated',
+  korea_strait: 'normal', dover_strait: 'normal', kerch_strait: 'war_zone',
+  lombok_strait: 'normal',
+};
+
+// ID mapping: relay geofence name -> canonical ID
+const RELAY_NAME_TO_ID = {
+  'Suez Canal': 'suez', 'Malacca Strait': 'malacca_strait',
+  'Strait of Hormuz': 'hormuz_strait', 'Bab el-Mandeb Strait': 'bab_el_mandeb',
+  'Panama Canal': 'panama', 'Taiwan Strait': 'taiwan_strait',
+  'Cape of Good Hope': 'cape_of_good_hope', 'Gibraltar Strait': 'gibraltar',
+  'Bosporus Strait': 'bosphorus', 'Korea Strait': 'korea_strait',
+  'Dover Strait': 'dover_strait', 'Kerch Strait': 'kerch_strait',
+  'Lombok Strait': 'lombok_strait',
+  'South China Sea': null, 'Black Sea': null, // area geofences, not chokepoints
+};
+
+// Duplicated from server/worldmonitor/supply-chain/v1/_scoring.mjs because
+// ais-relay.cjs is CJS and cannot import .mjs modules. Keep in sync.
+function detectTrafficAnomalyRelay(history, threatLevel) {
+  if (!history || history.length < 37) return { dropPct: 0, signal: false };
+  const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
+  let recent7 = 0, baseline30 = 0;
+  for (let i = 0; i < 7 && i < sorted.length; i++) recent7 += sorted[i].total;
+  for (let i = 7; i < 37 && i < sorted.length; i++) baseline30 += sorted[i].total;
+  const baselineAvg7 = (baseline30 / Math.min(30, sorted.length - 7)) * 7;
+  if (baselineAvg7 < 14) return { dropPct: 0, signal: false };
+  const dropPct = Math.round(((baselineAvg7 - recent7) / baselineAvg7) * 100);
+  const isHighThreat = threatLevel === 'war_zone' || threatLevel === 'critical';
+  return { dropPct, signal: dropPct >= 50 && isHighThreat };
+}
+
+async function seedTransitSummaries() {
+  // Hydrate from Redis on cold start (in-memory state lost after relay restart)
+  if (!latestPortwatchData) {
+    const persisted = await upstashGet(PORTWATCH_REDIS_KEY);
+    if (persisted && typeof persisted === 'object' && Object.keys(persisted).length > 0) {
+      latestPortwatchData = persisted;
+      console.log(`[TransitSummary] Hydrated PortWatch from Redis (${Object.keys(persisted).length} chokepoints)`);
+    }
+  }
+  if (!latestCorridorRiskData) {
+    const persisted = await upstashGet(CORRIDOR_RISK_REDIS_KEY);
+    if (persisted && typeof persisted === 'object' && Object.keys(persisted).length > 0) {
+      latestCorridorRiskData = persisted;
+      console.log(`[TransitSummary] Hydrated CorridorRisk from Redis (${Object.keys(persisted).length} corridors)`);
+    }
+  }
+
+  const pw = latestPortwatchData;
+  if (!pw || Object.keys(pw).length === 0) return;
+
+  const now = Date.now();
+  const summaries = {};
+
+  for (const [cpId, cpData] of Object.entries(pw)) {
+    const threatLevel = CHOKEPOINT_THREAT_LEVELS[cpId] || 'normal';
+    const anomaly = detectTrafficAnomalyRelay(cpData.history, threatLevel);
+
+    // Get relay transit counts for this chokepoint
+    let relayTransit = null;
+    for (const [relayName, canonicalId] of Object.entries(RELAY_NAME_TO_ID)) {
+      if (canonicalId === cpId) {
+        const crossings = chokepointCrossings.get(relayName) || [];
+        const recent = crossings.filter(c => now - c.ts < TRANSIT_WINDOW_MS);
+        if (recent.length > 0) {
+          relayTransit = {
+            tanker: recent.filter(c => c.type === 'tanker').length,
+            cargo: recent.filter(c => c.type === 'cargo').length,
+            other: recent.filter(c => c.type === 'other').length,
+            total: recent.length,
+          };
+        }
+        break;
+      }
+    }
+
+    const cr = latestCorridorRiskData?.[cpId];
+    summaries[cpId] = {
+      todayTotal: relayTransit?.total ?? 0,
+      todayTanker: relayTransit?.tanker ?? 0,
+      todayCargo: relayTransit?.cargo ?? 0,
+      todayOther: relayTransit?.other ?? 0,
+      wowChangePct: cpData.wowChangePct ?? 0,
+      history: cpData.history ?? [],
+      riskLevel: cr?.riskLevel ?? '',
+      incidentCount7d: cr?.incidentCount7d ?? 0,
+      disruptionPct: cr?.disruptionPct ?? 0,
+      riskSummary: cr?.riskSummary ?? '',
+      riskReportAction: cr?.riskReportAction ?? '',
+      anomaly,
+    };
+  }
+
+  const ok = await upstashSet(TRANSIT_SUMMARY_REDIS_KEY, { summaries, fetchedAt: now }, TRANSIT_SUMMARY_TTL);
+  await upstashSet('seed-meta:supply_chain:transit-summaries', { fetchedAt: now, recordCount: Object.keys(summaries).length }, 604800);
+  console.log(`[TransitSummary] Seeded ${Object.keys(summaries).length} summaries (redis: ${ok ? 'OK' : 'FAIL'})`);
+}
+
+// Seed transit summaries every 10 min (same as transit counter)
+setTimeout(() => {
+  seedTransitSummaries().catch(e => console.warn('[TransitSummary] Initial seed error:', e?.message || e));
+}, 35_000);
+setInterval(() => {
+  seedTransitSummaries().catch(e => console.warn('[TransitSummary] Seed error:', e?.message || e));
+}, TRANSIT_SUMMARY_INTERVAL_MS).unref?.();
 
 // UCDP GED Events cache (persistent in-memory — Railway advantage)
 const UCDP_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours

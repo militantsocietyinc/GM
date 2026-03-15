@@ -121,10 +121,12 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
   '/api/military/v1/list-military-bases': 'static',
   '/api/economic/v1/get-macro-signals': 'medium',
   '/api/prediction/v1/list-prediction-markets': 'medium',
+  '/api/forecast/v1/get-forecasts': 'medium',
   '/api/supply-chain/v1/get-chokepoint-status': 'medium',
   '/api/news/v1/list-feed-digest': 'slow',
   '/api/intelligence/v1/classify-event': 'static',
   '/api/intelligence/v1/get-country-facts': 'daily',
+  '/api/intelligence/v1/list-security-advisories': 'slow',
   '/api/news/v1/summarize-article-cache': 'slow',
 
   '/api/imagery/v1/search-imagery': 'static',

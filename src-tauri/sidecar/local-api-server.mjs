@@ -1225,6 +1225,75 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── OREF (Israel Home Front Command) alerts ──────────────────────────────
+  // Handled before dynamic dispatch so we control the relay→tzevaadom fallback
+  // chain here rather than relying on the oref-alerts.js bundle which requires
+  // WS_RELAY_URL.  The dynamic handler stays in place as a no-op fallback.
+  if (requestUrl.pathname === '/api/oref-alerts') {
+    const isHistory = requestUrl.searchParams.get('endpoint') === 'history';
+    const relayBase = (process.env.WS_RELAY_URL || '')
+      .replace('wss://', 'https://')
+      .replace('ws://', 'http://')
+      .replace(/\/$/, '');
+
+    // 1. Relay path (same behaviour as the oref-alerts.js bundle)
+    if (relayBase) {
+      try {
+        const relaySecret = process.env.RELAY_SHARED_SECRET || '';
+        const relayHeader = (process.env.RELAY_AUTH_HEADER || 'x-relay-key').toLowerCase();
+        const relayHeaders = {
+          Accept: 'application/json',
+          ...(relaySecret ? { [relayHeader]: relaySecret, Authorization: `Bearer ${relaySecret}` } : {}),
+        };
+        const relayPath = isHistory ? '/oref/history' : '/oref/alerts';
+        const relayResp = await fetchWithTimeout(`${relayBase}${relayPath}`, { headers: relayHeaders }, 12000);
+        if (relayResp.ok) {
+          return new Response(await relayResp.text(), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      } catch { /* fall through to public proxy */ }
+    }
+
+    // 2. Public fallback: tzevaadom.co.il (accessible outside Israel)
+    if (isHistory) {
+      // No reliable public history endpoint — return empty history rather than "not configured"
+      return json({ configured: true, history: [], historyCount24h: 0, timestamp: new Date().toISOString() });
+    }
+    try {
+      const tzResp = await fetchWithTimeout(
+        'https://api.tzevaadom.co.il/notifications?networkVersion=1',
+        { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } },
+        8000,
+      );
+      if (!tzResp.ok) throw new Error(`tzevaadom ${tzResp.status}`);
+      const raw = await tzResp.json();
+      const alerts = Array.isArray(raw) ? raw.map(a => ({
+        id: String(a.id ?? Date.now()),
+        cat: String(a.cat ?? 1),
+        title: a.title ?? '',
+        data: Array.isArray(a.data) ? a.data : (a.areas ?? []),
+        desc: a.desc ?? '',
+        alertDate: a.alertDate ?? new Date().toISOString(),
+      })) : [];
+      return json({
+        configured: true,
+        alerts,
+        historyCount24h: 0,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (e) {
+      return json({
+        configured: false,
+        alerts: [],
+        historyCount24h: 0,
+        timestamp: new Date().toISOString(),
+        error: String(e.message ?? e),
+      });
+    }
+  }
+
   // ACLED air strikes & drone events (last 30 days)
   if (requestUrl.pathname === '/api/acled-events') {
     const key = process.env.ACLED_ACCESS_TOKEN;

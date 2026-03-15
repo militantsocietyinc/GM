@@ -273,14 +273,17 @@ export function installRuntimeFetchPatch(): void {
 
     const tokenExpired = localApiToken && (Date.now() - tokenFetchedAt > TOKEN_TTL_MS);
     if (!localApiToken || tokenExpired) {
-      try {
-        const { tryInvokeTauri } = await import('@/services/tauri-bridge');
-        localApiToken = await tryInvokeTauri<string>('get_local_api_token');
-        tokenFetchedAt = Date.now();
-      } catch {
-        localApiToken = null;
-        tokenFetchedAt = 0;
+      // Retry up to 3× with short backoff — the Tauri IPC bridge may not be
+      // fully initialised on the very first API call made at app startup.
+      const { tryInvokeTauri } = await import('@/services/tauri-bridge');
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await sleep(150 * attempt);
+        try {
+          const tok = await tryInvokeTauri<string>('get_local_api_token');
+          if (tok) { localApiToken = tok; tokenFetchedAt = Date.now(); break; }
+        } catch { /* try again */ }
       }
+      if (!localApiToken) { tokenFetchedAt = 0; }
     }
 
     const headers = new Headers(init?.headers);

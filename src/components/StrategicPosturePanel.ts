@@ -4,6 +4,7 @@ import { fetchCachedTheaterPosture, type CachedTheaterPosture } from '@/services
 import { fetchMilitaryVessels } from '@/services/military-vessels';
 import { recalcPostureWithVessels, type TheaterPostureSummary } from '@/services/military-surge';
 import { t } from '../services/i18n';
+import { isDesktopRuntime, getRemoteApiBaseUrl } from '@/services/runtime';
 
 export class StrategicPosturePanel extends Panel {
   private postures: TheaterPostureSummary[] = [];
@@ -295,6 +296,25 @@ export class StrategicPosturePanel extends Panel {
 
   private showNoData(): void {
     this.stopLoadingTimer();
+    // On desktop without a cloud API configured, theater posture data is unavailable.
+    // Show a clear offline notice instead of an endless "acquiring data" spinner.
+    const desktopOffline = isDesktopRuntime() && !getRemoteApiBaseUrl();
+    if (desktopOffline) {
+      this.setContent(`
+        <div class="posture-panel">
+          <div class="posture-no-data">
+            <div class="posture-no-data-icon">🛰️</div>
+            <div class="posture-no-data-title">${t('components.strategicPosture.acquiringData')}</div>
+            <div class="posture-no-data-desc">
+              Theater posture data is served by a cloud backend and is not available
+              in offline desktop mode. Vessel positions from the local AIS stream are
+              unaffected and continue to update on the map.
+            </div>
+          </div>
+        </div>
+      `);
+      return;
+    }
     this.setContent(`
       <div class="posture-panel">
         <div class="posture-no-data">

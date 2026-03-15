@@ -198,7 +198,7 @@ export class DesktopUpdater implements AppModule {
     toast.className = 'update-toast update-info-toast';
     toast.innerHTML = `
       <div class="update-toast-body">
-        <div class="update-toast-title">Crystal Ball</div>
+        <div class="update-toast-title">World Monitor</div>
         <div class="update-toast-detail">${escapeHtml(message)}</div>
       </div>
       <button class="update-toast-dismiss" data-action="dismiss" aria-label="Dismiss">\u00d7</button>

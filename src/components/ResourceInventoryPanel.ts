@@ -282,7 +282,7 @@ export class ResourceInventoryPanel extends Panel {
     if (low.length === 0) return;
     const names = low.slice(0, 3).map(i => i.name).join(', ');
     await tryInvokeTauri<void>('send_notification', {
-      title: '⚠ Crystal Ball — Low Stock Alert',
+      title: '⚠ World Monitor — Low Stock Alert',
       body: `${low.length} item(s) have <3 days remaining: ${names}`,
       sound: 'Ping',
     }).catch(() => {});

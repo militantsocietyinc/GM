@@ -32,8 +32,9 @@ export function createConcurrencyLimiter(concurrency: number): ConcurrencyLimite
       async function worker(): Promise<void> {
         while (next < items.length) {
           const idx = next++;
+          const item = items[idx];
           try {
-            const value = await fn(items[idx]!, idx);
+            const value = await fn(item as T, idx);
             results[idx] = { status: 'fulfilled', value };
           } catch (reason) {
             results[idx] = { status: 'rejected', reason };

@@ -71,10 +71,10 @@ const FULL_PANELS: Record<string, PanelConfig> = {
 
 const FULL_MAP_LAYERS: MapLayers = {
   iranAttacks: true,
-  gpsJamming: false,
+  gpsJamming: true,
   conflicts: true,
   bases: true,
-  cables: false,
+  cables: true,
   pipelines: false,
   hotspots: true,
   ais: false,
@@ -87,7 +87,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   outages: true,
   cyberThreats: true,
   datacenters: false,
-  protests: false,
+  protests: true,
   flights: false,
   military: true,
   natural: true,

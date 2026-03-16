@@ -109,13 +109,14 @@ export class PanelLayoutManager implements AppModule {
   private static readonly WAR_PRIORITY = [
     'alert-center', 'cyber-threats', 'oref-sirens', 'telegram-intel',
     'gdelt-intel', 'cascade', 'strategic-posture', 'strategic-risk',
-    'cii', 'satellite-fires', 'ucdp-events', 'displacement',
+    'cii', 'satellite-fires', 'ucdp-events', 'displacement', 'space-weather',
   ];
 
   /** Panels floated to top in Disaster Mode. */
   private static readonly DISASTER_PRIORITY = [
     'natural-disasters', 'earthquakes', 'satellite-fires', 'gdacs',
-    'alert-center', 'displacement', 'oref-sirens', 'weather',
+    'volcano-alerts', 'nws-alerts', 'alert-center', 'displacement',
+    'oref-sirens', 'weather', 'air-quality',
   ];
 
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {

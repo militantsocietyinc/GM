@@ -737,22 +737,23 @@ body.is-desktop-macos.sidebar-collapsed .mac-sidebar-collapse-tab {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--mac-secondary-label);
+  width: 34px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--mac-separator);
+  background: var(--mac-fill);
+  color: var(--mac-label);
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
   -webkit-app-region: no-drag;
 }
 
 .mac-sidebar-toggle-btn:hover {
-  background: var(--mac-fill);
+  background: var(--mac-surface-hover);
   color: var(--mac-label);
+  border-color: var(--mac-secondary-label);
 }
 
 body.is-desktop-macos.sidebar-collapsed .mac-sidebar-toggle-btn {
@@ -762,6 +763,14 @@ body.is-desktop-macos.sidebar-collapsed .mac-sidebar-toggle-btn {
 
 body.is-desktop-macos.sidebar-collapsed .mac-sidebar-toggle-btn:hover {
   background: rgba(10, 132, 255, 0.18);
+}
+
+/* When sidebar is collapsed, mac-content fills full window width.
+   The macOS traffic-light buttons (close/min/zoom) sit at x≈8-72 of the window
+   and physically cover the toolbar's left edge. Push the toolbar content past
+   them so the sidebar toggle button is always reachable. */
+body.is-desktop-macos.sidebar-collapsed .mac-content-toolbar {
+  padding-left: 80px;
 }
 
 /* Toolbar overflow controls — shown when sidebar is collapsed */

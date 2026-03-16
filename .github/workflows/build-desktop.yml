@@ -17,8 +17,11 @@ on:
         default: true
         type: boolean
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+    paths:
+      - 'package.json'
+      - 'src-tauri/tauri.conf.json'
 
 permissions:
   contents: write
@@ -31,7 +34,88 @@ env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      build_variant: ${{ steps.release-metadata.outputs.build_variant }}
+      release_draft: ${{ steps.release-metadata.outputs.release_draft }}
+      release_name: ${{ steps.release-metadata.outputs.release_name }}
+      release_tag: ${{ steps.release-metadata.outputs.release_tag }}
+      release_version: ${{ steps.release-metadata.outputs.release_version }}
+      should_release: ${{ steps.release-metadata.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set release metadata
+        id: release-metadata
+        shell: bash
+        run: |
+          VERSION=$(jq -r .version package.json)
+          SHOULD_RELEASE="true"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUILD_VARIANT="${{ github.event.inputs.variant }}"
+            RELEASE_DRAFT="${{ github.event.inputs.draft }}"
+          else
+            BUILD_VARIANT="full"
+            RELEASE_DRAFT="false"
+            PREVIOUS_VERSION=$(git show "${{ github.event.before }}:package.json" 2>/dev/null | jq -r .version 2>/dev/null || echo "")
+            if [ "$PREVIOUS_VERSION" = "$VERSION" ]; then
+              SHOULD_RELEASE="false"
+            fi
+          fi
+
+          if [ "$BUILD_VARIANT" = "tech" ]; then
+            RELEASE_TAG="v${VERSION}-tech"
+            RELEASE_NAME="Tech Monitor v${VERSION}"
+          else
+            RELEASE_TAG="v${VERSION}"
+            RELEASE_NAME="World Monitor v${VERSION}"
+          fi
+
+          echo "build_variant=$BUILD_VARIANT" >> "$GITHUB_OUTPUT"
+          echo "release_draft=$RELEASE_DRAFT" >> "$GITHUB_OUTPUT"
+          echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "should_release=$SHOULD_RELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Run release doctor
+        if: steps.release-metadata.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          ARGS=(--variant "${{ steps.release-metadata.outputs.build_variant }}")
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ARGS+=(--allow-existing-target-release)
+          fi
+          node scripts/release-doctor.mjs "${ARGS[@]}"
+
+      - name: Create tag for this release
+        if: steps.release-metadata.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ steps.release-metadata.outputs.release_tag }}"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
+            echo "Tag ${TAG} already exists remotely; reusing."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$GITHUB_SHA" -m "Release $TAG"
+          git push origin "refs/tags/${TAG}"
+
   build-tauri:
+    needs: prepare-release
+    if: needs.prepare-release.outputs.should_release == 'true'
     permissions:
       contents: write
     strategy:
@@ -205,15 +289,11 @@ jobs:
             Write-Output "No Windows signing secrets — building unsigned"
           }
 
-      # ── Determine variant ──
+      # ── Load release metadata ──
       - name: Set build variant
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "BUILD_VARIANT=${{ github.event.inputs.variant }}" >> $GITHUB_ENV
-          else
-            echo "BUILD_VARIANT=full" >> $GITHUB_ENV
-          fi
+          echo "BUILD_VARIANT=${{ needs.prepare-release.outputs.build_variant }}" >> "$GITHUB_ENV"
 
       # ── Build with tauri-action ──
       # Signed builds: only when Apple signing secrets are valid and imported
@@ -236,10 +316,10 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'World Monitor v__VERSION__'
+          tagName: ${{ needs.prepare-release.outputs.release_tag }}
+          releaseName: ${{ needs.prepare-release.outputs.release_name }}
           releaseBody: 'See changelog below.'
-          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.draft) }}
+          releaseDraft: ${{ fromJSON(needs.prepare-release.outputs.release_draft) }}
           prerelease: false
           args: ${{ matrix.args }}
           retryAttempts: 1
@@ -258,10 +338,10 @@ jobs:
           TAURI_BUNDLE_WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           TAURI_BUNDLE_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'World Monitor v__VERSION__'
+          tagName: ${{ needs.prepare-release.outputs.release_tag }}
+          releaseName: ${{ needs.prepare-release.outputs.release_name }}
           releaseBody: 'See changelog below.'
-          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.draft) }}
+          releaseDraft: ${{ fromJSON(needs.prepare-release.outputs.release_draft) }}
           prerelease: false
           args: ${{ matrix.args }}
           retryAttempts: 1
@@ -282,10 +362,10 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v__VERSION__-tech
-          releaseName: 'Tech Monitor v__VERSION__'
+          tagName: ${{ needs.prepare-release.outputs.release_tag }}
+          releaseName: ${{ needs.prepare-release.outputs.release_name }}
           releaseBody: 'See changelog below.'
-          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.draft) }}
+          releaseDraft: ${{ fromJSON(needs.prepare-release.outputs.release_draft) }}
           prerelease: false
           tauriScript: npx tauri
           args: --config src-tauri/tauri.tech.conf.json ${{ matrix.args }}
@@ -305,10 +385,10 @@ jobs:
           TAURI_BUNDLE_WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           TAURI_BUNDLE_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         with:
-          tagName: v__VERSION__-tech
-          releaseName: 'Tech Monitor v__VERSION__'
+          tagName: ${{ needs.prepare-release.outputs.release_tag }}
+          releaseName: ${{ needs.prepare-release.outputs.release_name }}
           releaseBody: 'See changelog below.'
-          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.draft) }}
+          releaseDraft: ${{ fromJSON(needs.prepare-release.outputs.release_draft) }}
           prerelease: false
           tauriScript: npx tauri
           args: --config src-tauri/tauri.tech.conf.json ${{ matrix.args }}
@@ -431,8 +511,8 @@ jobs:
 
   # ── Update release notes with changelog after all builds complete ──
   update-release-notes:
-    needs: build-tauri
-    if: always() && contains(needs.build-tauri.result, 'success')
+    needs: [prepare-release, build-tauri]
+    if: needs.prepare-release.outputs.should_release == 'true' && always() && contains(needs.build-tauri.result, 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -446,8 +526,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          VERSION=$(jq -r .version src-tauri/tauri.conf.json)
-          TAG="v${VERSION}"
+          TAG="${{ needs.prepare-release.outputs.release_tag }}"
           PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
 
           if [ -z "$PREV_TAG" ]; then

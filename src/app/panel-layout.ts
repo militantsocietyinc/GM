@@ -114,7 +114,7 @@ export class PanelLayoutManager implements AppModule {
 
   /** Panels floated to top in Disaster Mode. */
   private static readonly DISASTER_PRIORITY = [
-    'natural-disasters', 'earthquakes', 'satellite-fires', 'gdacs',
+    'earthquakes', 'satellite-fires', 'gdacs-alerts',
     'volcano-alerts', 'nws-alerts', 'alert-center', 'displacement',
     'oref-sirens', 'weather', 'air-quality',
   ];

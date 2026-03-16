@@ -534,6 +534,8 @@ export class App {
         { name: 'spaceWeather', fn: () => this.dataLoader.loadSpaceWeather(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'diseaseOutbreaks', fn: () => this.dataLoader.loadDiseaseOutbreaks(), intervalMs: 15 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
         { name: 'airQuality', fn: () => this.dataLoader.loadAirQuality(), intervalMs: 30 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'commsHealth', fn: () => this.dataLoader.loadCommsHealth(), intervalMs: 5 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
+        { name: 'economicStress', fn: () => this.dataLoader.loadEconomicStress(), intervalMs: 15 * 60 * 1000, condition: () => SITE_VARIANT === 'full' },
       ]);
     }
 

@@ -63,6 +63,8 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },
   'volcano-alerts': { name: 'Volcano Alerts', enabled: true, priority: 2 },
   'nws-alerts': { name: 'NWS Hazard Alerts', enabled: true, priority: 2 },
+  'comms-health': { name: 'Comms Health', enabled: true, priority: 1 },
+  'economic-stress': { name: 'Economic Stress Index', enabled: true, priority: 1 },
   'radiation-decay': { name: 'Radiation Decay Calculator', enabled: false, priority: 3 },
   'resource-inventory': { name: 'Resource Inventory', enabled: false, priority: 3 },
   'world-clock': { name: 'World Clock', enabled: true, priority: 2 },
@@ -635,7 +637,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap'],
+    panelKeys: ['commodities', 'markets', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap', 'economic-stress'],
     variants: ['full'],
   },
   topical: {
@@ -645,7 +647,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'satellite-fires', 'earthquakes', 'cyber-threats', 'ucdp-events', 'airstrikes', 'displacement', 'climate', 'population-exposure', 'security-advisories', 'oref-sirens', 'disease-outbreaks', 'space-weather', 'air-quality', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'radiation-decay', 'resource-inventory'],
+    panelKeys: ['monitors', 'satellite-fires', 'earthquakes', 'cyber-threats', 'ucdp-events', 'airstrikes', 'displacement', 'climate', 'population-exposure', 'security-advisories', 'oref-sirens', 'disease-outbreaks', 'space-weather', 'air-quality', 'gdacs-alerts', 'volcano-alerts', 'nws-alerts', 'comms-health', 'radiation-decay', 'resource-inventory'],
     variants: ['full'],
   },
 

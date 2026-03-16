@@ -131,10 +131,14 @@ import { classifyNewsItem } from '@/services/positive-classifier';
 import { fetchGivingSummary } from '@/services/giving';
 import { fetchVolcanoAlerts } from '@/services/volcano-alerts';
 import { fetchNWSAlerts } from '@/services/nws-alerts';
+import { fetchCommsHealth } from '@/services/comms-health';
+import { fetchEconomicStress } from '@/services/economic-stress';
 import { updateRegionCount, getHighRiskRegions } from '@/services/ema-forecast';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
 import { NWSAlertsPanel } from '@/components/NWSAlertsPanel';
+import { CommsHealthPanel } from '@/components/CommsHealthPanel';
+import { EconomicStressPanel } from '@/components/EconomicStressPanel';
 import { GivingPanel } from '@/components';
 import { fetchProgressData } from '@/services/progress-data';
 import { fetchConservationWins } from '@/services/conservation-data';
@@ -1528,6 +1532,26 @@ export class DataLoaderManager implements AppModule {
     } catch (error) {
       console.warn('[nws-alerts] fetch failed', error);
       (this.ctx.panels['nws-alerts'] as NWSAlertsPanel)?.update([]);
+    }
+  }
+
+  async loadCommsHealth(): Promise<void> {
+    try {
+      const data = await fetchCommsHealth();
+      (this.ctx.panels['comms-health'] as CommsHealthPanel)?.update(data);
+    } catch (error) {
+      console.warn('[comms-health] fetch failed', error);
+      (this.ctx.panels['comms-health'] as CommsHealthPanel)?.update(null);
+    }
+  }
+
+  async loadEconomicStress(): Promise<void> {
+    try {
+      const data = await fetchEconomicStress();
+      (this.ctx.panels['economic-stress'] as EconomicStressPanel)?.update(data);
+    } catch (error) {
+      console.warn('[economic-stress] fetch failed', error);
+      (this.ctx.panels['economic-stress'] as EconomicStressPanel)?.update(null);
     }
   }
 

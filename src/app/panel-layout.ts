@@ -47,6 +47,8 @@ import { AirstrikesPanel } from '@/components/AirstrikesPanel';
 import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
 import { NWSAlertsPanel } from '@/components/NWSAlertsPanel';
+import { CommsHealthPanel } from '@/components/CommsHealthPanel';
+import { EconomicStressPanel } from '@/components/EconomicStressPanel';
 import { RadiationDecayPanel } from '@/components/RadiationDecayPanel';
 import { ResourceInventoryPanel } from '@/components/ResourceInventoryPanel';
 import { WorldClockPanel } from '@/components/WorldClockPanel';
@@ -102,21 +104,21 @@ export class PanelLayoutManager implements AppModule {
   /** Panels floated to top in Finance Mode. */
   private static readonly FINANCE_PRIORITY = [
     'crypto', 'markets', 'stablecoins', 'commodities',
-    'macro-signals', 'heatmap', 'etf-flows', 'economic',
+    'macro-signals', 'heatmap', 'etf-flows', 'economic', 'economic-stress',
   ];
 
   /** Panels floated to top in War Mode. */
   private static readonly WAR_PRIORITY = [
     'alert-center', 'cyber-threats', 'oref-sirens', 'telegram-intel',
     'gdelt-intel', 'cascade', 'strategic-posture', 'strategic-risk',
-    'cii', 'satellite-fires', 'ucdp-events', 'displacement', 'space-weather',
+    'cii', 'satellite-fires', 'ucdp-events', 'displacement', 'space-weather', 'comms-health',
   ];
 
   /** Panels floated to top in Disaster Mode. */
   private static readonly DISASTER_PRIORITY = [
     'earthquakes', 'satellite-fires', 'gdacs-alerts',
     'volcano-alerts', 'nws-alerts', 'alert-center', 'displacement',
-    'oref-sirens', 'weather', 'air-quality',
+    'oref-sirens', 'weather', 'air-quality', 'comms-health', 'economic-stress',
   ];
 
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {
@@ -781,6 +783,9 @@ export class PanelLayoutManager implements AppModule {
 
       const nwsAlertsPanel = new NWSAlertsPanel();
       this.ctx.panels['nws-alerts'] = nwsAlertsPanel;
+
+      this.ctx.panels['comms-health'] = new CommsHealthPanel();
+      this.ctx.panels['economic-stress'] = new EconomicStressPanel();
 
       this.ctx.panels['radiation-decay'] = new RadiationDecayPanel();
       this.ctx.panels['resource-inventory'] = new ResourceInventoryPanel();

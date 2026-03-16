@@ -1,11 +1,12 @@
-# Desktop Runtime Configuration Schema
+# Desktop Runtime Configuration
 
-World Monitor desktop now uses a runtime configuration schema with per-feature toggles and secret-backed credentials.
+World Monitor desktop uses a runtime configuration schema with per-feature toggles and secret-backed credentials. This document describes the current desktop implementation, not the broader shared web/runtime type surface.
 
 ## Secret keys
 
-The desktop vault schema (Rust `SUPPORTED_SECRET_KEYS`) supports the following 25 keys:
+The desktop vault schema (Rust `SUPPORTED_SECRET_KEYS`) supports the following 26 keys:
 
+- `ANTHROPIC_API_KEY`
 - `GROQ_API_KEY`
 - `OPENROUTER_API_KEY`
 - `FRED_API_KEY`
@@ -32,7 +33,9 @@ The desktop vault schema (Rust `SUPPORTED_SECRET_KEYS`) supports the following 2
 - `ICAO_API_KEY`
 - `THREATFOX_API_KEY`
 
-Note: `UC_DP_KEY` exists in the TypeScript `RuntimeSecretKey` union but is not in the desktop Rust keychain or sidecar.
+Notes:
+
+- `UC_DP_KEY` also exists in the TypeScript union but is not currently part of the Rust desktop vault schema or sidecar environment sync.
 
 ## Feature schema
 
@@ -46,19 +49,26 @@ Each feature includes:
 
 ## Desktop secret storage
 
-Desktop builds persist secrets in OS credential storage through Tauri command bindings backed by Rust `keyring` entries (`world-monitor` service namespace).
+Desktop builds persist secrets in the OS credential store through Tauri command bindings backed by Rust `keyring` entries (`world-monitor` service namespace).
 
 Secrets are **not stored in plaintext files** by the frontend.
 
 ## Degradation behavior
 
-If required secrets are missing/disabled:
+If required secrets are missing or disabled:
 
-- Summarization: Groq/OpenRouter disabled, browser model fallback.
+- Summarization: provider-specific hosted paths are skipped and the app continues down the configured fallback chain, ending at the browser model if needed.
 - FRED / EIA / Finnhub: economic, oil analytics, and stock data return empty state.
 - Cloudflare / ACLED: outages/conflicts return empty state.
 - Cyber threat feeds (URLhaus, OTX, AbuseIPDB): cyber threat layer returns empty state.
 - NASA FIRMS: satellite fire detection returns empty state.
 - Wingbits: flight enrichment disabled, heuristic-only flight classification remains.
 - AIS / OpenSky relay: live tracking features are disabled cleanly.
-- WorldMonitor API key: cloud fallback is blocked; desktop operates local-only.
+
+## Current schema gaps
+
+The desktop settings UI and shared runtime types have evolved faster than the Rust vault schema in a few places. At the moment:
+
+- `UC_DP_KEY` is present in TypeScript types and labels, but it is not currently wired into the Rust desktop secret store or sidecar sync path.
+
+Documentation and release notes for the packaged macOS build should treat `UC_DP_KEY` as unsupported until the Rust schema is updated.

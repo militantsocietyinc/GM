@@ -3,19 +3,19 @@
 AI-powered real-time global intelligence dashboard aggregating news, markets, geopolitical data, and infrastructure monitoring into a unified situation awareness interface.
 
 > Scope: this document covers the shared product surface and web deployments. For the macOS desktop fork in this repository, use the root `README.md`, `SECURITY.md`, and `docs/DESKTOP_CONFIGURATION.md` as the authoritative references for packaging, runtime security, and secret handling.
+>
+> Status: this document tracks the current repository branch. Tagged GitHub releases for this desktop fork may lag behind the branch state.
 
 🌐 **[World Monitor](https://worldmonitor.app)** | 💻 **[Tech Monitor](https://tech.worldmonitor.app)** | 📈 **[Finance Monitor](https://finance.worldmonitor.app)** | 😊 **[Happy Monitor](https://happy.worldmonitor.app)**
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
 ![D3.js](https://img.shields.io/badge/D3.js-F9A03C?style=flat&logo=d3.js&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.6.0-blue)
-
 ![World Monitor Dashboard](../new-world-monitor.png)
 
 ## Platform Variants
 
-World Monitor runs four web variants from a single codebase, and this repository also packages a macOS desktop shell around the shared application:
+World Monitor runs four web variants from a single codebase, and this repository also packages desktop builds around the shared application, with macOS as the primary documented target in this fork:
 
 | Variant | URL | Focus |
 |---------|-----|-------|

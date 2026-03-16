@@ -34,7 +34,8 @@ const MENU_HELP_OPEN_LOGS_ID: &str = "help.open_logs";
 #[cfg(feature = "devtools")]
 const MENU_HELP_DEVTOOLS_ID: &str = "help.devtools";
 const TRUSTED_WINDOWS: [&str; 3] = ["main", "settings", "live-channels"];
-const SUPPORTED_SECRET_KEYS: [&str; 25] = [
+const SUPPORTED_SECRET_KEYS: [&str; 26] = [
+    "ANTHROPIC_API_KEY",
     "GROQ_API_KEY",
     "OPENROUTER_API_KEY",
     "FRED_API_KEY",
@@ -1744,4 +1745,14 @@ fn main() {
                 _ => {}
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SUPPORTED_SECRET_KEYS;
+
+    #[test]
+    fn supported_secret_keys_include_anthropic() {
+        assert!(SUPPORTED_SECRET_KEYS.contains(&"ANTHROPIC_API_KEY"));
+    }
 }

@@ -4,7 +4,7 @@
 
 > **World Monitor** is a free, open-source macOS desktop application built on top of [World Monitor](https://github.com/koala73/worldmonitor) by Elie Habib. It adds SF Pro typography, sidebar navigation, native vibrancy effects, HIG-compliant layout, and macOS-specific intelligence features including a live cyber threat map, persistent alert center, Air Strikes & Drones panel (ACLED), and World Bank economic country profiles.
 >
-> **Repository scope:** this repository tracks the macOS desktop fork. Upstream web demos and shared architecture docs are linked below, but release, install, and desktop security guarantees in this repo apply to the macOS build here unless noted otherwise.
+> **Repository scope:** this repository tracks the macOS desktop fork. Upstream web demos and shared architecture docs are linked below, but release, install, and desktop security guarantees in this repo apply to the macOS build here unless noted otherwise. Documentation on `main` may describe changes ahead of the latest published GitHub release; use the releases page for the exact downloadable artifact set.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub stars](https://img.shields.io/github/stars/bradleybond512/worldmonitor-macos?style=social)](https://github.com/bradleybond512/worldmonitor-macos/stargazers)
@@ -35,7 +35,7 @@
 
 | Feature | Detail |
 |---|---|
-| **AI Panel Summaries** | ✦ button on every data panel generates an on-demand AI summary of current panel content using your configured provider (Ollama · Groq · Claude · OpenRouter) |
+| **AI Panel Summaries** | ✦ button on every data panel generates an on-demand AI summary of current panel content using the provider configured in Settings |
 | **Native sidebar** | SF Pro, vibrancy-backed, collapsible, HIG-compliant panel navigation |
 | **API Keys in Settings** | All data-source API keys managed in the gear-icon Settings modal (API Keys tab) — no prominent config panel cluttering the sidebar |
 | **Auto-update** | GitHub Releases API polling — "Update Now" downloads DMG, mounts, replaces app, relaunches. Manual check via Help → Check for Updates… |
@@ -46,7 +46,7 @@
 | **Disease Outbreaks panel** | WHO Disease Outbreak News + ReliefWeb health situation reports — 15-min refresh |
 | **Air Quality panel** | Open-Meteo global AQI for 18 major cities — PM2.5, ozone, NO₂, US AQI scale |
 | **World Bank profiles** | GDP, military spend %, trade %, population injected into every country brief AI context |
-| **Claude AI provider** | Anthropic Claude Sonnet 4.6 in the summarization fallback chain alongside Groq/OpenRouter |
+| **Desktop AI providers** | Ollama (local), Groq, Claude, and OpenRouter are configurable through the current desktop Settings flow |
 | **Earthquakes panel** | USGS M4.5+ live seismic data with magnitude-color-coded table |
 | **Air Strikes & Drones panel** | ACLED-sourced air/drone strikes and missile attacks — last 30 days, mapped to globe, click-to-fly |
 | **Monitoring Modes** | 5 modes — Peace / Finance / War / Disaster / Ghost. Finance auto-triggers on ≥2.5% S&P or ≥5% BTC move; War on geopolitical escalation signals; Disaster on GDACS Red alert or M≥6.5 earthquake; Ghost is manual stealth mode (⌘⇧G) |
@@ -86,7 +86,7 @@
 | **Enable Panels** | Settings → Panels tab — toggle on the intelligence panels you want |
 | **Configure Map Layers** | Settings → Sources tab — enable/disable map overlays (military bases, conflicts, fires, etc.) |
 | **Add API Keys** | Settings → API Keys tab — add free keys for ACLED, NASA FIRMS, Finnhub, OpenSky, etc. |
-| **Set Up AI** | Settings → General tab → AI Provider — configure Ollama (local/free), Groq, or Anthropic Claude |
+| **Set Up AI** | Settings → General tab → AI Provider — configure Ollama (local/free), Groq, Claude, or OpenRouter |
 | **Check Help** | Settings → Help tab — in-app guide with tips and API key sign-up links |
 
 ### Key Shortcuts
@@ -99,7 +99,7 @@
 | Click panel tab | Expand/collapse sidebar panel |
 | Click map marker | Open event detail popup |
 
-### API Keys (All Free)
+### Optional API Keys
 
 | Service | What it enables | Sign up |
 |---|---|---|
@@ -112,7 +112,8 @@
 | **AbuseIPDB** | Threat intelligence IOCs | [abuseipdb.com](https://www.abuseipdb.com/) |
 | **AlienVault OTX** | Threat intelligence IOCs | [otx.alienvault.com](https://otx.alienvault.com/) |
 | **Groq** | Fast cloud AI for panel summaries | [console.groq.com](https://console.groq.com/keys) |
-| **Anthropic** | Claude AI for panel summaries | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
+| **Anthropic** | Claude AI for panel summaries and the Claude Intelligence Agent | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
+| **OpenRouter** | Hosted AI fallback for summaries | [openrouter.ai](https://openrouter.ai/settings/keys) |
 | **FRED** | US economic data | [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html) |
 | **EIA** | Energy data | [eia.gov](https://www.eia.gov/opendata/register.php) |
 
@@ -166,7 +167,7 @@ This fork includes several security hardening measures beyond the base project:
 | Web-only dashboards                | **macOS desktop fork** (Tauri) with a local sidecar and native keychain storage, plus the upstream installable PWA/web deployments |
 | Flat 2D maps                       | **3D WebGL globe** with deck.gl rendering and 40+ toggleable data layers                                   |
 | Siloed financial data              | **Finance variant** with 92 stock exchanges, 19 financial centers, 13 central banks, BIS data, WTO trade policy, and Gulf FDI tracking |
-| Undocumented, fragile APIs         | **Proto-first API contracts** — 20 typed services with auto-generated clients, servers, and OpenAPI docs   |
+| Undocumented, fragile APIs         | **Proto-first API contracts** — 21 typed services with auto-generated clients, servers, and OpenAPI docs   |
 
 ---
 
@@ -182,23 +183,16 @@ The optional third-party API keys listed in the Quick Start Guide are all **free
 
 ---
 
-### How does Claude AI integration work?
+### What AI providers are available on desktop?
 
-Claude (Anthropic Claude Sonnet) is already built in as one of the AI summarization providers. Every data panel has a **✦ button** — clicking it asks your configured AI to generate a real-time summary of the panel's current content.
+The current macOS desktop settings flow supports four hosted/local summarization providers:
 
-**To use Claude:**
+1. **Ollama / LM Studio** — local inference through an OpenAI-compatible endpoint. No cloud API key required.
+2. **Groq** — fast hosted summaries through a standard API key entered in **Settings → API Keys**.
+3. **Claude** — Anthropic-hosted summaries and the Claude Intelligence Agent via `ANTHROPIC_API_KEY`.
+4. **OpenRouter** — hosted fallback provider configured through **Settings → API Keys**.
 
-1. Sign up at [console.anthropic.com](https://console.anthropic.com/settings/keys) and generate an API key — Claude is **pay-per-use** (billed by Anthropic per request; no World Monitor subscription)
-2. Open **Settings → API Keys** in the app and paste your key into the **Anthropic** field
-3. Open **Settings → General → AI Provider** and select **Claude**
-4. Click the ✦ button on any panel — Claude Sonnet will analyze and summarize the live data
-
-**Want a completely free AI option instead?** Two alternatives cost nothing:
-
-- **Groq** (free tier: 14,400 requests/day) — register at [console.groq.com](https://console.groq.com/keys) and enter the key in **Settings → API Keys → Groq**
-- **Ollama** (fully local, no internet required) — install [Ollama](https://ollama.com/download), then in **Settings → General → AI Provider** enter your Ollama server URL (e.g. `http://localhost:11434`) and model name; your data never leaves your machine
-
-The primary AI fallback chain is: **Ollama → Groq → OpenRouter → built-in browser model**. Claude is an opt-in provider selected explicitly via Settings — it does not participate in the automatic fallback chain.
+The standard summary fallback chain is: **Ollama → Groq → Claude → OpenRouter → built-in browser model**.
 
 ---
 
@@ -213,7 +207,7 @@ The optional API keys in Settings are for individual third-party data services (
 | Nothing — core panels work out of the box | ACLED (conflict data, free researcher account) |
 | | NASA FIRMS (wildfire detection, free) |
 | | Finnhub (stock data, free tier) |
-| | Groq (AI summaries, free tier) or Anthropic Claude (AI summaries, pay-per-use) |
+| | Groq (AI summaries, free tier), Claude (AI summaries / agent, pay-per-use), or OpenRouter (AI summaries, hosted fallback) |
 | | OpenSky / AISStream (live flight & ship tracking, free) |
 
 > **Privacy note:** API keys are stored in the macOS Keychain on desktop — never in plain text or `localStorage`.
@@ -245,7 +239,7 @@ There is no central server or account — the app runs entirely on your Mac and 
 | **Finance Monitor** | [finance.worldmonitor.app](https://finance.worldmonitor.app) | Global markets, trading, central banks, Gulf FDI |
 | **Happy Monitor**   | [happy.worldmonitor.app](https://happy.worldmonitor.app)     | Good news, positive trends, uplifting stories    |
 
-All four variants run from a single codebase — switch between them with one click via the header bar.
+All four web variants run from a single codebase — switch between them with one click via the header bar.
 
 ---
 
@@ -253,9 +247,9 @@ All four variants run from a single codebase — switch between them with one cl
 
 ### Localization & Regional Support
 
-- **Multilingual UI** — Fully localized interface supporting **16 languages: English, French, Spanish, German, Italian, Polish, Portuguese, Dutch, Swedish, Russian, Arabic, Chinese, Japanese, Turkish, Thai, and Vietnamese**. Language bundles are lazy-loaded on demand — only the active language is fetched, keeping initial bundle size minimal.
-- **RTL Support** — Native right-to-left layout support for Arabic (`ar`) and Hebrew.
-- **Localized News Feeds** — Region-specific RSS selection based on language preference (e.g., viewing the app in French loads Le Monde, Jeune Afrique, and France24). Seven locales have dedicated native-language feed sets: French, Arabic, German, Spanish, Turkish (BBC Türkçe, Hurriyet, DW Turkish), Polish (TVN24, Polsat News, Rzeczpospolita), Russian (BBC Russian, Meduza, Novaya Gazeta Europe), Thai (Bangkok Post, Thai PBS), and Vietnamese (VnExpress, Tuoi Tre News).
+- **Multilingual UI** — Fully localized interface supporting **18 languages: English, French, German, Greek, Spanish, Italian, Polish, Portuguese, Dutch, Swedish, Russian, Arabic, Chinese, Japanese, Korean, Turkish, Thai, and Vietnamese**. Language bundles are lazy-loaded on demand — only the active language is fetched, keeping initial bundle size minimal.
+- **RTL Support** — Native right-to-left layout support for Arabic (`ar`).
+- **Localized News Feeds** — Region-specific RSS selection based on language preference (e.g., viewing the app in French loads Le Monde, Jeune Afrique, and France24). Dedicated native-language feed sets ship for French, Arabic, German, Spanish, Turkish, Polish, Russian, Thai, and Vietnamese.
 - **AI Translation** — Integrated LLM translation for news headlines and summaries, enabling cross-language intelligence gathering.
 - **Regional Intelligence** — Dedicated monitoring panels for Africa, Latin America, Middle East, and Asia with local sources.
 
@@ -272,7 +266,7 @@ All four variants run from a single codebase — switch between them with one cl
 
 ### AI-Powered Intelligence
 
-- **World Brief** — LLM-synthesized summary of top global developments with a 4-tier provider fallback chain: Ollama (local) → Groq (cloud) → OpenRouter (cloud) → browser-side T5 (Transformers.js). Each tier is attempted with a 5-second timeout before falling through to the next, so the UI is never blocked. Results are Redis-cached (24h TTL) and content-deduplicated so identical headlines across concurrent users trigger exactly one LLM call
+- **World Brief** — LLM-synthesized summary of top global developments with a 5-step provider fallback chain: Ollama (local) → Groq (cloud) → Claude (cloud) → OpenRouter (cloud) → browser-side T5 (Transformers.js). Each tier is attempted with a 5-second timeout before falling through to the next, so the UI is never blocked. Results are Redis-cached (24h TTL) and content-deduplicated so identical headlines across concurrent users trigger exactly one LLM call
 - **Local LLM Support** — Ollama and LM Studio (any OpenAI-compatible endpoint) run AI summarization entirely on local hardware. No API keys required, no data leaves the machine. The desktop app auto-discovers available models from the local instance and populates a selection dropdown, filtering out embedding-only models. Default fallback model: `llama3.1:8b`
 - **Hybrid Threat Classification** — instant keyword classifier with async LLM override for higher-confidence results
 - **Focal Point Detection** — correlates entities across news, military activity, protests, outages, and markets to identify convergence
@@ -393,16 +387,16 @@ All four variants run from a single codebase — switch between them with one cl
 ### Desktop Application (Tauri)
 
 - **macOS desktop fork** — this repository ships a Tauri desktop shell with a local Node.js sidecar that runs the shared API surface locally
-- **OS keychain integration** — API keys stored in the system credential manager (macOS Keychain, Windows Credential Manager), never in plaintext files
+- **OS keychain integration** — desktop secrets live in the host credential store (macOS Keychain on the public macOS build; platform credential storage when packaging Windows targets), never in plaintext files
 - **Token-authenticated sidecar** — a unique session token prevents other local processes from accessing the sidecar on localhost. Generated per launch using randomized hashing
 - **Cloud fallback** — when a local API handler fails or is missing, requests transparently fall through to the cloud deployment (worldmonitor.app) with origin headers stripped
-- **Settings window** — dedicated configuration UI (Cmd+,) with three tabs: **LLMs** (Ollama endpoint, model selection, Groq, OpenRouter), **API Keys** (12+ data source credentials with per-key validation), and **Debug & Logs** (traffic log, verbose mode, log files). Each tab runs an independent verification pipeline — saving in the LLMs tab doesn't block API Keys validation
-- **Automatic model discovery** — when you set an Ollama or LM Studio endpoint URL in the LLMs tab, the settings panel immediately queries it for available models (tries Ollama native `/api/tags` first, then OpenAI-compatible `/v1/models`) and populates a dropdown. Embedding models are filtered out. If discovery fails, a manual text input appears as fallback
+- **Settings UI** — the in-app configuration surface (Cmd+,) currently exposes **General**, **Panels**, **Sources**, **API Keys**, **Status**, **Help**, and **Debug** sections on desktop. Ollama/provider configuration lives under **General**; provider secrets and validation live under **API Keys**
+- **Automatic model discovery** — when you set an Ollama or LM Studio endpoint URL in Settings, the app immediately queries it for available models (tries Ollama native `/api/tags` first, then OpenAI-compatible `/v1/models`) and populates a dropdown. Embedding models are filtered out. If discovery fails, a manual text input appears as fallback
 - **Cross-window secret sync** — the main dashboard and settings window run in separate webviews with independent JS contexts. Saving a secret in Settings writes to the OS keychain and broadcasts a `localStorage` change event. The main window listens for this event and hot-reloads all secrets without requiring an app restart
 - **Consolidated keychain vault** — all secrets are stored as a single JSON blob in one keychain entry (`secrets-vault`) rather than individual entries per key. This reduces macOS Keychain authorization prompts from 20+ to exactly 1 on each app launch. A one-time migration reads any existing individual entries, consolidates them, and cleans up the old format
 - **Verbose debug mode** — toggle traffic logging with persistent state across restarts. View the last 200 requests with timing, status codes, and error details
 - **DevTools toggle** — Cmd+Alt+I opens the embedded web inspector for debugging
-- **Auto-update checker** — polls the cloud API for new versions every 6 hours. Displays a non-intrusive update badge with direct download link and per-version dismiss. Variant-aware — a Tech Monitor desktop app links to the correct Tech Monitor release asset
+- **Auto-update checker** — polls GitHub Releases every 6 hours. Shows a non-intrusive update badge, offers in-app DMG installation on macOS when possible, and supports per-version dismiss
 
 ### Progressive Web App
 
@@ -443,7 +437,7 @@ All four variants run from a single codebase — switch between them with one cl
 - **Download banner** — persistent notification for web users linking to native desktop installers for their detected platform
 - **Download API** — `/api/download?platform={windows-exe|windows-msi|macos-arm64|macos-x64|linux-appimage}[&variant={full|tech|finance}]` redirects to the matching GitHub Release asset, with fallback to the releases page
 - **Universal country coverage** — every country with incoming event data receives a live CII score automatically, not just the 23 curated tier-1 nations. Clicking any country opens a full brief with available data (news, markets, infrastructure), and non-curated countries use sensible default baselines (`DEFAULT_BASELINE_RISK = 15`) with display names resolved via `Intl.DisplayNames`
-- **Feature toggles** — 15 runtime toggles (AI/Ollama, AI/Groq, AI/OpenRouter, FRED economic, EIA energy, internet outages, ACLED conflicts, threat intel feeds, AIS relay, OpenSky, Finnhub, NASA FIRMS) stored in `localStorage`, allowing administrators to enable/disable data sources without rebuilding
+- **Feature toggles** — runtime feature toggles cover AI providers (Ollama, Groq, Claude, OpenRouter), market/economic feeds, tracking integrations, and threat-intel sources. They are stored in `localStorage`, allowing administrators to enable or disable data sources without rebuilding
 - **AIS chokepoint detection** — the relay server monitors 8 strategic maritime chokepoints (Strait of Hormuz, Suez Canal, Malacca Strait, Bab el-Mandeb, Panama Canal, Taiwan Strait, South China Sea, Turkish Straits) and classifies transiting vessels by naval candidacy using MMSI prefixes, ship type codes, and name patterns
 - **AIS density grid** — vessel positions are aggregated into 2°×2° geographic cells over 30-minute windows, producing a heatmap of maritime traffic density that feeds into convergence detection
 - **Panel resizing** — drag handles on panel edges allow height adjustment (span-1 through span-4 grid rows), persisted to localStorage. Double-click resets to default height
@@ -477,7 +471,7 @@ Clicking any country on the map opens a full-page intelligence dossier — a sin
 **Left column**:
 
 - **Instability Index** — animated SVG score ring (0–100) with four component breakdown bars (Unrest, Conflict, Security, Information), severity badge, and trend indicator
-- **Intelligence Brief** — AI-generated analysis (Ollama local / Groq / OpenRouter, depending on configured provider) with inline citation anchors `[1]`–`[8]` that scroll to the corresponding news source when clicked
+- **Intelligence Brief** — AI-generated analysis (Ollama local / Groq / Claude / OpenRouter, depending on the configured provider) with inline citation anchors `[1]`–`[8]` that scroll to the corresponding news source when clicked
 - **Top News** — 8 most relevant headlines for the country, threat-level color-coded, with source and time-ago metadata
 
 **Right column**:
@@ -536,7 +530,7 @@ The World Brief is generated by a 4-tier provider chain that prioritizes local c
                                                                                                  └──────────────────────────┘
 ```
 
-All three API tiers (Ollama, Groq, OpenRouter) share a common handler factory (`_summarize-handler.js`) that provides identical behavior:
+All four hosted/local API tiers (Ollama, Groq, Claude, OpenRouter) share a common handler factory (`_summarize-handler.js`) that provides identical behavior:
 
 - **Headline deduplication** — before sending to any LLM, headlines are compared pairwise using word-overlap similarity. Near-duplicates (>60% overlap) are merged, reducing the prompt by 20–40% and preventing the LLM from wasting tokens on repeated stories
 - **Variant-aware prompting** — the system prompt adapts to the active dashboard variant. Geopolitical summaries emphasize conflict escalation and diplomatic shifts; tech summaries focus on funding rounds and AI breakthroughs; finance summaries highlight market movements and central bank signals
@@ -833,7 +827,7 @@ compositeScore =
 
 The entire API surface is defined in Protocol Buffer (`.proto`) files using [sebuf](https://github.com/SebastienMelki/sebuf) HTTP annotations. Code generation produces TypeScript clients, server handler stubs, and OpenAPI 3.1.0 documentation from a single source of truth — eliminating request/response schema drift between frontend and backend.
 
-**20 service domains** cover every data vertical:
+**21 service domains** cover every data vertical:
 
 | Domain           | RPCs                                             |
 | ---------------- | ------------------------------------------------ |
@@ -970,7 +964,7 @@ The dashboard runs a full ML pipeline in the browser via Transformers.js, with n
 | ---------------------------- | ------------------- | ------------------------------------------------- |
 | **Text embeddings**          | sentence-similarity | Semantic clustering of news headlines             |
 | **Sequence classification**  | threat-classifier   | Threat severity and category detection            |
-| **Summarization**            | T5-small            | Last-resort fallback when Ollama, Groq, and OpenRouter are all unavailable |
+| **Summarization**            | T5-small            | Last-resort fallback when Ollama, Groq, Claude, and OpenRouter are all unavailable |
 | **Named Entity Recognition** | NER pipeline        | Country, organization, and leader extraction      |
 
 **Hybrid clustering** combines fast Jaccard similarity (n-gram overlap, threshold 0.4) with ML-refined semantic similarity (cosine similarity, threshold 0.78). Jaccard runs instantly on every refresh; semantic refinement runs when the ML worker is loaded and merges clusters that are textually different but semantically identical (e.g., "NATO expands missile shield" and "Alliance deploys new air defense systems").
@@ -995,11 +989,11 @@ Resource management is aggressive — iframes are lazy-loaded via Intersection O
 
 ### Desktop Auto-Update
 
-The desktop app checks for new versions by polling `worldmonitor.app/api/version` — once at startup (after a 5-second delay) and then every 6 hours. When a newer version is detected (semver comparison), a non-intrusive update badge appears with a direct link to the GitHub Release page.
+The desktop app checks for new versions by polling the latest GitHub Release — once at startup (after a 5-second delay) and then every 6 hours. When a newer version is detected (semver comparison), a non-intrusive update badge appears.
 
-Update prompts are dismissable per-version — dismissing v2.5.0 won't suppress v2.6.0 notifications. The updater is variant-aware: a Tech Monitor desktop build links to the Tech Monitor release asset, not the full variant.
+On macOS, the action button is **Update Now** when a matching DMG asset is available: the app downloads the DMG, mounts it, replaces the app, and relaunches. If auto-install fails, or if no matching DMG is available, the updater falls back to opening the latest release page in the browser.
 
-The `/api/version` endpoint reads the latest GitHub Release tag and caches the result for 1 hour, so version checks don't hit the GitHub API on every request.
+Update prompts are dismissable per-version — dismissing v2.5.0 won't suppress v2.6.0 notifications.
 
 ### Theme System
 
@@ -1018,10 +1012,10 @@ A `theme-changed` CustomEvent is dispatched on toggle, allowing panels with cust
 World Monitor is designed so that sensitive intelligence work can run entirely on local hardware with no data leaving the user's machine. The privacy architecture operates at three levels:
 
 **Level 1 — Full Cloud (Web App)**
-All processing happens server-side on Vercel Edge Functions. API keys are stored in Vercel environment variables. News feeds are proxied through domain-allowlisted endpoints. AI summaries use Groq or OpenRouter. This is the default for `worldmonitor.app` — convenient but cloud-dependent.
+All processing happens server-side on Vercel Edge Functions. API keys are stored in Vercel environment variables. News feeds are proxied through domain-allowlisted endpoints. AI summaries use the configured hosted provider path (Groq, Claude, or OpenRouter). This is the default for `worldmonitor.app` — convenient but cloud-dependent.
 
 **Level 2 — Desktop with Cloud APIs (Tauri + Sidecar)**
-The desktop app runs a local Node.js sidecar that mirrors all 60+ cloud API handlers. API keys are stored in the OS keychain (macOS Keychain / Windows Credential Manager), never in plaintext files. Requests are processed locally first; cloud is a transparent fallback for missing handlers. Credential management happens through a native settings window with per-key validation.
+The desktop app runs a local Node.js sidecar that mirrors all 60+ cloud API handlers. API keys are stored in the host OS credential store, never in plaintext files. Requests are processed locally first; cloud is a transparent fallback for missing handlers. Credential management happens through the in-app settings UI with per-key validation.
 
 **Level 3 — Air-Gapped Local (Ollama + Desktop)**
 With Ollama or LM Studio configured, AI summarization runs entirely on local hardware. Combined with the desktop sidecar, the core intelligence pipeline (news aggregation, threat classification, instability scoring, AI briefings) operates with zero cloud dependency. The browser-side ML pipeline (Transformers.js) provides NER, sentiment analysis, and fallback summarization without even a local server.
@@ -1029,7 +1023,7 @@ With Ollama or LM Studio configured, AI summarization runs entirely on local har
 | Capability | Web | Desktop + Cloud Keys | Desktop + Ollama |
 |---|:---:|:---:|:---:|
 | News aggregation | Cloud proxy | Local sidecar | Local sidecar |
-| AI summarization | Groq/OpenRouter | Groq/OpenRouter | Local LLM |
+| AI summarization | Groq / Claude / OpenRouter | Groq / Claude / OpenRouter | Local LLM |
 | Threat classification | Cloud LLM + browser ML | Cloud LLM + browser ML | Browser ML only |
 | Credential storage | Server env vars | OS keychain | OS keychain |
 | Map & static layers | Browser | Browser | Browser |
@@ -1245,13 +1239,13 @@ A single codebase produces four specialized dashboards, each with distinct feeds
 | **RSS Feeds**         | ~25 categories (politics, MENA, Africa, think tanks) | ~20 categories (AI, VC blogs, startups, GitHub) | ~18 categories (forex, bonds, commodities, IPOs) | 10+ positive-news sources (GNN, Positive.News, Upworthy) |
 | **Panels**            | 45 (strategic posture, CII, cascade, trade policy)   | 31 (AI labs, unicorns, accelerators)            | 31 (forex, bonds, derivatives, trade policy)     | 8 (good news, breakthroughs, conservation, renewables) |
 | **Unique Map Layers** | Military bases, nuclear facilities, hotspots         | Tech HQs, cloud regions, startup hubs           | Stock exchanges, central banks, Gulf investments | Positive events, kindness, species recovery, renewables |
-| **Desktop App**       | World Monitor.app / .exe / .AppImage                 | Tech Monitor.app / .exe / .AppImage             | Finance Monitor.app / .exe / .AppImage           | (web-only)                                            |
+| **Desktop App**       | Public macOS app + DMG; the latest GitHub release also includes Windows installers and Linux AppImages for the main World Monitor build | Buildable and packageable from this repo, but the latest public release does not currently publish dedicated Tech Monitor desktop artifacts | Available on the web; desktop finance view is reachable from the full desktop build, but there is no dedicated packaged finance app in this repo | (web-only) |
 
 **Happy Monitor** is a deliberately uplifting counterpart to the geopolitical dashboard. All conflict, military, and threat overlays are disabled. The variant uses a warm nature-inspired color palette (`happy-theme.css`) and sources content from 10 dedicated positive-news RSS feeds (Good News Network, Positive.News, Reasons to be Cheerful, Optimist Daily, Upworthy, DailyGood, Good Good Good, GOOD Magazine, Sunny Skyz, The Better India). A two-pass positive classifier sorts articles into 6 categories — `science-health`, `nature-wildlife`, `humanity-kindness`, `innovation-tech`, `climate-wins`, `culture-community` — using source-name shortcuts (GNN sub-feeds are pre-classified) followed by priority-ordered keyword matching. Panels include Good News Feed with category filtering, Human Progress metrics, Live Counters, Today's Hero, Breakthroughs, 5 Good Things digest, Conservation Wins (species recovery stories), and Renewable Energy installations.
 
 **Build-time selection** — the `VITE_VARIANT` environment variable controls which configuration is bundled. A Vite HTML plugin transforms meta tags, Open Graph data, PWA manifest, and JSON-LD structured data at build time. Each variant tree-shakes unused data files — the finance build excludes military base coordinates and APT group data, while the geopolitical build excludes stock exchange listings.
 
-**Runtime switching** — a variant selector in the header bar (🌍 WORLD | 💻 TECH | 📈 FINANCE | 😊 HAPPY) navigates between deployed domains on the web, or sets `localStorage['worldmonitor-variant']` in the desktop app to switch without rebuilding.
+**Runtime switching** — a variant selector in the header bar (🌍 WORLD | 💻 TECH | 📈 FINANCE | 😊 HAPPY) navigates between deployed domains on the web. In desktop builds created from the full variant, the same local setting can switch between full, tech, and finance views without rebuilding. Happy remains web-only, and dedicated tech-branded desktop builds can be packaged locally and stay pinned to `tech`.
 
 ---
 
@@ -1260,7 +1254,7 @@ A single codebase produces four specialized dashboards, each with distinct feeds
 | Principle                           | Implementation                                                                                                                                                                                                                                                                                                                            |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Speed over perfection**           | Keyword classifier is instant; LLM refines asynchronously. Users never wait.                                                                                                                                                                                                                                                              |
-| **Assume failure**                  | Per-feed circuit breakers with 5-minute cooldowns. AI fallback chain: Ollama (local) → Groq → OpenRouter → browser-side T5. Redis cache failures degrade to in-memory fallback with stale-on-error. Negative caching (5-minute backoff after upstream failures) prevents hammering downed APIs. Every edge function returns stale cached data when upstream APIs are down. **Cache stampede prevention** — `cachedFetchJson` uses an in-flight promise map to coalesce concurrent cache misses into a single upstream fetch: the first request creates and registers a Promise, all concurrent requests for the same key await that same Promise rather than independently hitting the upstream. Rate-sensitive APIs (Yahoo Finance) use staggered sequential requests with 150ms inter-request delays to avoid 429 throttling. UCDP conflict data uses automatic version discovery (probing multiple API versions in parallel), discovered-version caching (1-hour TTL), and stale-on-error fallback. |
+| **Assume failure**                  | Per-feed circuit breakers with 5-minute cooldowns. AI fallback chain: Ollama (local) → Groq → Claude → OpenRouter → browser-side T5. Redis cache failures degrade to in-memory fallback with stale-on-error. Negative caching (5-minute backoff after upstream failures) prevents hammering downed APIs. Every edge function returns stale cached data when upstream APIs are down. **Cache stampede prevention** — `cachedFetchJson` uses an in-flight promise map to coalesce concurrent cache misses into a single upstream fetch: the first request creates and registers a Promise, all concurrent requests for the same key await that same Promise rather than independently hitting the upstream. Rate-sensitive APIs (Yahoo Finance) use staggered sequential requests with 150ms inter-request delays to avoid 429 throttling. UCDP conflict data uses automatic version discovery (probing multiple API versions in parallel), discovered-version caching (1-hour TTL), and stale-on-error fallback. |
 | **Show what you can't see**         | Intelligence gap tracker explicitly reports data source outages rather than silently hiding them.                                                                                                                                                                                                                                         |
 | **Browser-first compute**           | Analysis (clustering, instability scoring, surge detection) runs client-side — no backend compute dependency for core intelligence.                                                                                                                                                                                                       |
 | **Local-first geolocation**         | Country detection uses browser-side ray-casting against GeoJSON polygons rather than network reverse-geocoding. Sub-millisecond response, zero API dependency, works offline. Network geocoding is a fallback, not the primary path.                                                                                                      |
@@ -1271,7 +1265,7 @@ A single codebase produces four specialized dashboards, each with distinct feeds
 | **Bandwidth efficiency**            | Gzip compression on all relay responses (80% reduction). Content-hash static assets with 1-year immutable cache. Staggered polling intervals prevent synchronized API storms. Animations and polling pause on hidden tabs.                                                                                                                |
 | **Baseline-aware alerting**         | Trending keyword detection uses rolling 2-hour windows against 7-day baselines with per-term spike multipliers, cooldowns, and source diversity requirements — surfacing genuine surges while suppressing noise.                                                                                                                          |
 | **Contract-first APIs**             | Every API endpoint starts as a `.proto` definition with field validation, HTTP annotations, and examples. Code generation produces typed TypeScript clients and servers, eliminating schema drift. Breaking changes are caught automatically at CI time.                                                                                 |
-| **Run anywhere**                    | Same codebase produces three specialized variants (geopolitical, tech, finance) and deploys to Vercel (web), Railway (relay), Tauri (desktop), and PWA (installable). Desktop sidecar mirrors all cloud API handlers locally. Service worker caches map tiles for offline use while keeping intelligence data always-fresh (NetworkOnly). |
+| **Run anywhere**                    | The shared codebase produces four web variants (world, tech, finance, happy) plus desktop builds for full/tech packaging and full-build runtime switching into finance. It deploys to Vercel (web), Railway (relay), Tauri (desktop), and PWA (installable). Desktop sidecar mirrors all cloud API handlers locally. Service worker caches map tiles for offline use while keeping intelligence data always-fresh (NetworkOnly). |
 | **Graceful degradation**            | Every feature degrades gracefully when dependencies are unavailable. Missing API keys skip the associated data source — they don't crash the app. Failed upstream APIs serve stale cached data. Browser-side ML works without any server. The dashboard is useful with zero API keys configured (static layers, map, ML models all work offline). |
 | **Multi-source corroboration**      | Critical intelligence signals use multiple independent sources to reduce single-source bias. Protest data merges ACLED + GDELT with Haversine deduplication. Country risk blends news velocity + military activity + unrest events + baseline risk. Disaster data merges USGS + GDACS + NASA EONET on a 0.1° geographic grid.            |
 
@@ -1311,7 +1305,7 @@ Feeds also carry a **propaganda risk rating** and **state affiliation flag**. St
 World Monitor uses 60+ Vercel Edge Functions as a lightweight API layer, split into two generations. Legacy endpoints in `api/*.js` each handle a single data source concern — proxying, caching, or transforming external APIs. The newer proto-first endpoints route through a single edge gateway (`api/[domain]/v1/[rpc].ts`) that dispatches to typed handler implementations generated from Protocol Buffer definitions (see [Proto-First API Contracts](#proto-first-api-contracts)). Both generations coexist, with new features built proto-first. This architecture avoids a monolithic backend while keeping API keys server-side:
 
 - **RSS Proxy** — domain-allowlisted proxy for 100+ feeds, preventing CORS issues and hiding origin servers. Feeds from domains that block Vercel IPs are automatically routed through the Railway relay.
-- **AI Pipeline** — Groq and OpenRouter edge functions with Redis deduplication, so identical headlines across concurrent users only trigger one LLM call. The classify-event endpoint pauses its queue on 500 errors to avoid wasting API quota.
+- **AI Pipeline** — Groq, Claude, and OpenRouter provider routes share deduplication and fallback behavior so identical headlines across concurrent users do not fan out into redundant LLM calls. The classify-event endpoint pauses its queue on 500 errors to avoid wasting API quota.
 - **Data Adapters** — GDELT, ACLED, OpenSky, USGS, NASA FIRMS, FRED, Yahoo Finance, CoinGecko, mempool.space, BIS, WTO, and others each have dedicated edge functions that normalize responses into consistent schemas
 - **Market Intelligence** — macro signals, ETF flows, and stablecoin monitors compute derived analytics server-side (VWAP, SMA, peg deviation, flow estimates) and cache results in Redis
 - **Temporal Baseline** — Welford's algorithm state is persisted in Redis across requests, building statistical baselines without a traditional database
@@ -1327,13 +1321,13 @@ All edge functions include circuit breaker logic and return cached stale data wh
 
 ## Multi-Platform Architecture
 
-All three variants run on three platforms that work together:
+The shared app runs across web, desktop, and relay infrastructure. Web deployments expose four variants; desktop packaging in this repo targets macOS first, with Windows packaging scripts also present:
 
 ```
 ┌─────────────────────────────────────┐
 │          Vercel (Edge)              │
 │  60+ edge functions · static SPA    │
-│  Proto gateway (20 typed services)  │
+│  Proto gateway (21 typed services)  │
 │  CORS allowlist · Redis cache       │
 │  AI pipeline · market analytics     │
 │  CDN caching (s-maxage) · PWA host  │
@@ -1405,7 +1399,7 @@ The Tauri desktop app in this fork wraps the dashboard in a native macOS window 
 
 ### Secret Management
 
-API keys are stored in the operating system's credential manager (macOS Keychain, Windows Credential Manager) — never in plaintext config files. All secrets are consolidated into a single JSON vault entry in the keychain, so app startup requires exactly one OS authorization prompt regardless of how many keys are configured.
+API keys are stored in the operating system credential store — macOS Keychain on shipped macOS builds, and the platform credential manager when packaging Windows targets — never in plaintext config files. All secrets are consolidated into a single JSON vault entry, so app startup requires exactly one OS authorization prompt regardless of how many keys are configured.
 
 At sidecar launch, the vault is read, parsed, and injected as environment variables. Empty or whitespace-only values are skipped. Secrets can also be updated at runtime without restarting the sidecar: saving a key in the Settings window triggers a `POST /api/local-env-update` call that hot-patches `process.env` so handlers pick up the new value immediately.
 
@@ -1553,7 +1547,7 @@ The AI summarization pipeline adds content-based deduplication: headlines are ha
 | **Query parameter validation** | API endpoints validate input formats (e.g., stablecoin coin IDs must match `[a-z0-9-]+`, bounding box params are numeric).                                                                                                                         |
 | **IP rate limiting**           | AI endpoints use Upstash Redis-backed rate limiting to prevent abuse of Groq/OpenRouter quotas.                                                                                                                                                    |
 | **Desktop sidecar auth**       | The local API sidecar requires a per-session `Bearer` token generated at launch. The token is stored in Rust state and injected into the sidecar environment — only the Tauri frontend can retrieve it via IPC. Health check endpoints are exempt. |
-| **OS keychain storage**        | Desktop API keys are stored in the operating system's credential manager (macOS Keychain, Windows Credential Manager), never in plaintext files or environment variables on disk.                                                                  |
+| **OS keychain storage**        | Desktop API keys are stored in the operating system credential store (macOS Keychain on shipped macOS builds, platform credential storage on packaged Windows targets), never in plaintext files or environment variables on disk.           |
 | **Bot-aware social previews**  | The `/api/story` endpoint detects social crawlers (10+ signatures: Twitter, Facebook, LinkedIn, Telegram, Discord, Reddit, WhatsApp, Google) and serves OG-tagged HTML with dynamic preview images. Regular browsers receive a 302 redirect to the SPA. |
 | **Bot protection middleware**  | Edge Middleware blocks crawlers and scrapers from all `/api/*` routes — bot user-agents and requests with short or missing `User-Agent` headers receive 403. Social preview bots are selectively allowed on `/api/story` and `/api/og-story` for Open Graph image generation. Reinforced by `robots.txt` Disallow rules on API paths. |
 | **No debug endpoints**         | The `api/debug-env.js` endpoint returns 404 in production — it exists only as a disabled placeholder.                                                                                                                                              |
@@ -1613,7 +1607,7 @@ The `.env.example` file documents every variable with descriptions and registrat
 | Group             | Variables                                                                  | Free Tier                                  |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------ |
 | **AI (Local)**    | `OLLAMA_API_URL`, `OLLAMA_MODEL`                                           | Free (runs on your hardware)               |
-| **AI (Cloud)**    | `GROQ_API_KEY`, `OPENROUTER_API_KEY`                                       | 14,400 req/day (Groq), 50/day (OpenRouter) |
+| **AI (Cloud)**    | `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`                  | Groq free tier, Anthropic pay-per-use, OpenRouter credits/plan |
 | **Cache**         | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`                       | 10K commands/day                           |
 | **Markets**       | `FINNHUB_API_KEY`, `FRED_API_KEY`, `EIA_API_KEY`                           | All free tier                              |
 | **Tracking**      | `WINGBITS_API_KEY`, `AISSTREAM_API_KEY`                                    | Free                                       |
@@ -1668,8 +1662,9 @@ This runs the frontend without the API layer. Panels that require server-side pr
 | Platform               | Status                  | Notes                                                                                                                          |
 | ---------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | **Vercel**             | Full support            | Recommended deployment target                                                                                                  |
-| **Linux x86_64**       | Full support            | Works with `vercel dev` for local development. Desktop .AppImage available for x86_64. WebKitGTK rendering uses DMA-BUF with fallback to SHM for GPU compatibility. Font stack includes DejaVu Sans Mono and Liberation Mono for consistent rendering across distros |
 | **macOS**              | Works with `vercel dev` | Full local development                                                                                                         |
+| **Windows**            | Partial                 | Packaging scripts and Tauri configs exist for `full` and `tech`; the latest public World Monitor release includes Windows installers, but macOS remains the primary documented and tested desktop target in this repository |
+| **Linux**              | Experimental            | Some GitHub releases include AppImage assets for the main World Monitor build, but Linux packaging is not an authoritative support path in this repository |
 | **Raspberry Pi / ARM** | Partial                 | `vercel dev` edge runtime emulation may not work on ARM. Use Option 1 (deploy to Vercel) or Option 3 (static frontend) instead |
 | **Docker**             | Planned                 | See [Roadmap](#roadmap)                                                                                                        |
 
@@ -1701,14 +1696,14 @@ Set `WS_RELAY_URL` (server-side, HTTPS) and `VITE_WS_RELAY_URL` (client-side, WS
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Frontend**          | TypeScript, Vite, deck.gl (WebGL 3D globe), MapLibre GL, vite-plugin-pwa (service worker + manifest)                                           |
 | **Desktop**           | Tauri 2 (Rust) with Node.js sidecar, OS keychain integration (keyring crate), native TLS (reqwest)                                             |
-| **AI/ML**             | Ollama / LM Studio (local, OpenAI-compatible), Groq (Llama 3.1 8B), OpenRouter (fallback), Transformers.js (browser-side T5, NER, embeddings) |
+| **AI/ML**             | Ollama / LM Studio (local, OpenAI-compatible), Groq, Claude, OpenRouter, Transformers.js (browser-side T5, NER, embeddings) |
 | **Caching**           | Redis (Upstash) — 3-tier cache with in-memory + Redis + upstream, cross-user AI deduplication. Vercel CDN (s-maxage). Service worker (Workbox) |
 | **Geopolitical APIs** | OpenSky, GDELT, ACLED, UCDP, HAPI, USGS, GDACS, NASA EONET, NASA FIRMS, Polymarket, Cloudflare Radar, WorldPop, OREF (Israel sirens), gpsjam.org (GPS interference), Telegram MTProto (27 OSINT channels) |
 | **Market APIs**       | Yahoo Finance (equities, forex, crypto), CoinGecko (stablecoins), mempool.space (BTC hashrate), alternative.me (Fear & Greed)                  |
 | **Threat Intel APIs** | abuse.ch (Feodo Tracker, URLhaus), AlienVault OTX, AbuseIPDB, C2IntelFeeds                                                                     |
 | **Economic APIs**     | FRED (Federal Reserve), EIA (Energy), Finnhub (stock quotes)                                                                                   |
-| **Localization**      | i18next (16 languages: en, fr, de, es, it, pl, pt, nl, sv, ru, ar, zh, ja, tr, th, vi), RTL support, lazy-loaded bundles, native-language feeds for 7 locales |
-| **API Contracts**     | Protocol Buffers (92 proto files, 20 services), sebuf HTTP annotations, buf CLI (lint + breaking checks), auto-generated TypeScript clients/servers + OpenAPI 3.1.0 docs |
+| **Localization**      | i18next (18 languages: en, fr, de, el, es, it, pl, pt, nl, sv, ru, ar, zh, ja, ko, tr, th, vi), RTL support for Arabic, lazy-loaded bundles, native-language feeds for multiple locales |
+| **API Contracts**     | Protocol Buffers (120 `.proto` files under `proto/`, 21 service domains), sebuf HTTP annotations, buf CLI (lint + breaking checks), auto-generated TypeScript clients/servers + OpenAPI 3.1.0 docs |
 | **Analytics**         | PostHog (privacy-first, typed event schemas, pseudonymous identity, ad-blocker bypass via reverse proxy, offline queue for desktop)             |
 | **Deployment**        | Vercel Edge Functions (60+ endpoints) + Railway (WebSocket relay + Telegram + OREF + Polymarket proxy + NOTAM) + Tauri desktop fork (macOS shipping focus) + PWA (installable) |
 | **Finance Data**      | 92 stock exchanges, 19 financial centers, 13 central banks, 10 commodity hubs, 64 Gulf FDI investments                                         |
@@ -1741,13 +1736,12 @@ npm run typecheck    # TypeScript type checking (tsc --noEmit)
 # Desktop packaging
 npm run desktop:package:macos:full      # .app + .dmg (World Monitor)
 npm run desktop:package:macos:tech      # .app + .dmg (Tech Monitor)
-npm run desktop:package:macos:finance   # .app + .dmg (Finance Monitor)
 npm run desktop:package:windows:full    # .exe + .msi (World Monitor)
 npm run desktop:package:windows:tech    # .exe + .msi (Tech Monitor)
-npm run desktop:package:windows:finance # .exe + .msi (Finance Monitor)
 
 # Generic packaging runner
 npm run desktop:package -- --os macos --variant full
+npm run desktop:package -- --os windows --variant tech
 
 # Signed packaging (same targets, requires signing env vars)
 npm run desktop:package:macos:full:sign
@@ -1792,18 +1786,17 @@ Desktop release details, signing hooks, variant outputs, and clean-machine valid
 - [x] Panel height resizing with persistent layout state
 - [x] Live webcam surveillance grid (22 geopolitical hotspot streams across 5 regions with Iran/Attacks dedicated tab)
 - [x] Ultra-wide monitor layout (L-shaped panel wrapping on 2000px+ screens)
-- [x] Linux desktop app (.AppImage)
 - [x] Dark/light theme toggle with persistent preference
 - [x] Desktop auto-update checker with variant-aware release linking
 - [x] Panel drag-and-drop reordering with persistent layout
 - [x] Map pin mode for fixed map positioning
 - [x] Virtual scrolling for news panels (DOM recycling, pooled elements)
 - [x] Local LLM support (Ollama / LM Studio) with automatic model discovery and 4-tier fallback chain
-- [x] Settings window with dedicated LLMs, API Keys, and Debug tabs
+- [x] Unified desktop settings UI with General, Panels, Sources, API Keys, Status, Help, and Debug sections
 - [x] Consolidated keychain vault (single OS prompt on startup)
 - [x] Cross-window secret synchronization (main ↔ settings)
 - [x] API key verification pipeline with soft-pass on network errors
-- [x] Proto-first API contracts (92 proto files, 20 service domains, auto-generated TypeScript + OpenAPI docs)
+- [x] Proto-first API contracts (120 `.proto` files, 21 service domains, auto-generated TypeScript + OpenAPI docs)
 - [x] USNI Fleet Intelligence (weekly deployment reports merged with live AIS tracking)
 - [x] Aircraft enrichment via Wingbits (military confidence classification)
 - [x] Undersea cable health monitoring (NGA navigational warnings + AIS cable ship tracking)
@@ -1823,7 +1816,6 @@ Desktop release details, signing hooks, variant outputs, and clean-machine valid
 - [x] Shared Upstash Redis caching layer across all 37 RPC handlers with parameterized cache keys
 - [x] PostHog product analytics with typed event schemas, API key stripping, and ad-blocker bypass
 - [x] Opt-in intelligence alert popups (default off, toggle in dropdown header)
-- [x] Linux WebKitGTK DMA-BUF rendering with SHM fallback and cross-distro font stack
 - [x] Consolidated `--font-mono` CSS variable for cross-platform typographic consistency
 - [x] Dedup coordinate precision increased to 0.1° (~10km) for finer-grained event matching
 - [x] Community guidelines (CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md)
@@ -1844,7 +1836,6 @@ Desktop release details, signing hooks, variant outputs, and clean-machine valid
 - [x] Global streaming video quality control (auto/360p/480p/720p with live propagation)
 - [x] Ransomware.live feed added to cyber threat intelligence sources
 - [x] Browser Local Model toggle properly gated (ML worker only initializes when enabled)
-- [x] Linux AppImage crash fixes (WebKitGTK DMA-BUF rendering, console noise suppression)
 - [x] Yahoo Finance rate-limit UX (user-facing messages instead of silent failures across all market panels)
 - [x] Sidecar auth resilience (401-retry with token refresh, settings window `diagFetch` auth)
 - [x] Verbose toggle persistence to writable data directory (fixes read-only app bundle on macOS)

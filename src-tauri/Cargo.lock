@@ -5498,7 +5498,7 @@ dependencies = [
 
 [[package]]
 name = "worldmonitor"
-version = "2.6.0"
+version = "2.6.1"
 dependencies = [
  "getrandom 0.4.2",
  "keyring",

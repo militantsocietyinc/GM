@@ -45,7 +45,7 @@ World Monitor is a client-side intelligence dashboard that aggregates publicly a
 ### API Keys & Secrets
 
 - **Web deployment**: API keys are stored server-side in Vercel Edge Functions
-- **Desktop runtime**: API keys are stored in the OS credential manager via a consolidated vault entry, never on disk in plaintext
+- **Desktop runtime**: secrets are stored in the OS credential store via a consolidated vault entry, never on disk in plaintext
 - No API keys should ever be committed to the repository
 - Environment variables (`.env.local`) are gitignored
 - The RSS proxy uses domain allowlisting to prevent SSRF
@@ -105,9 +105,9 @@ The following are **out of scope**:
 - Never commit API keys, tokens, or secrets
 - Use environment variables for all sensitive configuration
 - Sanitize external input in edge functions
-- Keep dependencies updated — run `npm audit` regularly
+- Review dependency updates regularly and validate any fix before merging
 - Follow the principle of least privilege for API access
 
 ---
 
-Thank you for helping keep World Monitor and its users safe! 🔒
+Thank you for helping keep World Monitor and its users safe.

@@ -57,7 +57,7 @@ import {
   fetchChokepointStatus,
   fetchCriticalMinerals,
 } from '@/services';
-import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
+import { checkBatchForBreakingAlerts, dispatchBreakingAlert } from '@/services/breaking-news-alerts';
 import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger, evaluateDisasterTrigger } from '@/services/mode-manager';
 import { fetchGDACSEvents } from '@/services/gdacs';
 import { mlWorker } from '@/services/ml-worker';
@@ -135,6 +135,12 @@ import { GDACSAlertsPanel } from '@/components/GDACSAlertsPanel';
 import { VolcanoAlertsPanel } from '@/components/VolcanoAlertsPanel';
 import { NWSAlertsPanel } from '@/components/NWSAlertsPanel';
 import { GivingPanel } from '@/components';
+import { FoodInsecurityPanel } from '@/components/FoodInsecurityPanel';
+import { TropicalCyclonesPanel } from '@/components/TropicalCyclonesPanel';
+import { TsunamiAlertsPanel } from '@/components/TsunamiAlertsPanel';
+import { fetchFoodInsecurityAlerts } from '@/services/food-insecurity';
+import { fetchTropicalCyclones } from '@/services/tropical-cyclones';
+import { fetchTsunamiAlerts } from '@/services/tsunami-alerts';
 import { fetchProgressData } from '@/services/progress-data';
 import { fetchConservationWins } from '@/services/conservation-data';
 import { fetchRenewableEnergyData, fetchEnergyCapacity } from '@/services/renewable-energy-data';
@@ -359,6 +365,9 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'gdacsAlerts', task: runGuarded('gdacsAlerts', () => this.loadGDACSAlerts()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'volcanoAlerts', task: runGuarded('volcanoAlerts', () => this.loadVolcanoAlerts()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'nwsAlerts', task: runGuarded('nwsAlerts', () => this.loadNWSAlerts()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'tsunamiAlerts', task: runGuarded('tsunamiAlerts', () => this.loadTsunamiAlerts()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'tropicalCyclones', task: runGuarded('tropicalCyclones', () => this.loadTropicalCyclones()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'foodInsecurity', task: runGuarded('foodInsecurity', () => this.loadFoodInsecurity()) });
     if (SITE_VARIANT === 'full') tasks.push({ name: 'emaForecast', task: runGuarded('emaForecast', () => this.runEMAForecast()) });
 
     if (SITE_VARIANT === 'tech') {
@@ -1503,6 +1512,55 @@ export class DataLoaderManager implements AppModule {
     } catch (error) {
       console.warn('[nws-alerts] fetch failed', error);
       (this.ctx.panels['nws-alerts'] as NWSAlertsPanel)?.update([]);
+    }
+  }
+
+  async loadTsunamiAlerts(): Promise<void> {
+    try {
+      const alerts = await fetchTsunamiAlerts();
+      (this.ctx.panels['tsunami-alerts'] as TsunamiAlertsPanel)?.update(alerts);
+      for (const a of alerts) {
+        if (a.severity === 'warning') {
+          dispatchBreakingAlert({ id: `tsunami-${a.id}`, headline: a.title, source: 'PTWC', link: a.url, threatLevel: 'critical', timestamp: a.pubDate, origin: 'hotspot_escalation' });
+        } else if (a.severity === 'watch') {
+          dispatchBreakingAlert({ id: `tsunami-${a.id}`, headline: a.title, source: 'PTWC', link: a.url, threatLevel: 'high', timestamp: a.pubDate, origin: 'hotspot_escalation' });
+        }
+      }
+    } catch (error) {
+      console.warn('[tsunami-alerts] fetch failed', error);
+      (this.ctx.panels['tsunami-alerts'] as TsunamiAlertsPanel)?.update([]);
+    }
+  }
+
+  async loadTropicalCyclones(): Promise<void> {
+    try {
+      const storms = await fetchTropicalCyclones();
+      (this.ctx.panels['tropical-cyclones'] as TropicalCyclonesPanel)?.update(storms);
+      for (const s of storms) {
+        if (s.severity === 'critical') {
+          dispatchBreakingAlert({ id: `tc-${s.id}`, headline: `${s.name}: ${s.headline}`, source: 'NHC/JTWC', link: s.advisoryUrl, threatLevel: 'critical', timestamp: s.advisoryTime, origin: 'hotspot_escalation' });
+        } else if (s.severity === 'high') {
+          dispatchBreakingAlert({ id: `tc-${s.id}`, headline: `${s.name}: ${s.headline}`, source: 'NHC/JTWC', link: s.advisoryUrl, threatLevel: 'high', timestamp: s.advisoryTime, origin: 'hotspot_escalation' });
+        }
+      }
+    } catch (error) {
+      console.warn('[tropical-cyclones] fetch failed', error);
+      (this.ctx.panels['tropical-cyclones'] as TropicalCyclonesPanel)?.update([]);
+    }
+  }
+
+  async loadFoodInsecurity(): Promise<void> {
+    try {
+      const alerts = await fetchFoodInsecurityAlerts();
+      (this.ctx.panels['food-insecurity'] as FoodInsecurityPanel)?.update(alerts);
+      for (const a of alerts) {
+        if (a.severity === 'critical') {
+          dispatchBreakingAlert({ id: `food-${a.id}`, headline: `Food Crisis: ${a.title}`, source: a.source, link: a.url, threatLevel: 'critical', timestamp: a.pubDate, origin: 'hotspot_escalation' });
+        }
+      }
+    } catch (error) {
+      console.warn('[food-insecurity] fetch failed', error);
+      (this.ctx.panels['food-insecurity'] as FoodInsecurityPanel)?.update([]);
     }
   }
 

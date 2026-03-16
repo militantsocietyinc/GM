@@ -63,6 +63,9 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'gdacs-alerts': { name: 'GDACS Disaster Alerts', enabled: true, priority: 2 },
   'volcano-alerts': { name: 'Volcano Alerts', enabled: true, priority: 2 },
   'nws-alerts': { name: 'NWS Hazard Alerts', enabled: true, priority: 2 },
+  'tsunami-alerts': { name: 'Tsunami Alerts', enabled: true, priority: 2 },
+  'tropical-cyclones': { name: 'Tropical Cyclones', enabled: true, priority: 2 },
+  'food-insecurity': { name: 'Food Insecurity', enabled: true, priority: 2 },
   'radiation-decay': { name: 'Radiation Decay Calculator', enabled: false, priority: 3 },
   'resource-inventory': { name: 'Resource Inventory', enabled: false, priority: 3 },
 };

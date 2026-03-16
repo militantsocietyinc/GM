@@ -612,6 +612,17 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
   }
 }
 
+// CACHE PATTERN: copy this for future cached routes
+const _sidecarCache = new Map(); // key -> { data, ts }
+function getCached(key, ttlMs) {
+  const entry = _sidecarCache.get(key);
+  if (entry && Date.now() - entry.ts < ttlMs) return entry.data;
+  return null;
+}
+function setCached(key, data) {
+  _sidecarCache.set(key, { data, ts: Date.now() });
+}
+
 function relayToHttpUrl(rawUrl) {
   try {
     const parsed = new URL(rawUrl);
@@ -2277,6 +2288,112 @@ async function dispatch(requestUrl, req, routes, context) {
     } catch { /* timeout / network error — fall through to stub */ }
     // Return stub so panel renders all theaters at "normal" rather than spinning forever
     return json({ theaters: THEATER_STUB });
+  }
+
+  if (requestUrl.pathname === '/api/comms-health') {
+    const cached = getCached('comms-health', 2 * 60 * 1000);
+    if (cached) return json(cached);
+
+    const CABLE_AS_MAP = { '3549': 'MAREA', '1273': 'TAT-14', '3257': 'AAG', '2914': 'APAC-1', '6453': 'FLAG' };
+    const cfToken = process.env.CLOUDFLARE_API_TOKEN;
+    const cfHeaders = cfToken ? { Authorization: `Bearer ${cfToken}`, 'Content-Type': 'application/json' } : null;
+
+    const cfHijacksPromise = cfHeaders
+      ? fetchWithTimeout('https://api.cloudflare.com/client/v4/radar/bgp/hijacks/events?limit=50', { headers: cfHeaders }, 10000)
+      : Promise.reject(new Error('no CF token'));
+    const cfLeaksPromise = cfHeaders
+      ? fetchWithTimeout('https://api.cloudflare.com/client/v4/radar/bgp/leaks/events?limit=50', { headers: cfHeaders }, 10000)
+      : Promise.reject(new Error('no CF token'));
+    const cfDdosPromise = cfHeaders
+      ? fetchWithTimeout('https://api.cloudflare.com/client/v4/radar/attacks/layer7/summary', { headers: cfHeaders }, 10000)
+      : Promise.reject(new Error('no CF token'));
+    const ripeStatusPromise = fetchWithTimeout('https://stat.ripe.net/data/routing-status/data.json?resource=0.0.0.0/0', {}, 10000);
+    const ihrPromise = fetchWithTimeout('https://ihr.iijlab.net/ihr/api/network/?format=json&search=&last=1', {}, 10000);
+
+    const [cfHijacksRes, cfLeaksRes, cfDdosRes, ripeStatusRes, ihrRes] =
+      await Promise.allSettled([cfHijacksPromise, cfLeaksPromise, cfDdosPromise, ripeStatusPromise, ihrPromise]);
+
+    try {
+      // BGP hijacks
+      let hijackCount = 0;
+      if (cfHijacksRes.status === 'fulfilled' && cfHijacksRes.value.ok) {
+        const d = await cfHijacksRes.value.json().catch(() => null);
+        hijackCount = d?.result?.events?.length ?? d?.result?.total ?? 0;
+      }
+
+      // BGP leaks
+      let leakCount = 0;
+      if (cfLeaksRes.status === 'fulfilled' && cfLeaksRes.value.ok) {
+        const d = await cfLeaksRes.value.json().catch(() => null);
+        leakCount = d?.result?.events?.length ?? d?.result?.total ?? 0;
+      }
+
+      const bgpSeverity = hijackCount > 15 ? 'critical' : hijackCount >= 5 ? 'warning' : 'normal';
+
+      // DDoS
+      let ddosL7 = 'normal';
+      let ddosMissing = !cfToken;
+      if (cfDdosRes.status === 'fulfilled' && cfDdosRes.value.ok) {
+        const d = await cfDdosRes.value.json().catch(() => null);
+        const pct = d?.result?.summary_0?.total ?? 0;
+        ddosL7 = pct > 5 ? 'elevated' : 'normal';
+      }
+
+      // Cables — check IHR for AS numbers matching known cable operators
+      const degradedCables = [];
+      const normalCables = [];
+      if (ihrRes.status === 'fulfilled' && ihrRes.value.ok) {
+        const d = await ihrRes.value.json().catch(() => null);
+        const networks = d?.results ?? [];
+        const degradedAsns = new Set(
+          networks
+            .filter(n => n.ihr_score != null && n.ihr_score < 0.5)
+            .map(n => String(n.asn ?? ''))
+        );
+        for (const [asn, cable] of Object.entries(CABLE_AS_MAP)) {
+          if (degradedAsns.has(asn)) degradedCables.push(cable);
+          else normalCables.push(cable);
+        }
+      } else {
+        normalCables.push(...Object.values(CABLE_AS_MAP));
+      }
+
+      // IXP status — use RIPE routing status for broad signal
+      let ixpStatus = 'normal';
+      if (ripeStatusRes.status === 'fulfilled' && ripeStatusRes.value.ok) {
+        const d = await ripeStatusRes.value.json().catch(() => null);
+        const visibility = d?.data?.visibility ?? 1;
+        if (visibility < 0.9) ixpStatus = 'warning';
+      }
+
+      const severityRank = s => s === 'critical' ? 2 : s === 'warning' ? 1 : 0;
+      let overallRank = severityRank(bgpSeverity);
+      if (!ddosMissing) overallRank = Math.max(overallRank, severityRank(ddosL7 === 'elevated' ? 'warning' : 'normal'));
+      if (ixpStatus !== 'normal') overallRank = Math.max(overallRank, 1);
+      if (degradedCables.length > 0) overallRank = Math.max(overallRank, 1);
+      const overall = overallRank === 2 ? 'critical' : overallRank === 1 ? 'warning' : 'normal';
+
+      const result = {
+        overall,
+        bgp: { hijacks: hijackCount, leaks: leakCount, severity: bgpSeverity },
+        ixp: { status: ixpStatus, degraded: [] },
+        ddos: { l7: ddosL7, l3: 'normal', cloudflareKeyMissing: ddosMissing },
+        cables: { degraded: degradedCables, normal: normalCables },
+        updatedAt: new Date().toISOString(),
+      };
+      setCached('comms-health', result);
+      return json(result);
+    } catch (e) {
+      return json({
+        overall: 'unknown',
+        bgp: { hijacks: 0, leaks: 0, severity: 'normal' },
+        ixp: { status: 'normal', degraded: [] },
+        ddos: { l7: 'normal', l3: 'normal', cloudflareKeyMissing: !cfToken },
+        cables: { degraded: [], normal: Object.values(CABLE_AS_MAP) },
+        updatedAt: new Date().toISOString(),
+        error: e?.message ?? 'unknown',
+      });
+    }
   }
 
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {

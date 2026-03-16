@@ -17,6 +17,6 @@ reqwest = { version = "0.13", default-features = false, features = ["native-tls"
 getrandom = "0.4"
 
 [features]
-default = ["custom-protocol", "tauri/devtools"]
+default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 devtools = ["tauri/devtools"]

@@ -58,7 +58,7 @@ import {
   fetchCriticalMinerals,
 } from '@/services';
 import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
-import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger, evaluateDisasterTrigger } from '@/services/mode-manager';
+import { evaluateWarThreat, evaluateFinanceTrigger, evaluateCommodityTrigger, evaluateDisasterTrigger, checkFinanceAutoTriggerTimeout } from '@/services/mode-manager';
 import { fetchGDACSEvents } from '@/services/gdacs';
 import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid } from '@/services/clustering';
@@ -914,6 +914,10 @@ export class DataLoaderManager implements AppModule {
       }
     } catch {
       this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
+      // Finnhub is down — market data unavailable. Still check whether an
+      // auto-triggered Finance Mode has exceeded its quiet window so it can
+      // de-escalate back to Peace without needing live market data.
+      checkFinanceAutoTriggerTimeout();
     }
 
     try {
@@ -1494,6 +1498,12 @@ export class DataLoaderManager implements AppModule {
     try {
       const events = await fetchGDACSEvents();
       (this.ctx.panels['gdacs-alerts'] as GDACSAlertsPanel)?.update(events);
+      // Note: intelligenceCache.earthquakes is only populated when the natural
+      // events map layer is enabled. When that layer is disabled the array will
+      // be empty, so the M≥6.5 earthquake trigger path is unavailable — the
+      // GDACS Red/Orange alert path (first argument) still works normally.
+      // The earthquake trigger remains reachable via loadNatural() when the
+      // natural layer is active.
       void evaluateDisasterTrigger(events, this.ctx.intelligenceCache?.earthquakes ?? []);
     } catch (error) {
       console.warn('[gdacs-alerts] fetch failed', error);
@@ -1534,7 +1544,11 @@ export class DataLoaderManager implements AppModule {
     const earthquakes = this.ctx.intelligenceCache?.earthquakes ?? [];
     for (const eq of earthquakes) {
       if (eq.magnitude >= 5.0 && eq.place) {
-        const key = eq.place.split(',').pop()?.trim() ?? 'Unknown';
+        // Use the full place string as the EMA key rather than the trailing
+        // component (e.g. "CA" or "Japan region") to avoid false merging with
+        // protest-event region series that use ISO country codes.  Each seismic
+        // zone gets its own independent EMA series this way.
+        const key = eq.place;
         regionCounts.set(key, (regionCounts.get(key) ?? 0) + 1);
       }
     }

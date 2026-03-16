@@ -1,4 +1,4 @@
-import { isDesktopRuntime } from '../services/runtime';
+import { isDesktopRuntime, getApiBaseUrl } from '../services/runtime';
 import { invokeTauri } from '../services/tauri-bridge';
 import { t } from '../services/i18n';
 import { h, replaceChildren, safeHtml } from '../utils/dom-utils';
@@ -851,7 +851,7 @@ export class Panel {
       // ── Step 1: Try Ollama streaming ──────────────────────────────────────
       let ollamaSkipped = false;
       try {
-        const streamResp = await fetch('/api/ollama-stream', {
+        const streamResp = await fetch(`${getApiBaseUrl()}/api/ollama-stream`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ headlines: lines, mode: 'brief', geoContext: this.panelId, lang: 'en' }),

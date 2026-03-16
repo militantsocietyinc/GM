@@ -1308,8 +1308,7 @@ async function dispatch(requestUrl, req, routes, context) {
     try {
       const resp = await fetchWithTimeout(acledUrl, {}, 15000);
       if (!resp.ok) {
-        const errText = await resp.text().catch(() => '');
-        return json({ events: [], error: `ACLED ${resp.status}: ${errText.slice(0, 120)}` });
+        return json({ events: [], error: `ACLED error: ${resp.status}` });
       }
       const data = await resp.json();
       return json({ events: data.data ?? [] });
@@ -1521,6 +1520,69 @@ async function dispatch(requestUrl, req, routes, context) {
       return json(alerts);
     } catch (e) {
       return json([], 200);
+    }
+  }
+
+  // ── Disease Outbreak proxy (ReliefWeb + WHO, no API key) ─────────────────
+  if (requestUrl.pathname === '/api/disease-outbreaks') {
+    const RELIEFWEB_URL = 'https://api.reliefweb.int/v1/reports?appname=worldmonitor&filter[field]=type.name&filter[value]=Situation%20Report&filter[conditions][0][field]=theme.name&filter[conditions][0][value]=Health&limit=25&sort[]=date:desc&fields[include][]=title&fields[include][]=date&fields[include][]=country&fields[include][]=url';
+    const WHO_URL = 'https://www.who.int/api/hubs/cms/s3fs-public/attachments/disease-outbreak-news.json';
+    try {
+      const [rwResp, whoResp] = await Promise.allSettled([
+        fetchWithTimeout(RELIEFWEB_URL, { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } }, 15000),
+        fetchWithTimeout(WHO_URL, { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } }, 15000),
+      ]);
+      const reliefweb = (rwResp.status === 'fulfilled' && rwResp.value.ok)
+        ? await rwResp.value.json()
+        : null;
+      const who = (whoResp.status === 'fulfilled' && whoResp.value.ok)
+        ? await whoResp.value.json()
+        : null;
+      return json({ reliefweb, who });
+    } catch (e) {
+      return json({ error: `disease-outbreaks fetch error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Space Weather proxy (NOAA SWPC, no API key) ───────────────────────────
+  if (requestUrl.pathname === '/api/space-weather-feeds') {
+    const SW_URLS = {
+      kp:       'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json',
+      mag:      'https://services.swpc.noaa.gov/products/solar-wind/mag-5-minute.json',
+      xray:     'https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json',
+      alerts:   'https://services.swpc.noaa.gov/products/alerts.json',
+      plasma:   'https://services.swpc.noaa.gov/products/solar-wind/plasma-5-minute.json',
+    };
+    try {
+      const entries = Object.entries(SW_URLS);
+      const settled = await Promise.allSettled(
+        entries.map(([, url]) => fetchWithTimeout(url, { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } }, 15000)),
+      );
+      const result = {};
+      for (let i = 0; i < entries.length; i++) {
+        const [key] = entries[i];
+        const r = settled[i];
+        result[key] = (r.status === 'fulfilled' && r.value.ok) ? await r.value.json() : null;
+      }
+      return json(result);
+    } catch (e) {
+      return json({ error: `space-weather-feeds fetch error: ${e.message ?? e}` }, 502);
+    }
+  }
+
+  // ── Air Quality proxy (Open-Meteo, no API key, forwards lat/lon) ──────────
+  if (requestUrl.pathname === '/api/air-quality-proxy') {
+    const lat = requestUrl.searchParams.get('lat');
+    const lon = requestUrl.searchParams.get('lon');
+    if (!lat || !lon) return json({ error: 'Missing lat or lon query parameters' }, 400);
+    const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide&timezone=auto`;
+    try {
+      const resp = await fetchWithTimeout(aqUrl, { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA } }, 15000);
+      if (!resp.ok) return json({ error: `air-quality upstream error: ${resp.status}` }, 502);
+      const data = await resp.json();
+      return json(data);
+    } catch (e) {
+      return json({ error: `air-quality-proxy fetch error: ${e.message ?? e}` }, 502);
     }
   }
 
@@ -2137,7 +2199,7 @@ async function dispatch(requestUrl, req, routes, context) {
       });
     } catch (e) {
       const isTimeout = e.name === 'AbortError' || e.message?.includes('timeout');
-      return json({ error: isTimeout ? 'Feed timeout' : 'Failed to fetch feed', url: feedUrl }, isTimeout ? 504 : 502);
+      return json({ error: isTimeout ? 'Feed timeout' : 'Failed to fetch feed' }, isTimeout ? 504 : 502);
     }
   }
 

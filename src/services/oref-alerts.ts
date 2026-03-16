@@ -281,7 +281,10 @@ export async function fetchOrefHistory(): Promise<OrefHistoryResponse> {
 }
 
 export function onOrefAlertsUpdate(cb: (data: OrefAlertsResponse) => void): void {
-  updateCallbacks.push(cb);
+  // Replace instead of accumulate — loadIntelligenceSignals() is called on every
+  // refresh cycle, so pushing would grow this array indefinitely (16+ duplicates
+  // after 16 cycles). Slot [0] always holds the single active callback.
+  updateCallbacks[0] = cb;
 }
 
 export function startOrefPolling(): void {

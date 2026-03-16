@@ -1,6 +1,7 @@
 // Open-Meteo Air Quality API — completely free, no API key, CORS-enabled
 // Docs: https://open-meteo.com/en/docs/air-quality-api
 // Covers US AQI, European AQI, PM2.5, PM10, ozone, NO2, SO2
+import { getApiBaseUrl } from '@/services/runtime';
 
 export interface AirQualityReading {
   city: string;
@@ -71,7 +72,7 @@ const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 let cache: { readings: AirQualityReading[]; fetchedAt: number } | null = null;
 
 async function fetchCityAQ(city: typeof MONITORED_CITIES[0]): Promise<AirQualityReading | null> {
-  const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&current=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide&timezone=auto`;
+  const url = `${getApiBaseUrl()}/api/air-quality-proxy?lat=${city.lat}&lon=${city.lon}`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;

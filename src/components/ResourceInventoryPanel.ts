@@ -96,10 +96,14 @@ export class ResourceInventoryPanel extends Panel {
   }
 
   private async _load(): Promise<void> {
-    this._items = await getAllItems();
-    this._items.sort((a, b) => this._daysLeft(a) - this._daysLeft(b));
-    this._render();
-    if (isDesktopRuntime()) void this._notifyLowStock();
+    try {
+      this._items = await getAllItems();
+      this._items.sort((a, b) => this._daysLeft(a) - this._daysLeft(b));
+      this._render();
+      if (isDesktopRuntime()) void this._notifyLowStock();
+    } catch (err) {
+      this.showError('Unable to load inventory. Storage may be unavailable.');
+    }
   }
 
   private _daysLeft(item: ResourceItem): number {

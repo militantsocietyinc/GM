@@ -1,5 +1,6 @@
 // Disease outbreak surveillance — WHO Disease Outbreak News + ReliefWeb API
 // Both are free with no API key required
+import { getApiBaseUrl } from '@/services/runtime';
 
 export interface DiseaseOutbreak {
   id: string;
@@ -15,13 +16,6 @@ export interface DiseaseOutbreak {
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 let cache: { outbreaks: DiseaseOutbreak[]; fetchedAt: number } | null = null;
 
-// ReliefWeb API — free, no key, returns disease outbreak reports
-const RELIEFWEB_API =
-  'https://api.reliefweb.int/v1/reports?appname=worldmonitor&filter[field]=type.name&filter[value]=Situation%20Report&filter[conditions][0][field]=theme.name&filter[conditions][0][value]=Health&limit=25&sort[]=date:desc&fields[include][]=title&fields[include][]=date&fields[include][]=country&fields[include][]=url';
-
-// WHO Health Emergencies Dashboard — JSON endpoint
-const WHO_EMERGENCIES =
-  'https://www.who.int/api/hubs/cms/s3fs-public/attachments/disease-outbreak-news.json';
 
 function extractDiseaseName(title: string): string {
   const patterns = [
@@ -58,7 +52,7 @@ function scoreSeverity(title: string): DiseaseOutbreak['severity'] {
 
 async function fetchReliefWeb(): Promise<DiseaseOutbreak[]> {
   try {
-    const res = await fetch(RELIEFWEB_API, { signal: AbortSignal.timeout(10000) });
+    const res = await fetch(`${getApiBaseUrl()}/api/disease-outbreaks`, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) return [];
     const json = await res.json() as {
       data: Array<{
@@ -92,7 +86,7 @@ async function fetchReliefWeb(): Promise<DiseaseOutbreak[]> {
 
 async function fetchWHOEmergencies(): Promise<DiseaseOutbreak[]> {
   try {
-    const res = await fetch(WHO_EMERGENCIES, { signal: AbortSignal.timeout(10000) });
+    const res = await fetch(`${getApiBaseUrl()}/api/disease-outbreaks`, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) return [];
     const json = await res.json() as Array<{
       Title?: string;

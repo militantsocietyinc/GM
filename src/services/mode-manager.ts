@@ -332,6 +332,24 @@ export function evaluateFinanceTrigger(
 }
 
 /**
+ * Check whether an auto-triggered Finance Mode has timed out without needing
+ * fresh market data. Call this from error/catch paths in loadMarkets() so that
+ * Finance Mode can still de-escalate even when Finnhub is unreachable.
+ */
+export function checkFinanceAutoTriggerTimeout(): void {
+  if (
+    currentMode === 'finance' &&
+    _autoTriggeredMode === 'finance' &&
+    _financeAutoTriggerTime > 0 &&
+    Date.now() - _financeAutoTriggerTime > FINANCE_QUIET_RESTORE_MS
+  ) {
+    _autoTriggeredMode = null;
+    _financeAutoTriggerTime = 0;
+    setMode('peace', true);
+  }
+}
+
+/**
  * Evaluate commodity data (Oil, Gold) and auto-switch from Peace → Finance Mode
  * when a major commodity price move is detected.
  *

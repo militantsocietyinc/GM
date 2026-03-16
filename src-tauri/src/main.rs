@@ -570,6 +570,18 @@ fn close_live_channels_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Truncate a UTF-8 string to at most `max_bytes` bytes without splitting a multi-byte codepoint.
+fn truncate_to_bytes(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+    let mut boundary = max_bytes;
+    while !s.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+    &s[..boundary]
+}
+
 /// Send a native macOS notification via osascript. No-op on non-macOS platforms.
 /// Rate-limited to 1 notification per 30 seconds to prevent notification spam.
 /// Input fields are length-capped and sanitized before interpolation into AppleScript.
@@ -594,10 +606,10 @@ fn send_notification(title: String, body: String, sound: Option<String>) -> Resu
         }
 
         // Enforce length limits to bound log size and script length
-        let title = if title.len() > 128 { &title[..128] } else { title.as_str() };
-        let body  = if body.len()  > 256 { &body[..256]  } else { body.as_str()  };
+        let title = truncate_to_bytes(&title, 128);
+        let body  = truncate_to_bytes(&body, 256);
         let sound_name = sound.as_deref().unwrap_or("Ping");
-        let sound_name = if sound_name.len() > 64 { &sound_name[..64] } else { sound_name };
+        let sound_name = truncate_to_bytes(sound_name, 64);
 
         // Sanitize: remove characters that have meaning in AppleScript string literals.
         // We use double-quoted AppleScript strings so we strip " and \ (escape char).

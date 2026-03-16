@@ -1,8 +1,9 @@
 import type { Feed } from '@/types';
 import { SITE_VARIANT } from './variant';
+import { getApiBaseUrl } from '@/services/runtime';
 
 // Helper to create RSS proxy URL (Vercel)
-const rss = (url: string) => `/api/rss-proxy?url=${encodeURIComponent(url)}`;
+const rss = (url: string) => `${getApiBaseUrl()}/api/rss-proxy?url=${encodeURIComponent(url)}`;
 
 // Keep dedicated alias for feeds historically fetched through Railway.
 // `rss-proxy` now handles secure server-side fallback.

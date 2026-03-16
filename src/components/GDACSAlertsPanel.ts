@@ -49,7 +49,8 @@ export class GDACSAlertsPanel extends Panel {
       </tr>`;
     }).join('');
 
-    this.setContent(`
+    const el = this.getContentElement();
+    el.innerHTML = `
       <div class="ct-panel-content">
         <table class="eq-table ct-table">
           <thead>
@@ -68,14 +69,14 @@ export class GDACSAlertsPanel extends Panel {
           <span class="fires-source">GDACS Global Disaster Coordination</span>
         </div>
       </div>
-    `);
+    `;
 
-    this.getContentElement().querySelectorAll<HTMLElement>('tr[data-lat]').forEach(row => {
-      row.addEventListener('click', () => {
-        const lat = parseFloat(row.dataset['lat'] ?? '0');
-        const lon = parseFloat(row.dataset['lon'] ?? '0');
-        if (!isNaN(lat) && !isNaN(lon) && this.onEventClick) this.onEventClick(lat, lon);
-      });
+    el.addEventListener('click', (e) => {
+      const row = (e.target as Element).closest('tr[data-lat]') as HTMLElement | null;
+      if (!row) return;
+      const lat = parseFloat(row.dataset['lat'] ?? '0');
+      const lon = parseFloat(row.dataset['lon'] ?? '0');
+      if (!isNaN(lat) && !isNaN(lon) && this.onEventClick) this.onEventClick(lat, lon);
     });
   }
 }

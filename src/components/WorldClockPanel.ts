@@ -140,6 +140,8 @@ export class WorldClockPanel extends Panel {
   private dragging = false;
   private dragCityId: string | null = null;
   private dragStartY = 0;
+  private _handleDragMouseMove!: (e: MouseEvent) => void;
+  private _handleDragMouseUp!: (e: MouseEvent) => void;
 
   constructor() {
     super({ id: 'world-clock', title: 'World Clock', trackActivity: false });
@@ -222,7 +224,7 @@ export class WorldClockPanel extends Panel {
       row.classList.add('wc-dragging');
     });
 
-    document.addEventListener('mousemove', (e: MouseEvent) => {
+    this._handleDragMouseMove = (e: MouseEvent) => {
       if (!this.dragCityId) return;
       if (!this.dragging && Math.abs(e.clientY - this.dragStartY) < 8) return;
       this.dragging = true;
@@ -236,9 +238,9 @@ export class WorldClockPanel extends Panel {
           row.classList.add(e.clientY < rect.top + rect.height / 2 ? 'wc-drag-over-above' : 'wc-drag-over-below');
         }
       }
-    });
+    };
 
-    document.addEventListener('mouseup', (e: MouseEvent) => {
+    this._handleDragMouseUp = (e: MouseEvent) => {
       if (!this.dragCityId) return;
       const dragId = this.dragCityId;
       this.dragCityId = null;
@@ -271,7 +273,10 @@ export class WorldClockPanel extends Panel {
       }
       this.dragging = false;
       this.renderClocks();
-    });
+    };
+
+    document.addEventListener('mousemove', this._handleDragMouseMove);
+    document.addEventListener('mouseup', this._handleDragMouseUp);
   }
 
   private renderClocks(): void {
@@ -333,6 +338,8 @@ export class WorldClockPanel extends Panel {
       clearInterval(this.tickInterval);
       this.tickInterval = null;
     }
+    document.removeEventListener('mousemove', this._handleDragMouseMove);
+    document.removeEventListener('mouseup', this._handleDragMouseUp);
     super.destroy();
   }
 }

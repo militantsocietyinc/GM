@@ -90,7 +90,7 @@ export class RadiationDecayPanel extends Panel {
       <div class="rdp-wrap">
         <div class="rdp-inputs">
           <label class="rdp-label">
-            Dose rate at H+1 (R/hr or mSv/h)
+            Dose rate at H+1 (R/hr — convert mSv/h ÷ 10 to get R/hr)
             <input class="rdp-input" id="rdpDose" type="number" min="0.01" step="any" value="${this._doseAt1h}">
           </label>
           <label class="rdp-label">
@@ -112,21 +112,21 @@ export class RadiationDecayPanel extends Panel {
           <div class="rdp-stat-row">
             <div class="rdp-stat">
               <div class="rdp-stat-val">${currentRaw.toFixed(2)}</div>
-              <div class="rdp-stat-lbl">Current rate (unsheltered)</div>
+              <div class="rdp-stat-lbl">Current rate (unsheltered, R/hr)</div>
             </div>
             <div class="rdp-stat">
               <div class="rdp-stat-val rdp-sheltered">${currentSheltered.toFixed(3)}</div>
-              <div class="rdp-stat-lbl">Current rate (sheltered)</div>
+              <div class="rdp-stat-lbl">Current rate (sheltered, R/hr)</div>
             </div>
           </div>
           <div class="rdp-stat-row">
             <div class="rdp-stat">
               <div class="rdp-stat-val">${cumUnsheltered.toFixed(1)}</div>
-              <div class="rdp-stat-lbl">Cumulative ${this._shelterHours}h unsheltered</div>
+              <div class="rdp-stat-lbl">Cumulative ${this._shelterHours}h unsheltered (R)</div>
             </div>
             <div class="rdp-stat">
               <div class="rdp-stat-val rdp-sheltered">${cumSheltered.toFixed(2)}</div>
-              <div class="rdp-stat-lbl">Cumulative ${this._shelterHours}h sheltered</div>
+              <div class="rdp-stat-lbl">Cumulative ${this._shelterHours}h sheltered (R)</div>
             </div>
           </div>
           <div class="rdp-callout ${callout.cls}">${callout.text}</div>
@@ -136,7 +136,7 @@ export class RadiationDecayPanel extends Panel {
         </div>
       </div>
     `;
-    this.setContent(html);
+    this.getContentElement().innerHTML = html;
     this._attachListeners();
   }
 

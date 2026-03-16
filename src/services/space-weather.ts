@@ -1,5 +1,6 @@
 // NOAA Space Weather Prediction Center — free, CORS-enabled, no API key required
 // Docs: https://services.swpc.noaa.gov/
+import { getApiBaseUrl } from '@/services/runtime';
 
 export interface SpaceWeatherData {
   kpIndex: number | null;           // 0–9 planetary geomagnetic index
@@ -48,13 +49,13 @@ export async function fetchSpaceWeather(): Promise<SpaceWeatherData> {
 
   const [kpRaw, solarWindRaw, xrayRaw, alertsRaw] = await Promise.allSettled([
     // Latest 1-min Kp data (3-hour index, last entry)
-    fetchJson<number[][]>('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
+    fetchJson<number[][]>(`${getApiBaseUrl()}/api/space-weather-feeds`),
     // Real-time solar wind from ACE/DSCOVR
-    fetchJson<Record<string, unknown>[]>('https://services.swpc.noaa.gov/products/solar-wind/mag-5-minute.json'),
+    fetchJson<Record<string, unknown>[]>(`${getApiBaseUrl()}/api/space-weather-feeds`),
     // Latest X-ray flux class
-    fetchJson<number[][]>('https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json'),
+    fetchJson<number[][]>(`${getApiBaseUrl()}/api/space-weather-feeds`),
     // Active alerts and warnings
-    fetchJson<Array<{ message: string; issue_datetime: string }>>('https://services.swpc.noaa.gov/products/alerts.json'),
+    fetchJson<Array<{ message: string; issue_datetime: string }>>(`${getApiBaseUrl()}/api/space-weather-feeds`),
   ]);
 
   // Parse Kp index
@@ -82,7 +83,7 @@ export async function fetchSpaceWeather(): Promise<SpaceWeatherData> {
 
   // Fetch plasma data for speed and density separately
   const plasmaRaw = await fetchJson<Array<[string, string, string, string]>>(
-    'https://services.swpc.noaa.gov/products/solar-wind/plasma-5-minute.json',
+    `${getApiBaseUrl()}/api/space-weather-feeds`,
   );
   if (Array.isArray(plasmaRaw) && plasmaRaw.length > 1) {
     const last = plasmaRaw[plasmaRaw.length - 1];

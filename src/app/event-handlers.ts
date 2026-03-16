@@ -70,6 +70,8 @@ export class EventHandlerManager implements AppModule {
   private boundVisibilityHandler: (() => void) | null = null;
   private boundDesktopExternalLinkHandler: ((e: MouseEvent) => void) | null = null;
   private boundIdleResetHandler: (() => void) | null = null;
+  private _mapResizeMouseMove: ((e: MouseEvent) => void) | null = null;
+  private _mapResizeMouseUp: (() => void) | null = null;
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -166,6 +168,14 @@ export class EventHandlerManager implements AppModule {
     if (this.clockIntervalId) {
       clearInterval(this.clockIntervalId);
       this.clockIntervalId = null;
+    }
+    if (this._mapResizeMouseMove) {
+      document.removeEventListener('mousemove', this._mapResizeMouseMove);
+      this._mapResizeMouseMove = null;
+    }
+    if (this._mapResizeMouseUp) {
+      document.removeEventListener('mouseup', this._mapResizeMouseUp);
+      this._mapResizeMouseUp = null;
     }
     this.ctx.tvMode?.destroy();
     this.ctx.tvMode = null;
@@ -396,7 +406,7 @@ export class EventHandlerManager implements AppModule {
       setMode(modes[(Math.max(idx, 0) + 1) % modes.length]!);
       setTimeout(updateModeBtn, 50);
     });
-    document.addEventListener('modechanged', updateModeBtn);
+    document.addEventListener('wm:mode-changed', updateModeBtn);
   }
 
   private showShareToast(message: string): void {
@@ -888,14 +898,16 @@ export class EventHandlerManager implements AppModule {
       e.preventDefault();
     });
 
-    document.addEventListener('mousemove', (e) => {
+    this._mapResizeMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
       const deltaY = e.clientY - startY;
       const newHeight = Math.max(getMinHeight(), Math.min(startHeight + deltaY, getMaxHeight()));
       mapSection.style.height = `${newHeight}px`;
-    });
+    };
+    this._mapResizeMouseUp = endResize;
 
-    document.addEventListener('mouseup', endResize);
+    document.addEventListener('mousemove', this._mapResizeMouseMove);
+    document.addEventListener('mouseup', this._mapResizeMouseUp);
     window.addEventListener('blur', endResize);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) endResize();

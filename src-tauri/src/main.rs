@@ -530,6 +530,74 @@ fn open_path_in_shell(path: &Path) -> Result<(), String> {
     open_in_shell(&path.to_string_lossy())
 }
 
+#[cfg(target_os = "macos")]
+fn bundle_root_from_executable(executable: &Path) -> Option<PathBuf> {
+    executable
+        .ancestors()
+        .find(|candidate| {
+            candidate.extension().and_then(|ext| ext.to_str()) == Some("app")
+                && candidate.file_name().and_then(|name| name.to_str()) == Some("World Monitor.app")
+        })
+        .map(Path::to_path_buf)
+}
+
+#[cfg(target_os = "macos")]
+fn canonical_user_app_path() -> Option<PathBuf> {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .map(|home| home.join("Applications").join("World Monitor.app"))
+}
+
+#[cfg(target_os = "macos")]
+fn resolve_update_install_path() -> Result<PathBuf, String> {
+    let current_exe =
+        env::current_exe().map_err(|e| format!("Failed to resolve current executable: {e}"))?;
+    if let Some(bundle_root) = bundle_root_from_executable(&current_exe) {
+        if bundle_root
+            .parent()
+            .and_then(|parent| parent.file_name())
+            .and_then(|name| name.to_str())
+            == Some("Applications")
+        {
+            return Ok(bundle_root);
+        }
+    }
+
+    canonical_user_app_path()
+        .ok_or_else(|| "Could not resolve canonical ~/Applications install path".to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn verify_app_bundle_signature(app_path: &Path, label: &str) -> Result<(), String> {
+    let output = Command::new("codesign")
+        .args(["--verify", "--deep", "--strict"])
+        .arg(app_path)
+        .output()
+        .map_err(|e| format!("codesign command failed for {label}: {e}"))?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    Err(format!(
+        "{label} signature verification failed: {}",
+        String::from_utf8_lossy(&output.stderr).trim()
+    ))
+}
+
+#[cfg(target_os = "macos")]
+fn remove_path_if_exists(path: &Path) -> Result<(), String> {
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return Ok(());
+    };
+
+    if metadata.file_type().is_dir() {
+        fs::remove_dir_all(path).map_err(|e| format!("Failed to remove {}: {e}", path.display()))
+    } else {
+        fs::remove_file(path).map_err(|e| format!("Failed to remove {}: {e}", path.display()))
+    }
+}
+
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     let parsed = Url::parse(&url).map_err(|_| "Invalid URL".to_string())?;
@@ -674,7 +742,7 @@ fn send_notification(title: String, body: String, sound: Option<String>) -> Resu
     }
 }
 
-/// Download a macOS DMG release, mount it, copy the app bundle to /Applications, and relaunch.
+/// Download a macOS DMG release, mount it, install the app bundle, and relaunch.
 /// On non-macOS platforms returns an error immediately (no-op — only called on macOS).
 #[tauri::command]
 async fn install_update(download_url: String) -> Result<(), String> {
@@ -696,6 +764,10 @@ async fn install_update(download_url: String) -> Result<(), String> {
     {
         let tmp_dmg = "/tmp/wm-update.dmg";
         let mount_point = "/tmp/wm-update-vol";
+        let cleanup_mount = || {
+            let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
+            let _ = std::fs::remove_file(tmp_dmg);
+        };
 
         // 1. Download the DMG
         let client = reqwest::Client::builder()
@@ -735,77 +807,117 @@ async fn install_update(download_url: String) -> Result<(), String> {
             ));
         }
 
-        // 3. Verify the app bundle identifier and code signature before overwriting /Applications.
+        // 3. Verify the app bundle identifier and code signature before replacing the installed app.
         //    This prevents a compromised GitHub account or MITM from replacing the app
         //    with a malicious binary that passes the host check but is not World Monitor.
-        let source = format!("{}/World Monitor.app", mount_point);
-        let dest = "/Applications/World Monitor.app";
+        let source = PathBuf::from(mount_point).join("World Monitor.app");
+        let dest = resolve_update_install_path()?;
+        let parent = dest
+            .parent()
+            .ok_or_else(|| format!("Install path has no parent directory: {}", dest.display()))?
+            .to_path_buf();
+        let bundle_name = dest
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| format!("Install path has no bundle name: {}", dest.display()))?;
+        let staged = parent.join(format!("{bundle_name}.update-staged"));
+        let backup = parent.join(format!("{bundle_name}.update-backup"));
+        fs::create_dir_all(&parent)
+            .map_err(|e| format!("Failed to create install directory {}: {e}", parent.display()))?;
 
         // 3a. Verify macOS code signature — ensures binary was signed by the legitimate developer.
         //     --deep checks all nested bundles/frameworks, --strict applies additional requirements.
-        let sig_check = Command::new("codesign")
-            .args(["--verify", "--deep", "--strict", &source])
-            .output();
-        match sig_check {
-            Ok(out) if out.status.success() => { /* signature valid */ }
-            Ok(out) => {
-                let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
-                let _ = std::fs::remove_file(tmp_dmg);
-                return Err(format!(
-                    "Code signature verification failed: {}",
-                    String::from_utf8_lossy(&out.stderr).trim()
-                ));
-            }
-            Err(e) => {
-                let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
-                let _ = std::fs::remove_file(tmp_dmg);
-                return Err(format!("codesign command failed: {e}"));
-            }
+        if let Err(err) = verify_app_bundle_signature(&source, "Source app") {
+            cleanup_mount();
+            return Err(err);
         }
 
         const EXPECTED_BUNDLE_ID: &str = "com.bradleybond.worldmonitor";
-        let plist = format!("{source}/Contents/Info.plist");
+        let plist = source.join("Contents").join("Info.plist");
         let id_check = Command::new("plutil")
-            .args(["-extract", "CFBundleIdentifier", "raw", "-o", "-", &plist])
+            .args(["-extract", "CFBundleIdentifier", "raw", "-o", "-"])
+            .arg(&plist)
             .output();
         match id_check {
             Ok(out) if out.status.success() => {
                 let bundle_id = String::from_utf8_lossy(&out.stdout).trim().to_string();
                 if bundle_id != EXPECTED_BUNDLE_ID {
-                    let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
-                    let _ = std::fs::remove_file(tmp_dmg);
+                    cleanup_mount();
                     return Err(format!(
                         "Bundle identifier mismatch: expected '{EXPECTED_BUNDLE_ID}', got '{bundle_id}'"
                     ));
                 }
             }
             _ => {
-                let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
-                let _ = std::fs::remove_file(tmp_dmg);
+                cleanup_mount();
                 return Err("Could not verify bundle identifier — aborting update".into());
             }
         }
 
-        let _ = Command::new("rm").args(["-rf", dest]).output();
+        remove_path_if_exists(&staged)?;
+        remove_path_if_exists(&backup)?;
 
-        let copy = Command::new("cp")
-            .args(["-r", &source, dest])
+        let copy = Command::new("ditto")
+            .arg(&source)
+            .arg(&staged)
             .output()
-            .map_err(|e| format!("cp failed: {e}"))?;
+            .map_err(|e| format!("ditto failed: {e}"))?;
 
         // 4. Detach the DMG and clean up regardless of copy result
-        let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
-        let _ = std::fs::remove_file(tmp_dmg);
+        cleanup_mount();
 
         if !copy.status.success() {
+            let _ = remove_path_if_exists(&staged);
             return Err(format!(
-                "Copy to /Applications failed: {}",
+                "Copy to install path failed: {}",
                 String::from_utf8_lossy(&copy.stderr)
             ));
         }
 
+        if let Err(err) = verify_app_bundle_signature(&staged, "Staged app") {
+            let _ = remove_path_if_exists(&staged);
+            return Err(err);
+        }
+
+        let had_existing_install = dest.exists();
+        if had_existing_install {
+            fs::rename(&dest, &backup).map_err(|e| {
+                let _ = remove_path_if_exists(&staged);
+                format!(
+                    "Failed to move current install into backup {}: {e}",
+                    backup.display()
+                )
+            })?;
+        }
+
+        if let Err(rename_err) = fs::rename(&staged, &dest) {
+            if had_existing_install {
+                let _ = fs::rename(&backup, &dest);
+            }
+            let _ = remove_path_if_exists(&staged);
+            return Err(format!(
+                "Failed to move staged update into install path {}: {rename_err}",
+                dest.display()
+            ));
+        }
+
+        if let Err(err) = verify_app_bundle_signature(&dest, "Installed app") {
+            let _ = remove_path_if_exists(&dest);
+            if had_existing_install {
+                fs::rename(&backup, &dest).map_err(|restore_err| {
+                    format!(
+                        "{err}. Restore from backup {} failed: {restore_err}",
+                        backup.display()
+                    )
+                })?;
+            }
+            return Err(err);
+        }
+
+        let _ = remove_path_if_exists(&backup);
+
         // 5. Relaunch and exit
-        let _ = Command::new("open").args(["-a", "World Monitor"]).spawn();
+        let _ = open_path_in_shell(&dest);
         std::process::exit(0);
     }
 }

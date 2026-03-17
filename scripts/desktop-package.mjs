@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const args = process.argv.slice(2);
@@ -20,7 +21,7 @@ const skipNodeRuntime = hasFlag('skip-node-runtime');
 const showHelp = hasFlag('help') || hasFlag('h');
 
 const validOs = new Set(['macos', 'windows', 'linux']);
-const validVariants = new Set(['full', 'tech']);
+const validVariants = new Set(['full', 'tech', 'finance']);
 
 if (showHelp) {
   console.log('Usage: npm run desktop:package -- --os <macos|windows|linux> --variant <full|tech> [--sign] [--skip-node-runtime]');
@@ -48,7 +49,7 @@ if ((syncVersionsResult.status ?? 1) !== 0) {
   process.exit(syncVersionsResult.status ?? 1);
 }
 
-const bundles = os === 'macos' ? 'app,dmg' : os === 'linux' ? 'appimage' : 'nsis,msi';
+const bundles = os === 'macos' ? 'app' : os === 'linux' ? 'appimage' : 'nsis,msi';
 const env = {
   ...process.env,
   VITE_VARIANT: variant,
@@ -66,6 +67,8 @@ if (!existsSync(tauriBin)) {
 
 if (variant === 'tech') {
   cliArgs.push('--config', 'src-tauri/tauri.tech.conf.json');
+} else if (variant === 'finance') {
+  cliArgs.push('--config', 'src-tauri/tauri.finance.conf.json');
 }
 
 const resolveNodeTarget = () => {
@@ -144,4 +147,85 @@ if (result.error) {
   process.exit(1);
 }
 
-process.exit(result.status ?? 1);
+if ((result.status ?? 1) !== 0) {
+  process.exit(result.status ?? 1);
+}
+
+const run = (command, args, options = {}) => {
+  const child = spawnSync(command, args, {
+    env,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    ...options,
+  });
+  if (child.error) {
+    throw child.error;
+  }
+  if ((child.status ?? 1) !== 0) {
+    throw new Error(`${command} exited with status ${child.status ?? 1}`);
+  }
+};
+
+const runCapture = (command, args, options = {}) =>
+  spawnSync(command, args, {
+    env,
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    ...options,
+  });
+
+const verifyMacAppBundle = (appPath) => {
+  const result = runCapture('codesign', ['--verify', '--deep', '--strict', appPath]);
+  if ((result.status ?? 1) !== 0) {
+    const error = new Error((result.stderr || result.stdout || '').trim() || 'codesign verification failed');
+    error.result = result;
+    throw error;
+  }
+};
+
+if (os === 'macos') {
+  const bundleRoot = path.join('src-tauri', 'target', 'release', 'bundle');
+  const appDir = path.join(bundleRoot, 'macos');
+  const dmgDir = path.join(bundleRoot, 'dmg');
+  const appName = readdirSync(appDir).find((entry) => entry.endsWith('.app'));
+  if (!appName) {
+    console.error(`[desktop-package] No .app bundle found in ${appDir}`);
+    process.exit(1);
+  }
+
+  const appPath = path.join(appDir, appName);
+  const bundleVersion = env.npm_package_version;
+  const archSuffix = process.arch === 'arm64' ? 'aarch64' : process.arch;
+  const dmgPath = path.join(dmgDir, `${appName.replace(/\.app$/, '')}_${bundleVersion}_${archSuffix}.dmg`);
+
+  try {
+    verifyMacAppBundle(appPath);
+  } catch (error) {
+    if (sign) {
+      console.error(`[desktop-package] Signed app bundle failed verification: ${error.message}`);
+      process.exit(1);
+    }
+
+    console.log('[desktop-package] Re-signing macOS app bundle with ad-hoc signature for local packaging');
+    run('codesign', ['--force', '--deep', '--sign', '-', appPath]);
+    verifyMacAppBundle(appPath);
+  }
+
+  mkdirSync(dmgDir, { recursive: true });
+  rmSync(dmgPath, { force: true });
+  run('hdiutil', ['create', '-volname', appName.replace(/\.app$/, ''), '-srcfolder', appPath, '-ov', '-format', 'UDZO', dmgPath]);
+
+  const mountPoint = mkdtempSync(path.join(os.tmpdir(), 'desktop-package-dmg-'));
+  try {
+    run('hdiutil', ['attach', dmgPath, '-mountpoint', mountPoint, '-nobrowse', '-readonly', '-quiet']);
+    verifyMacAppBundle(path.join(mountPoint, appName));
+  } finally {
+    const detach = runCapture('hdiutil', ['detach', mountPoint, '-quiet']);
+    if ((detach.status ?? 1) !== 0) {
+      console.error((detach.stderr || detach.stdout || '').trim());
+    }
+    rmSync(mountPoint, { recursive: true, force: true });
+  }
+}
+
+process.exit(0);

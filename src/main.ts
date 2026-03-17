@@ -265,7 +265,9 @@ loadDesktopSecrets().then(async () => {
 applyStoredTheme();
 
 // Mark body with macOS-native class so CSS design system activates on desktop
-if (isDesktopRuntime() || FORCE_DESKTOP_GATE) {
+if (isDesktopRuntime()) {
+  document.body.classList.add('is-desktop-macos');
+} else if (FORCE_DESKTOP_GATE) {
   document.body.classList.add('is-desktop-macos');
 }
 
@@ -309,8 +311,8 @@ if (urlParams.get('settings') === '1') {
     }
 
     if (desktopRuntime.detected || desktopRuntime.forcedDesktopBuild) {
-      const { ensureBiometricUnlock } = await import('./app/biometric-gate');
-      const unlocked = await ensureBiometricUnlock();
+      const { runVaultIntro } = await import('./app/vault-intro');
+      const unlocked = await runVaultIntro();
       if (!unlocked) return;
     }
 

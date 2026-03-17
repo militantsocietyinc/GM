@@ -2,7 +2,7 @@
 
 ## Project Overview
 - **App name**: World Monitor (do NOT call this "Crystal Ball" — that is a separate project)
-- **Bundle ID**: `com.bradleybond.crystalball` (internal only, not the app's name)
+- **Bundle ID**: `com.bradleybond.worldmonitor`
 - **Fork of**: `koala73/worldmonitor` by Elie Habib (AGPL-3.0)
 - **Stack**: Tauri 2 + TypeScript + Vite + DeckGL + Node.js sidecar (port 46123)
 
@@ -12,7 +12,7 @@ npm run desktop:build:full   # full production build
 npm run typecheck:all        # type-check both tsconfig.json + tsconfig.api.json (must stay at zero errors)
 npm run dev                  # vite dev server (web only, no Tauri)
 ```
-Install built app: copy `src-tauri/target/release/bundle/dmg/*.dmg` to /Applications.
+Install built app: copy `src-tauri/target/release/bundle/macos/World Monitor.app` to `~/Applications/World Monitor.app`.
 
 ## CANONICAL REPO — SINGLE SOURCE OF TRUTH (MANDATE)
 There is exactly ONE place to develop this app:

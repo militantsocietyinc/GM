@@ -18,6 +18,7 @@ import {
   detectCyberScenarios,
   detectGpsJammingScenarios,
   detectFromPredictionMarkets,
+  getFreshMilitaryForecastInputs,
   normalizeChokepoints,
   normalizeGpsJamming,
   loadEntityGraph,
@@ -49,6 +50,7 @@ import {
   computeAnalysisPriority,
   rankForecastsForAnalysis,
   filterPublishedForecasts,
+  selectForecastsForEnrichment,
   buildFallbackScenario,
   buildFallbackBaseCase,
   buildFallbackEscalatoryCase,
@@ -421,6 +423,18 @@ describe('detectConflictScenarios', () => {
     assert.ok(result.length >= 1);
     assert.equal(result[0].region, 'Middle East');
   });
+
+  it('accepts theater posture entries that use theater instead of id', () => {
+    const inputs = {
+      ciiScores: [],
+      theaterPosture: { theaters: [{ theater: 'taiwan-theater', name: 'Taiwan Theater', postureLevel: 'elevated' }] },
+      iranEvents: [],
+      ucdpEvents: [],
+    };
+    const result = detectConflictScenarios(inputs);
+    assert.ok(result.length >= 1);
+    assert.equal(result[0].region, 'Western Pacific');
+  });
 });
 
 describe('detectMarketScenarios', () => {
@@ -539,7 +553,7 @@ describe('detectPoliticalScenarios', () => {
 describe('detectMilitaryScenarios', () => {
   it('accepts live theater entries that use theater instead of id', () => {
     const inputs = {
-      theaterPosture: { theaters: [{ theater: 'baltic-theater', postureLevel: 'critical', activeFlights: 12 }] },
+      militaryForecastInputs: { fetchedAt: Date.now(), theaters: [{ theater: 'baltic-theater', postureLevel: 'critical', activeFlights: 12 }] },
       temporalAnomalies: { anomalies: [] },
     };
     const result = detectMilitaryScenarios(inputs);
@@ -550,10 +564,45 @@ describe('detectMilitaryScenarios', () => {
 
   it('creates a military forecast from theater surge data even before posture turns elevated', () => {
     const inputs = {
-      theaterPosture: { theaters: [{ theater: 'taiwan-theater', postureLevel: 'normal', activeFlights: 5 }] },
       temporalAnomalies: { anomalies: [] },
-      militarySurges: {
+      militaryForecastInputs: {
         fetchedAt: Date.now(),
+        theaters: [{ theater: 'taiwan-theater', postureLevel: 'normal', activeFlights: 5 }],
+        surges: [{
+          theaterId: 'taiwan-theater',
+          surgeType: 'fighter',
+          currentCount: 8,
+          baselineCount: 2,
+          surgeMultiple: 4,
+          persistent: true,
+          persistenceCount: 2,
+          postureLevel: 'normal',
+          strikeCapable: true,
+          fighters: 8,
+          tankers: 1,
+          awacs: 1,
+          dominantCountry: 'China',
+          dominantCountryCount: 6,
+          dominantOperator: 'plaaf',
+        }],
+      },
+    };
+    const result = detectMilitaryScenarios(inputs);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].title, 'China-linked fighter surge near Taiwan Strait');
+    assert.ok(result[0].probability >= 0.7);
+    assert.ok(result[0].signals.some((signal) => signal.type === 'mil_surge'));
+    assert.ok(result[0].signals.some((signal) => signal.type === 'operator'));
+    assert.ok(result[0].signals.some((signal) => signal.type === 'persistence'));
+    assert.ok(result[0].signals.some((signal) => signal.type === 'theater_actor_fit'));
+  });
+
+  it('ignores stale military surge payloads', () => {
+    const inputs = {
+      temporalAnomalies: { anomalies: [] },
+      militaryForecastInputs: {
+        fetchedAt: Date.now() - (4 * 60 * 60 * 1000),
+        theaters: [{ theater: 'taiwan-theater', postureLevel: 'normal', activeFlights: 5 }],
         surges: [{
           theaterId: 'taiwan-theater',
           surgeType: 'fighter',
@@ -571,32 +620,42 @@ describe('detectMilitaryScenarios', () => {
       },
     };
     const result = detectMilitaryScenarios(inputs);
-    assert.equal(result.length, 1);
-    assert.equal(result[0].title, 'Military air surge: Taiwan Strait');
-    assert.ok(result[0].probability >= 0.7);
-    assert.ok(result[0].signals.some((signal) => signal.type === 'mil_surge'));
-    assert.ok(result[0].signals.some((signal) => signal.type === 'operator'));
+    assert.equal(result.length, 0);
   });
 
-  it('ignores stale military surge payloads', () => {
+  it('rejects military bundles whose theater timestamps drift from fetchedAt', () => {
+    const bundle = getFreshMilitaryForecastInputs({
+      militaryForecastInputs: {
+        fetchedAt: Date.now(),
+        theaters: [{ theater: 'taiwan-theater', postureLevel: 'elevated', assessedAt: Date.now() - (6 * 60 * 1000) }],
+        surges: [],
+      },
+    });
+    assert.equal(bundle, null);
+  });
+
+  it('suppresses one-off generic air activity when it lacks persistence and theater-relevant actors', () => {
     const inputs = {
-      theaterPosture: { theaters: [{ theater: 'taiwan-theater', postureLevel: 'normal', activeFlights: 5 }] },
       temporalAnomalies: { anomalies: [] },
-      militarySurges: {
-        fetchedAt: Date.now() - (4 * 60 * 60 * 1000),
+      militaryForecastInputs: {
+        fetchedAt: Date.now(),
+        theaters: [{ theater: 'iran-theater', postureLevel: 'normal', activeFlights: 6 }],
         surges: [{
-          theaterId: 'taiwan-theater',
-          surgeType: 'fighter',
-          currentCount: 8,
-          baselineCount: 2,
-          surgeMultiple: 4,
+          theaterId: 'iran-theater',
+          surgeType: 'air_activity',
+          currentCount: 6,
+          baselineCount: 2.7,
+          surgeMultiple: 2.22,
+          persistent: false,
+          persistenceCount: 0,
           postureLevel: 'normal',
-          strikeCapable: true,
-          fighters: 8,
-          tankers: 1,
-          awacs: 1,
-          dominantCountry: 'China',
-          dominantCountryCount: 6,
+          strikeCapable: false,
+          fighters: 0,
+          tankers: 0,
+          awacs: 0,
+          dominantCountry: 'Qatar',
+          dominantCountryCount: 4,
+          dominantOperator: 'other',
         }],
       },
     };
@@ -858,6 +917,24 @@ describe('forecast evaluation and ranking', () => {
     assert.equal(ranked[0].title, rich.title);
   });
 
+  it('penalizes thin forecasts with weak grounding even at similar base probability', () => {
+    const grounded = makePrediction('political', 'France', 'Political instability: France', 0.64, 0.57, '7d', [
+      { type: 'unrest', value: 'France protest intensity remains elevated', weight: 0.3 },
+      { type: 'cii', value: 'France institutional stress index 68', weight: 0.25 },
+    ]);
+    grounded.newsContext = ['French unions warn of a broader escalation in strikes'];
+    grounded.trend = 'rising';
+    buildForecastCase(grounded);
+
+    const thin = makePrediction('conflict', 'Brazil', 'Active armed conflict: Brazil', 0.65, 0.57, '7d', [
+      { type: 'conflict_events', value: 'Localized violence persists', weight: 0.15 },
+    ]);
+    thin.trend = 'stable';
+    buildForecastCase(thin);
+
+    assert.ok(computeAnalysisPriority(grounded) > computeAnalysisPriority(thin));
+  });
+
   it('filters non-positive forecasts before publish while keeping positive probabilities', () => {
     const dropped = makePrediction('market', 'Red Sea', 'Shipping/Oil price impact from Suez Canal disruption', 0, 0.58, '30d', []);
     const kept = makePrediction('conflict', 'Iran', 'Escalation risk: Iran', 0.12, 0.58, '7d', []);
@@ -866,6 +943,80 @@ describe('forecast evaluation and ranking', () => {
     const published = filterPublishedForecasts(ranked);
     assert.equal(published.length, 1);
     assert.equal(published[0].id, kept.id);
+  });
+
+  it('selects enrichment targets from a broader, domain-balanced top slice', () => {
+    const conflictA = makePrediction('conflict', 'Iran', 'Conflict A', 0.72, 0.61, '7d', [
+      { type: 'cii', value: 'Iran CII 87', weight: 0.4 },
+      { type: 'ucdp', value: '3 UCDP conflict events', weight: 0.3 },
+    ]);
+    conflictA.newsContext = ['Iran military drills intensify after border incident'];
+    conflictA.trend = 'rising';
+    buildForecastCase(conflictA);
+
+    const conflictB = makePrediction('conflict', 'Israel', 'Conflict B', 0.71, 0.6, '7d', [
+      { type: 'ucdp', value: '4 UCDP conflict events', weight: 0.35 },
+      { type: 'theater', value: 'Eastern Mediterranean posture elevated', weight: 0.25 },
+    ]);
+    conflictB.newsContext = ['Regional officials warn of retaliation risk'];
+    conflictB.trend = 'rising';
+    buildForecastCase(conflictB);
+
+    const conflictC = makePrediction('conflict', 'Mexico', 'Conflict C', 0.7, 0.59, '7d', [
+      { type: 'conflict_events', value: 'Violence persists across multiple states', weight: 0.2 },
+    ]);
+    conflictC.trend = 'stable';
+    buildForecastCase(conflictC);
+
+    const cyberA = makePrediction('cyber', 'China', 'Cyber A', 0.69, 0.58, '7d', [
+      { type: 'cyber', value: 'Hostile malware hosting remains elevated', weight: 0.4 },
+      { type: 'news_corroboration', value: 'Security firms warn of sustained activity', weight: 0.2 },
+    ]);
+    cyberA.newsContext = ['Security researchers warn of renewed malware coordination'];
+    cyberA.trend = 'rising';
+    buildForecastCase(cyberA);
+
+    const cyberB = makePrediction('cyber', 'Russia', 'Cyber B', 0.67, 0.56, '7d', [
+      { type: 'cyber', value: 'C2 server concentration remains high', weight: 0.35 },
+      { type: 'news_corroboration', value: 'Government agencies issue new advisories', weight: 0.2 },
+    ]);
+    cyberB.newsContext = ['Authorities publish a fresh advisory on state-linked activity'];
+    cyberB.trend = 'rising';
+    buildForecastCase(cyberB);
+
+    const supplyChain = makePrediction('supply_chain', 'Red Sea', 'Shipping disruption: Red Sea', 0.68, 0.59, '7d', [
+      { type: 'chokepoint', value: 'Red Sea disruption detected', weight: 0.5 },
+      { type: 'gps_jamming', value: 'GPS interference near Red Sea', weight: 0.2 },
+    ]);
+    supplyChain.newsContext = ['Freight rates react to Red Sea rerouting'];
+    supplyChain.trend = 'rising';
+    buildForecastCase(supplyChain);
+
+    const market = makePrediction('market', 'Middle East', 'Oil price impact from Strait of Hormuz disruption', 0.73, 0.58, '30d', [
+      { type: 'chokepoint', value: 'Hormuz transit risk rises', weight: 0.5 },
+      { type: 'prediction_market', value: 'Oil breakout chatter increases', weight: 0.2 },
+    ]);
+    market.newsContext = ['Analysts warn of renewed stress in the Strait of Hormuz'];
+    market.calibration = { marketTitle: 'Will oil close above $90?', marketPrice: 0.65, drift: 0.05, source: 'polymarket' };
+    market.trend = 'rising';
+    buildForecastCase(market);
+
+    const selected = selectForecastsForEnrichment([
+      conflictA,
+      conflictB,
+      conflictC,
+      cyberA,
+      cyberB,
+      supplyChain,
+      market,
+    ]);
+
+    const enriched = [...selected.combined, ...selected.scenarioOnly];
+    assert.equal(enriched.length, 6);
+    assert.ok(enriched.some(pred => pred.domain === 'supply_chain'));
+    assert.ok(enriched.some(pred => pred.domain === 'market'));
+    assert.ok(enriched.filter(pred => pred.domain === 'conflict').length <= 2);
+    assert.ok(enriched.filter(pred => pred.domain === 'cyber').length <= 2);
   });
 });
 

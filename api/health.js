@@ -1,3 +1,5 @@
+import { jsonResponse } from './_json-response.js';
+
 export const config = { runtime: 'edge' };
 
 const BOOTSTRAP_KEYS = {
@@ -105,6 +107,7 @@ const SEED_META = {
   iranEvents:       { key: 'seed-meta:conflict:iran-events',      maxStaleMin: 10080 },
   ucdpEvents:       { key: 'seed-meta:conflict:ucdp-events',      maxStaleMin: 420 },
   militaryFlights:  { key: 'seed-meta:military:flights',           maxStaleMin: 15 },
+  militaryForecastInputs: { key: 'seed-meta:military-forecast-inputs', maxStaleMin: 15 },
   satellites:       { key: 'seed-meta:intelligence:satellites',    maxStaleMin: 180 },
   weatherAlerts:    { key: 'seed-meta:weather:alerts',             maxStaleMin: 30 },
   spending:         { key: 'seed-meta:economic:spending',          maxStaleMin: 120 },
@@ -220,11 +223,11 @@ export default async function handler(req) {
     const commands = allKeys.map(k => ['GET', k]);
     results = await redisPipeline(commands);
   } catch (err) {
-    return new Response(JSON.stringify({
+    return jsonResponse({
       status: 'REDIS_DOWN',
       error: err.message,
       checkedAt: new Date(now).toISOString(),
-    }), { status: 503, headers });
+    }, 503, headers);
   }
 
   const keyValues = new Map();

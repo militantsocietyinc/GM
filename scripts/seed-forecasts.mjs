@@ -21,7 +21,13 @@ const TRACE_RUNS_KEY = 'forecast:trace:runs:v1';
 const TRACE_RUNS_MAX = 50;
 const TRACE_REDIS_TTL_SECONDS = 60 * 24 * 60 * 60;
 const PUBLISH_MIN_PROBABILITY = 0;
+const PANEL_MIN_PROBABILITY = 0.1;
+const ENRICHMENT_COMBINED_MAX = 3;
+const ENRICHMENT_SCENARIO_MAX = 3;
+const ENRICHMENT_MAX_PER_DOMAIN = 2;
+const ENRICHMENT_MIN_READINESS = 0.34;
 const MAX_MILITARY_SURGE_AGE_MS = 3 * 60 * 60 * 1000;
+const MAX_MILITARY_BUNDLE_DRIFT_MS = 5 * 60 * 1000;
 
 const THEATER_IDS = [
   'iran-theater', 'taiwan-theater', 'baltic-theater',
@@ -51,6 +57,15 @@ const THEATER_LABELS = {
   'east-med-theater': 'Eastern Mediterranean',
   'israel-gaza-theater': 'Israel/Gaza',
   'yemen-redsea-theater': 'Yemen/Red Sea',
+};
+
+const THEATER_EXPECTED_ACTORS = {
+  'taiwan-theater': { countries: ['China'], operators: ['plaaf', 'plan'] },
+  'south-china-sea': { countries: ['China', 'USA', 'Japan', 'Philippines'], operators: ['plaaf', 'plan', 'usaf', 'usn'] },
+  'korea-theater': { countries: ['USA', 'South Korea', 'China', 'Japan'], operators: ['usaf', 'usn', 'plaaf'] },
+  'baltic-theater': { countries: ['NATO', 'USA', 'UK', 'Germany'], operators: ['nato', 'usaf', 'raf', 'gaf'] },
+  'blacksea-theater': { countries: ['Russia', 'NATO', 'Turkey'], operators: ['vks', 'nato'] },
+  'iran-theater': { countries: ['Iran', 'USA', 'Israel', 'UK'], operators: ['usaf', 'raf', 'iaf'] },
 };
 
 const CHOKEPOINT_COMMODITIES = {
@@ -96,6 +111,16 @@ const TEXT_STOPWORDS = new Set([
   'infrastructure', 'cyber', 'active', 'armed', 'instability', 'escalation',
   'disruption', 'concentration',
 ]);
+
+const FORECAST_DOMAINS = [
+  'conflict',
+  'market',
+  'supply_chain',
+  'political',
+  'military',
+  'cyber',
+  'infrastructure',
+];
 
 function getRedisCredentials() {
   const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -169,8 +194,8 @@ async function readInputKeys() {
   const keys = [
     'risk:scores:sebuf:stale:v1',
     'temporal:anomalies:v1',
-    'theater-posture:sebuf:stale:v1',
-    'military:surges:stale:v1',
+    'theater_posture:sebuf:stale:v1',
+    'military:forecast-inputs:stale:v1',
     'prediction:markets-bootstrap:v1',
     'supply_chain:chokepoints:v4',
     'conflict:iran-events:v1',
@@ -200,7 +225,7 @@ async function readInputKeys() {
     ciiScores: parse(0),
     temporalAnomalies: parse(1),
     theaterPosture: parse(2),
-    militarySurges: parse(3),
+    militaryForecastInputs: parse(3),
     predictionMarkets: parse(4),
     chokepoints: normalizeChokepoints(parse(5)),
     iranEvents: parse(6),
@@ -224,6 +249,81 @@ function forecastId(domain, region, title) {
 function normalize(value, min, max) {
   if (max <= min) return 0;
   return Math.max(0, Math.min(1, (value - min) / (max - min)));
+}
+
+function getFreshMilitaryForecastInputs(inputs, now = Date.now()) {
+  const bundle = inputs?.militaryForecastInputs;
+  if (!bundle || typeof bundle !== 'object') return null;
+
+  const fetchedAt = Number(bundle.fetchedAt || 0);
+  if (!fetchedAt || now - fetchedAt > MAX_MILITARY_SURGE_AGE_MS) return null;
+
+  const theaters = Array.isArray(bundle.theaters) ? bundle.theaters : [];
+  const surges = Array.isArray(bundle.surges) ? bundle.surges : [];
+
+  const isAligned = (value) => {
+    const ts = Number(value || 0);
+    if (!ts) return true;
+    return Math.abs(ts - fetchedAt) <= MAX_MILITARY_BUNDLE_DRIFT_MS;
+  };
+
+  if (!theaters.every((theater) => isAligned(theater?.assessedAt))) return null;
+  if (!surges.every((surge) => isAligned(surge?.assessedAt))) return null;
+
+  return bundle;
+}
+
+function selectPrimaryMilitarySurge(theaterId, surges) {
+  const typePriority = { fighter: 3, airlift: 2, air_activity: 1 };
+  return surges
+    .slice()
+    .sort((a, b) => {
+      const aScore = (typePriority[a.surgeType] || 0) * 10
+        + (a.persistent ? 5 : 0)
+        + (a.persistenceCount || 0) * 2
+        + (a.strikeCapable ? 2 : 0)
+        + (a.awacs > 0 || a.tankers > 0 ? 1 : 0)
+        + (a.surgeMultiple || 0);
+      const bScore = (typePriority[b.surgeType] || 0) * 10
+        + (b.persistent ? 5 : 0)
+        + (b.persistenceCount || 0) * 2
+        + (b.strikeCapable ? 2 : 0)
+        + (b.awacs > 0 || b.tankers > 0 ? 1 : 0)
+        + (b.surgeMultiple || 0);
+      return bScore - aScore;
+    })[0] || null;
+}
+
+function computeTheaterActorScore(theaterId, surge) {
+  if (!surge) return 0;
+  const expected = THEATER_EXPECTED_ACTORS[theaterId];
+  if (!expected) return 0;
+
+  const dominantCountry = surge.dominantCountry || '';
+  const dominantOperator = surge.dominantOperator || '';
+  const countryMatch = dominantCountry && expected.countries.includes(dominantCountry);
+  const operatorMatch = dominantOperator && expected.operators.includes(dominantOperator);
+
+  if (countryMatch || operatorMatch) return 0.12;
+  if (dominantCountry || dominantOperator) return -0.12;
+  return 0;
+}
+
+function canPromoteMilitarySurge(posture, surge) {
+  if (!surge) return false;
+  if (surge.surgeType !== 'air_activity') return true;
+  if (posture === 'critical' || posture === 'elevated') return true;
+  if (surge.persistent || surge.surgeMultiple >= 3.5) return true;
+  if (surge.strikeCapable || surge.fighters >= 4 || surge.awacs > 0 || surge.tankers > 0) return true;
+  return false;
+}
+
+function buildMilitaryForecastTitle(theaterId, theaterLabel, surge) {
+  if (!surge) return `Military posture escalation: ${theaterLabel}`;
+  const countryPrefix = surge.dominantCountry ? `${surge.dominantCountry}-linked ` : '';
+  if (surge.surgeType === 'fighter') return `${countryPrefix}fighter surge near ${theaterLabel}`;
+  if (surge.surgeType === 'airlift') return `${countryPrefix}airlift surge near ${theaterLabel}`;
+  return `Elevated military air activity near ${theaterLabel}`;
 }
 
 function resolveCountryName(raw) {
@@ -348,15 +448,16 @@ function detectConflictScenarios(inputs) {
   }
 
   for (const t of theaters) {
-    if (!t?.id) continue;
+    const theaterId = t?.id || t?.theater;
+    if (!theaterId) continue;
     const posture = t.postureLevel || t.posture || '';
     if (posture !== 'critical' && posture !== 'elevated') continue;
-    const region = THEATER_REGIONS[t.id] || t.name || t.id;
+    const region = THEATER_REGIONS[theaterId] || t.name || theaterId;
     const alreadyCovered = predictions.some(p => p.region === region);
     if (alreadyCovered) continue;
 
     const signals = [
-      { type: 'theater', value: `${t.name || t.id} posture: ${posture}`, weight: 0.5 },
+      { type: 'theater', value: `${t.name || theaterId} posture: ${posture}`, weight: 0.5 },
     ];
     const prob = posture === 'critical' ? 0.65 : 0.4;
 
@@ -557,13 +658,10 @@ function detectPoliticalScenarios(inputs) {
 
 function detectMilitaryScenarios(inputs) {
   const predictions = [];
-  const theaters = inputs.theaterPosture?.theaters || [];
+  const militaryInputs = getFreshMilitaryForecastInputs(inputs);
+  const theaters = militaryInputs?.theaters || [];
   const anomalies = Array.isArray(inputs.temporalAnomalies) ? inputs.temporalAnomalies : inputs.temporalAnomalies?.anomalies || [];
-  const surgeFetchedAt = Number(inputs.militarySurges?.fetchedAt || 0);
-  const surgeIsFresh = surgeFetchedAt > 0 && (Date.now() - surgeFetchedAt) <= MAX_MILITARY_SURGE_AGE_MS;
-  const surgeItems = surgeIsFresh
-    ? (Array.isArray(inputs.militarySurges) ? inputs.militarySurges : inputs.militarySurges?.surges || [])
-    : [];
+  const surgeItems = Array.isArray(militaryInputs) ? militaryInputs : militaryInputs?.surges || [];
   const theatersById = new Map(theaters.map((theater) => [(theater?.id || theater?.theater), theater]).filter(([theaterId]) => !!theaterId));
   const surgesByTheater = new Map();
 
@@ -584,15 +682,16 @@ function detectMilitaryScenarios(inputs) {
     const theaterSurges = surgesByTheater.get(theaterId) || [];
     if (!theaterId) continue;
     const posture = t?.postureLevel || t?.posture || '';
-    const highestSurge = theaterSurges
-      .slice()
-      .sort((a, b) => (b.surgeMultiple || 0) - (a.surgeMultiple || 0))[0];
-    if (posture !== 'elevated' && posture !== 'critical' && !highestSurge) continue;
+    const highestSurge = selectPrimaryMilitarySurge(theaterId, theaterSurges);
+    const surgeIsUsable = canPromoteMilitarySurge(posture, highestSurge);
+    if (posture !== 'elevated' && posture !== 'critical' && !surgeIsUsable) continue;
 
     const region = THEATER_REGIONS[theaterId] || t?.name || theaterId;
     const theaterLabel = THEATER_LABELS[theaterId] || t?.name || theaterId;
     const signals = [];
     let sourceCount = 0;
+    const actorScore = computeTheaterActorScore(theaterId, highestSurge);
+    const persistent = !!highestSurge?.persistent || (highestSurge?.surgeMultiple || 0) >= 3.5;
 
     if (posture === 'elevated' || posture === 'critical') {
       signals.push({ type: 'theater', value: `${theaterLabel} posture: ${posture}`, weight: 0.45 });
@@ -632,6 +731,22 @@ function detectMilitaryScenarios(inputs) {
         });
         sourceCount++;
       }
+      if (highestSurge.persistenceCount > 0) {
+        signals.push({
+          type: 'persistence',
+          value: `${highestSurge.persistenceCount} prior run(s) in ${theaterLabel} were already above baseline`,
+          weight: 0.18,
+        });
+        sourceCount++;
+      }
+      if (actorScore > 0) {
+        signals.push({
+          type: 'theater_actor_fit',
+          value: `${highestSurge.dominantCountry || highestSurge.dominantOperator} aligns with expected actors in ${theaterLabel}`,
+          weight: 0.16,
+        });
+        sourceCount++;
+      }
     }
 
     if (t?.indicators && Array.isArray(t.indicators)) {
@@ -643,16 +758,22 @@ function detectMilitaryScenarios(inputs) {
     }
 
     const baseLine = highestSurge
-      ? Math.min(0.7, 0.35 + Math.max(0, ((highestSurge.surgeMultiple || 1) - 1) * 0.12))
+      ? highestSurge.surgeType === 'fighter'
+        ? Math.min(0.72, 0.42 + Math.max(0, ((highestSurge.surgeMultiple || 1) - 1) * 0.1))
+        : highestSurge.surgeType === 'airlift'
+          ? Math.min(0.58, 0.32 + Math.max(0, ((highestSurge.surgeMultiple || 1) - 1) * 0.08))
+          : Math.min(0.42, 0.2 + Math.max(0, ((highestSurge.surgeMultiple || 1) - 1) * 0.05))
       : posture === 'critical' ? 0.6 : 0.35;
     const flightBoost = milFlights.length > 0 ? 0.1 : 0;
     const postureBoost = posture === 'critical' ? 0.12 : posture === 'elevated' ? 0.06 : 0;
     const supportBoost = highestSurge && (highestSurge.awacs > 0 || highestSurge.tankers > 0) ? 0.05 : 0;
     const strikeBoost = (t?.activeOperations?.includes?.('strike_capable') || highestSurge?.strikeCapable) ? 0.06 : 0;
-    const prob = Math.min(0.9, baseLine + flightBoost + postureBoost + supportBoost + strikeBoost);
+    const persistenceBoost = persistent ? 0.08 : 0;
+    const genericPenalty = highestSurge?.surgeType === 'air_activity' && !persistent ? 0.12 : 0;
+    const prob = Math.min(0.9, Math.max(0.05, baseLine + flightBoost + postureBoost + supportBoost + strikeBoost + persistenceBoost + actorScore - genericPenalty));
     const confidence = Math.max(0.3, normalize(sourceCount, 0, 4));
     const title = highestSurge
-      ? `Military air surge: ${theaterLabel}`
+      ? buildMilitaryForecastTitle(theaterId, theaterLabel, highestSurge)
       : `Military posture escalation: ${region}`;
 
     predictions.push(makePrediction(
@@ -1845,11 +1966,106 @@ function buildForecastTraceRecord(pred, rank) {
   };
 }
 
+function summarizeTypeCounts(items) {
+  const counts = new Map();
+  for (const item of items) {
+    if (!item) continue;
+    counts.set(item, (counts.get(item) || 0) + 1);
+  }
+  return Object.fromEntries(
+    [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  );
+}
+
+function pickTopCountEntries(countMap, limit = 5) {
+  return Object.entries(countMap)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([type, count]) => ({ type, count }));
+}
+
+function summarizeForecastPopulation(predictions) {
+  const domainCounts = Object.fromEntries(FORECAST_DOMAINS.map(domain => [domain, 0]));
+  const highlightedDomainCounts = Object.fromEntries(FORECAST_DOMAINS.map(domain => [domain, 0]));
+
+  for (const pred of predictions) {
+    domainCounts[pred.domain] = (domainCounts[pred.domain] || 0) + 1;
+    if ((pred.probability || 0) >= PANEL_MIN_PROBABILITY) {
+      highlightedDomainCounts[pred.domain] = (highlightedDomainCounts[pred.domain] || 0) + 1;
+    }
+  }
+
+  return {
+    forecastCount: predictions.length,
+    domainCounts,
+    highlightedDomainCounts,
+    quietDomains: FORECAST_DOMAINS.filter(domain => (domainCounts[domain] || 0) === 0),
+  };
+}
+
+function summarizeForecastTraceQuality(predictions, tracedPredictions) {
+  const fullRun = summarizeForecastPopulation(predictions);
+  const traced = summarizeForecastPopulation(tracedPredictions);
+
+  const narrativeSourceCounts = summarizeTypeCounts(
+    tracedPredictions.map(item => item.traceMeta?.narrativeSource || 'fallback')
+  );
+
+  const promotionSignalCounts = summarizeTypeCounts(
+    tracedPredictions.flatMap(item => (item.signals || []).slice(0, 3).map(signal => signal.type))
+  );
+
+  const suppressionSignalCounts = summarizeTypeCounts(
+    tracedPredictions.flatMap(item => (item.caseFile?.counterEvidence || []).map(counter => counter.type))
+  );
+
+  const readinessValues = tracedPredictions.map(item => item.readiness?.overall || 0);
+  const avgReadiness = readinessValues.length
+    ? +(readinessValues.reduce((sum, value) => sum + value, 0) / readinessValues.length).toFixed(3)
+    : 0;
+  const avgProbability = tracedPredictions.length
+    ? +(tracedPredictions.reduce((sum, item) => sum + (item.probability || 0), 0) / tracedPredictions.length).toFixed(3)
+    : 0;
+  const avgConfidence = tracedPredictions.length
+    ? +(tracedPredictions.reduce((sum, item) => sum + (item.confidence || 0), 0) / tracedPredictions.length).toFixed(3)
+    : 0;
+
+  const fallbackCount = narrativeSourceCounts.fallback || 0;
+  const llmCombinedCount =
+    (narrativeSourceCounts.llm_combined || 0) +
+    (narrativeSourceCounts.llm_combined_cache || 0);
+  const llmScenarioCount =
+    (narrativeSourceCounts.llm_scenario || 0) +
+    (narrativeSourceCounts.llm_scenario_cache || 0);
+  const enrichedCount = tracedPredictions.length - fallbackCount;
+
+  return {
+    fullRun,
+    traced: {
+      ...traced,
+      narrativeSourceCounts,
+      fallbackCount,
+      fallbackRate: tracedPredictions.length ? +(fallbackCount / tracedPredictions.length).toFixed(3) : 0,
+      enrichedCount,
+      enrichedRate: tracedPredictions.length ? +(enrichedCount / tracedPredictions.length).toFixed(3) : 0,
+      llmCombinedCount,
+      llmScenarioCount,
+      avgReadiness,
+      avgProbability,
+      avgConfidence,
+      topPromotionSignals: pickTopCountEntries(promotionSignalCounts, 5),
+      topSuppressionSignals: pickTopCountEntries(suppressionSignalCounts, 5),
+    },
+  };
+}
+
 function buildForecastTraceArtifacts(data, context = {}, config = {}) {
   const generatedAt = data?.generatedAt || Date.now();
   const predictions = Array.isArray(data?.predictions) ? data.predictions : [];
   const maxForecasts = config.maxForecasts || getTraceMaxForecasts(predictions.length);
   const tracedPredictions = predictions.slice(0, maxForecasts).map((pred, index) => buildForecastTraceRecord(pred, index + 1));
+  const quality = summarizeForecastTraceQuality(predictions, tracedPredictions);
   const prefix = buildTraceRunPrefix(
     context.runId || `run_${generatedAt}`,
     generatedAt,
@@ -1882,6 +2098,7 @@ function buildForecastTraceArtifacts(data, context = {}, config = {}) {
     generatedAtIso: manifest.generatedAtIso,
     forecastCount: manifest.forecastCount,
     tracedForecastCount: manifest.tracedForecastCount,
+    quality,
     topForecasts: tracedPredictions.map(item => ({
       rank: item.rank,
       id: item.id,
@@ -1957,6 +2174,7 @@ async function writeForecastTraceArtifacts(data, context = {}) {
     summaryKey: artifacts.summaryKey,
     forecastCount: artifacts.manifest.forecastCount,
     tracedForecastCount: artifacts.manifest.tracedForecastCount,
+    quality: artifacts.summary.quality,
   };
   await writeForecastTracePointer(pointer);
   return pointer;
@@ -2087,9 +2305,13 @@ function scoreForecastReadiness(pred) {
 function computeAnalysisPriority(pred) {
   const readiness = scoreForecastReadiness(pred);
   const baseScore = (pred.probability || 0) * (pred.confidence || 0);
-  const readinessMultiplier = 0.85 + (readiness.overall * 0.35);
+  const readinessMultiplier = 0.78 + (readiness.overall * 0.5);
+  const groundingBonus = readiness.groundingScore * 0.025;
+  const evidenceBonus = readiness.evidenceScore * 0.02;
   const trendBonus = pred.trend === 'rising' ? 0.015 : pred.trend === 'falling' ? -0.005 : 0;
-  return +((baseScore * readinessMultiplier) + trendBonus).toFixed(6);
+  const lowGroundingPenalty = readiness.groundingScore < 0.2 ? 0.02 : 0;
+  const lowEvidencePenalty = readiness.evidenceScore < 0.25 ? 0.015 : 0;
+  return +((baseScore * readinessMultiplier) + groundingBonus + evidenceBonus + trendBonus - lowGroundingPenalty - lowEvidencePenalty).toFixed(6);
 }
 
 function rankForecastsForAnalysis(predictions) {
@@ -2102,6 +2324,53 @@ function rankForecastsForAnalysis(predictions) {
 
 function filterPublishedForecasts(predictions, minProbability = PUBLISH_MIN_PROBABILITY) {
   return predictions.filter(pred => (pred?.probability || 0) > minProbability);
+}
+
+function selectForecastsForEnrichment(predictions, options = {}) {
+  const maxCombined = options.maxCombined ?? ENRICHMENT_COMBINED_MAX;
+  const maxScenario = options.maxScenario ?? ENRICHMENT_SCENARIO_MAX;
+  const maxPerDomain = options.maxPerDomain ?? ENRICHMENT_MAX_PER_DOMAIN;
+  const minReadiness = options.minReadiness ?? ENRICHMENT_MIN_READINESS;
+  const maxTotal = maxCombined + maxScenario;
+
+  const ranked = predictions
+    .map((pred, index) => ({
+      pred,
+      index,
+      readiness: scoreForecastReadiness(pred),
+      analysisPriority: computeAnalysisPriority(pred),
+    }))
+    .filter(item => item.readiness.overall >= minReadiness)
+    .sort((a, b) => {
+      if (b.analysisPriority !== a.analysisPriority) return b.analysisPriority - a.analysisPriority;
+      return (b.pred.probability * b.pred.confidence) - (a.pred.probability * a.pred.confidence);
+    });
+
+  const selected = [];
+  const selectedDomains = new Map();
+
+  for (const item of ranked) {
+    if (selected.length >= maxTotal) break;
+    const currentCount = selectedDomains.get(item.pred.domain) || 0;
+    if (currentCount >= maxPerDomain) continue;
+    selected.push(item);
+    selectedDomains.set(item.pred.domain, currentCount + 1);
+  }
+
+  if (selected.length < maxTotal) {
+    const seen = new Set(selected.map(item => item.pred.id));
+    for (const item of ranked) {
+      if (selected.length >= maxTotal) break;
+      if (seen.has(item.pred.id)) continue;
+      selected.push(item);
+      seen.add(item.pred.id);
+    }
+  }
+
+  return {
+    combined: selected.slice(0, maxCombined).map(item => item.pred),
+    scenarioOnly: selected.slice(maxCombined, maxCombined + maxScenario).map(item => item.pred),
+  };
 }
 
 // ── Phase 2: LLM Scenario Enrichment ───────────────────────
@@ -2257,7 +2526,7 @@ async function callForecastLLM(systemPrompt, userPrompt) {
       const text = json.choices?.[0]?.message?.content?.trim();
       if (!text || text.length < 20) continue;
       return { text, model: json.model || provider.model, provider: provider.name };
-    } catch (err) { console.warn(`  [LLM] ${provider.name}: ${err.message}`); continue; }
+    } catch (err) { console.warn(`  [LLM] ${provider.name}: ${err.message}`); }
   }
   return null;
 }
@@ -2422,10 +2691,11 @@ function populateFallbackNarratives(predictions) {
 async function enrichScenariosWithLLM(predictions) {
   if (predictions.length === 0) return;
   const { url, token } = getRedisCredentials();
+  const enrichmentTargets = selectForecastsForEnrichment(predictions);
 
-  // Phase 3: Top-2 get combined scenario + perspectives
-  const topWithPerspectives = predictions.slice(0, 2);
-  const scenarioOnly = predictions.slice(2, 4);
+  // Higher-quality top forecasts get richer scenario + perspective treatment.
+  const topWithPerspectives = enrichmentTargets.combined;
+  const scenarioOnly = enrichmentTargets.scenarioOnly;
 
   // Call 1: Combined scenario + perspectives for top-2
   if (topWithPerspectives.length > 0) {
@@ -2754,6 +3024,7 @@ export {
   computeAnalysisPriority,
   rankForecastsForAnalysis,
   filterPublishedForecasts,
+  selectForecastsForEnrichment,
   buildFallbackScenario,
   buildFallbackBaseCase,
   buildFallbackEscalatoryCase,
@@ -2773,6 +3044,7 @@ export {
   detectCyberScenarios,
   detectGpsJammingScenarios,
   detectFromPredictionMarkets,
+  getFreshMilitaryForecastInputs,
   loadEntityGraph,
   discoverGraphCascades,
   MARITIME_REGIONS,

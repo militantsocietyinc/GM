@@ -1257,7 +1257,7 @@ export class DataLoaderManager implements AppModule {
       const commoditiesPanel = this.ctx.panels['commodities'] as CommoditiesPanel | undefined;
       const energyPanel = this.ctx.panels['energy-complex'] as EnergyComplexPanel | undefined;
       const mapCommodity = (c: MarketData) => ({ display: c.display, price: c.price, change: c.change, sparkline: c.sparkline });
-      const energySymbols = new Set(['CL=F', 'BZ=F', 'NG=F']);
+      const energySymbols = new Set(['CL=F', 'BZ=F', 'NG=F', 'RB=F', 'HO=F']);
       const filterCommodityTape = (data: MarketData[]) => data.filter((item) => item.symbol !== '^VIX' && !energySymbols.has(item.symbol));
       const filterEnergyTape = (data: MarketData[]) => data.filter((item) => energySymbols.has(item.symbol));
 

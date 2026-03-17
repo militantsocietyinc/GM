@@ -1264,7 +1264,10 @@ const MARKET_SYMBOLS = [
   '^DJI', '^GSPC', '^IXIC',
 ];
 
-const COMMODITY_SYMBOLS = ['^VIX', 'GC=F', 'CL=F', 'NG=F', 'SI=F', 'HG=F'];
+const COMMODITY_SYMBOLS = (() => {
+  try { return requireShared('commodities.json').commodities.map(c => c.symbol); } catch {}
+  return ['^VIX', 'GC=F', 'CL=F', 'NG=F', 'SI=F', 'HG=F'];
+})();
 
 const SECTOR_SYMBOLS = ['XLK', 'XLF', 'XLE', 'XLV', 'XLY', 'XLI', 'XLP', 'XLU', 'XLB', 'XLRE', 'XLC', 'SMH'];
 

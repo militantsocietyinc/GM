@@ -237,7 +237,36 @@ describe('forecast run world state', () => {
     assert.ok(worldState.summary.includes('2 active forecasts'));
     assert.ok(worldState.evidenceLedger.supporting.length > 0);
     assert.ok(worldState.actorContinuity.persistentCount >= 1);
-    assert.ok(worldState.actorContinuity.newlyActive.length >= 1);
-    assert.ok(worldState.actorContinuity.noLongerActive.some(actor => actor.id === 'legacy:state'));
+    assert.ok(worldState.actorContinuity.newlyActiveCount >= 1);
+    assert.ok(worldState.actorContinuity.newlyActivePreview.length >= 1);
+    assert.ok(worldState.actorContinuity.noLongerActivePreview.some(actor => actor.id === 'legacy:state'));
+  });
+
+  it('reports full actor continuity counts even when previews are capped', () => {
+    const predictions = [
+      makePrediction('conflict', 'Region A', 'Escalation risk: Region A', 0.6, 0.6, '7d', [
+        { type: 'cii', value: 'Conflict signal', weight: 0.4 },
+      ]),
+      makePrediction('market', 'Region B', 'Oil price impact: Region B', 0.6, 0.6, '7d', [
+        { type: 'prediction_market', value: 'Market stress', weight: 0.4 },
+      ]),
+      makePrediction('cyber', 'Region C', 'Cyber threat concentration: Region C', 0.6, 0.6, '7d', [
+        { type: 'cyber', value: 'Cyber signal', weight: 0.4 },
+      ]),
+    ];
+    for (const pred of predictions) buildForecastCase(pred);
+
+    const priorWorldState = {
+      actorRegistry: [],
+    };
+
+    const worldState = buildForecastRunWorldState({
+      generatedAt: Date.parse('2026-03-17T12:00:00Z'),
+      predictions,
+      priorWorldState,
+    });
+
+    assert.ok(worldState.actorContinuity.newlyActiveCount > 8);
+    assert.equal(worldState.actorContinuity.newlyActivePreview.length, 8);
   });
 });

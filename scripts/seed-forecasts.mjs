@@ -2104,14 +2104,18 @@ function buildActorContinuitySummary(currentActors, priorWorldState = null) {
     priorActorCount: priorActors.length,
     currentActorCount: currentActors.length,
     persistentCount,
-    newlyActive: newlyActive.slice(0, 8),
-    strengthened: strengthened
+    newlyActiveCount: newlyActive.length,
+    strengthenedCount: strengthened.length,
+    weakenedCount: weakened.length,
+    noLongerActiveCount: noLongerActive.length,
+    newlyActivePreview: newlyActive.slice(0, 8),
+    strengthenedPreview: strengthened
       .sort((a, b) => b.influenceDelta - a.influenceDelta || a.name.localeCompare(b.name))
       .slice(0, 8),
-    weakened: weakened
+    weakenedPreview: weakened
       .sort((a, b) => a.influenceDelta - b.influenceDelta || a.name.localeCompare(b.name))
       .slice(0, 8),
-    noLongerActive: noLongerActive.slice(0, 8),
+    noLongerActivePreview: noLongerActive.slice(0, 8),
   };
 }
 
@@ -2276,7 +2280,7 @@ function buildForecastRunWorldState(data) {
   const continuity = buildForecastRunContinuity(predictions);
   const evidenceLedger = buildForecastEvidenceLedger(predictions);
   const activeDomains = domainStates.filter((item) => item.forecastCount > 0).map((item) => item.domain);
-  const summary = `${predictions.length} active forecasts are spanning ${activeDomains.length} domains and ${regionalStates.length} key regions in this run, with ${continuity.newForecasts} new forecasts, ${continuity.materiallyChanged.length} materially changed paths, and ${actorContinuity.newlyActive.length} newly active actors.`;
+  const summary = `${predictions.length} active forecasts are spanning ${activeDomains.length} domains and ${regionalStates.length} key regions in this run, with ${continuity.newForecasts} new forecasts, ${continuity.materiallyChanged.length} materially changed paths, and ${actorContinuity.newlyActiveCount} newly active actors.`;
 
   return {
     version: 1,
@@ -2440,10 +2444,10 @@ function buildForecastTraceArtifacts(data, context = {}, config = {}) {
       regionCount: worldState.regionalStates.length,
       actorCount: worldState.actorRegistry.length,
       persistentActorCount: worldState.actorContinuity.persistentCount,
-      newlyActiveActors: worldState.actorContinuity.newlyActive.length,
-      strengthenedActors: worldState.actorContinuity.strengthened.length,
-      weakenedActors: worldState.actorContinuity.weakened.length,
-      noLongerActiveActors: worldState.actorContinuity.noLongerActive.length,
+      newlyActiveActors: worldState.actorContinuity.newlyActiveCount,
+      strengthenedActors: worldState.actorContinuity.strengthenedCount,
+      weakenedActors: worldState.actorContinuity.weakenedCount,
+      noLongerActiveActors: worldState.actorContinuity.noLongerActiveCount,
       newForecasts: worldState.continuity.newForecasts,
       materiallyChanged: worldState.continuity.materiallyChanged.length,
     },

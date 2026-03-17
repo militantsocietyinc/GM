@@ -39,6 +39,45 @@ function newCtx(): AudioContext | null {
   try { return new AudioContext(); } catch { return null; }
 }
 
+function playMotorWhine(ctx: AudioContext): void {
+  const t0 = ctx.currentTime;
+  const dur = 1.8;
+
+  // Low motor fundamental — sawtooth, spins up then winds down
+  const motor = ctx.createOscillator();
+  motor.type = 'sawtooth';
+  motor.frequency.setValueAtTime(62, t0);
+  motor.frequency.exponentialRampToValueAtTime(210, t0 + 0.55);
+  motor.frequency.exponentialRampToValueAtTime(175, t0 + 0.95);
+  motor.frequency.exponentialRampToValueAtTime(75, t0 + dur);
+  const motorF = ctx.createBiquadFilter();
+  motorF.type = 'lowpass'; motorF.frequency.value = 380;
+  const motorG = ctx.createGain();
+  motorG.gain.setValueAtTime(0, t0);
+  motorG.gain.linearRampToValueAtTime(0.18, t0 + 0.14);
+  motorG.gain.setValueAtTime(0.18, t0 + 0.95);
+  motorG.gain.linearRampToValueAtTime(0, t0 + dur);
+  motor.connect(motorF).connect(motorG).connect(ctx.destination);
+  motor.start(t0); motor.stop(t0 + dur + 0.05);
+
+  // High-pitch gear whine — rises with the motor
+  const gear = ctx.createOscillator();
+  gear.type = 'sawtooth';
+  gear.frequency.setValueAtTime(720, t0 + 0.08);
+  gear.frequency.exponentialRampToValueAtTime(1150, t0 + 0.58);
+  gear.frequency.exponentialRampToValueAtTime(860, t0 + 0.95);
+  gear.frequency.exponentialRampToValueAtTime(380, t0 + dur);
+  const gearF = ctx.createBiquadFilter();
+  gearF.type = 'bandpass'; gearF.frequency.value = 950; gearF.Q.value = 2.2;
+  const gearG = ctx.createGain();
+  gearG.gain.setValueAtTime(0, t0 + 0.08);
+  gearG.gain.linearRampToValueAtTime(0.065, t0 + 0.32);
+  gearG.gain.setValueAtTime(0.065, t0 + 0.95);
+  gearG.gain.linearRampToValueAtTime(0, t0 + dur);
+  gear.connect(gearF).connect(gearG).connect(ctx.destination);
+  gear.start(t0 + 0.08); gear.stop(t0 + dur + 0.05);
+}
+
 function playBoltRetracts(ctx: AudioContext): void {
   const t0 = ctx.currentTime;
   for (let i = 0; i < 5; i++) {
@@ -600,14 +639,17 @@ function setScannerSuccess(p: DoorParts): void {
 
 // ── Open animation ─────────────────────────────────────────────────────────────
 
-async function playOpenSequence(p: DoorParts & { overlay: HTMLDivElement }): Promise<void> {
+async function playOpenSequence(
+  p: DoorParts & { overlay: HTMLDivElement },
+  appReady?: Promise<void>,
+): Promise<void> {
   setScannerSuccess(p);
   await sleep(500);
 
   const ctx = newCtx();
   if (ctx) {
+    playMotorWhine(ctx);
     playBoltRetracts(ctx);
-    setTimeout(() => playDoorOpen(ctx), 520);
   }
 
   // Retract bolts — staggered, unhurried
@@ -615,6 +657,17 @@ async function playOpenSequence(p: DoorParts & { overlay: HTMLDivElement }): Pro
     pin.style.animation = `vi-bolt .34s ease-in ${i * 0.08}s both`;
   });
   await sleep(900);
+
+  // Wait for app panels to be ready (or give up after 3s)
+  if (appReady) {
+    p.statusText.textContent = 'INITIALIZING…';
+    p.statusText.setAttribute('fill', 'rgba(40,200,100,0.55)');
+    await Promise.race([appReady, sleep(3000)]);
+    p.statusText.textContent = 'READY';
+    await sleep(180);
+  }
+
+  if (ctx) playDoorOpen(ctx);
 
   // Door swings open — slow, heavy, deliberate
   p.svg.style.cssText += `
@@ -636,6 +689,7 @@ async function playOpenSequence(p: DoorParts & { overlay: HTMLDivElement }): Pro
 async function runBiometricFlow(
   refs: DoorParts & { overlay: HTMLDivElement },
   onQuit: () => void,
+  appReady?: Promise<void>,
 ): Promise<boolean> {
   const quitBtn = refs.overlay.querySelector('button')!;
 
@@ -673,7 +727,7 @@ async function runBiometricFlow(
       await invokeTauri<void>(CMD, { reason: REASON, options: { allowDeviceCredential: true } });
       if (settled) return;
       settled = true;
-      await playOpenSequence(refs);
+      await playOpenSequence(refs, appReady);
       resolveFlow(true);
     } catch (err) {
       if (settled) return;
@@ -696,12 +750,12 @@ async function runBiometricFlow(
 
 // ── Export ─────────────────────────────────────────────────────────────────────
 
-export async function runVaultIntro(): Promise<boolean> {
+export async function runVaultIntro(appReady?: Promise<void>): Promise<boolean> {
   const refs = buildOverlay();
   document.body.appendChild(refs.overlay);
 
   let quitCalled = false;
-  const unlocked = await runBiometricFlow(refs, () => { quitCalled = true; });
+  const unlocked = await runBiometricFlow(refs, () => { quitCalled = true; }, appReady);
 
   refs.overlay.remove();
   if (quitCalled) window.close();

@@ -310,19 +310,23 @@ if (urlParams.get('settings') === '1') {
       showDesktopRuntimeDebugNotice(desktopRuntime);
     }
 
-    if (desktopRuntime.detected || desktopRuntime.forcedDesktopBuild) {
-      const { runVaultIntro } = await import('./app/vault-intro');
-      const unlocked = await runVaultIntro();
-      if (!unlocked) return;
-    }
-
     const app = new App('app');
-    app
-      .init()
-      .then(() => {
-        clearChunkReloadGuard(chunkReloadStorageKey);
-      })
-      .catch(console.error);
+
+    if (desktopRuntime.detected || desktopRuntime.forcedDesktopBuild) {
+      // Start loading the app behind the vault overlay so it's ready when the door opens.
+      const appInitPromise = app.init();
+      const { runVaultIntro } = await import('./app/vault-intro');
+      const unlocked = await runVaultIntro(appInitPromise.catch(() => {}));
+      if (!unlocked) return;
+      appInitPromise
+        .then(() => { clearChunkReloadGuard(chunkReloadStorageKey); })
+        .catch(console.error);
+    } else {
+      app
+        .init()
+        .then(() => { clearChunkReloadGuard(chunkReloadStorageKey); })
+        .catch(console.error);
+    }
   };
   void boot();
 }

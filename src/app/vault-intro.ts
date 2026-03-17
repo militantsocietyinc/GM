@@ -595,21 +595,37 @@ function setScannerIdle(p: DoorParts): void {
 }
 
 function setScannerWarmup(p: DoorParts): void {
-  p.scannerRing.style.animation = 'vi-warmup 0.9s ease-in-out infinite';
-  p.scannerGlow.style.animation = 'vi-glowwarm 0.9s ease-in-out infinite';
+  p.scannerRing.style.animation = 'vi-warmup 0.85s ease-in-out infinite';
+  p.scannerGlow.style.animation = 'vi-glowwarm 0.85s ease-in-out infinite';
   p.scannerRing.setAttribute('stroke', '#2a88e0');
   p.scannerGlow.setAttribute('stroke', '#2272c8');
   p.statusText.setAttribute('fill', 'rgba(130,175,230,0.85)');
   p.statusText.textContent = 'SCANNING…';
 }
 
-function setScannerScanning(p: DoorParts): void {
-  p.scannerRing.style.animation = 'vi-warmup 0.5s ease-in-out infinite';
-  p.scannerGlow.style.animation = 'vi-glowwarm 0.5s ease-in-out infinite';
+// Full-stop peak state — animations halt, scanner holds at max brightness.
+// Touch ID fires from this still moment so the system dialog doesn't feel like an interruption.
+function setScannerPeak(p: DoorParts): void {
+  // Smoothly freeze: use a short CSS transition then lock to peak values
+  p.scannerRing.style.transition = 'stroke-width 0.25s ease, opacity 0.25s ease';
+  p.scannerGlow.style.transition = 'opacity 0.25s ease';
+  p.scannerRing.style.animation = 'none';
+  p.scannerGlow.style.animation = 'none';
+  p.scannerRing.style.opacity = '1';
+  p.scannerRing.style.strokeWidth = '2.5px';
+  p.scannerGlow.style.opacity = '0.72';
+  p.scannerRing.setAttribute('stroke', '#4aa8ff');
+  p.scannerGlow.setAttribute('stroke', '#2a88e8');
+  for (const fp of p.fpPaths) fp.setAttribute('stroke', '#4aa8d0');
+  p.statusText.setAttribute('fill', 'rgba(160,200,255,0.95)');
   p.statusText.textContent = 'PLACE FINGER ON SENSOR';
 }
 
 function setScannerError(p: DoorParts, msg: string): void {
+  p.scannerRing.style.transition = '';
+  p.scannerGlow.style.transition = '';
+  p.scannerRing.style.opacity = '';
+  p.scannerRing.style.strokeWidth = '';
   p.scannerRing.style.animation = 'vi-scanerr 1.6s ease-in-out infinite';
   p.scannerGlow.style.animation = 'vi-scanerr 1.6s ease-in-out infinite';
   p.scannerRing.setAttribute('stroke', '#b83030');
@@ -626,6 +642,10 @@ function setScannerError(p: DoorParts, msg: string): void {
 function setScannerSuccess(p: DoorParts): void {
   p.scannerRing.style.animation = '';
   p.scannerGlow.style.animation = '';
+  p.scannerRing.style.transition = '';
+  p.scannerGlow.style.transition = '';
+  p.scannerRing.style.opacity = '';
+  p.scannerRing.style.strokeWidth = '';
   p.scannerRing.setAttribute('stroke', '#1ea854');
   p.scannerGlow.setAttribute('stroke', '#18903e');
   p.padFill.setAttribute('fill', '#060e0a');
@@ -713,14 +733,16 @@ async function runBiometricFlow(
     if (!ready || settled) { inFlight = false; return; }
 
     if (!manual) {
-      // Warmup phase — scanner builds intensity before Touch ID fires
+      // Warmup phase — scanner builds intensity
       setScannerWarmup(refs);
-      await sleep(900);
+      await sleep(700);
       if (settled) return;
     }
 
-    setScannerScanning(refs);
-    await sleep(300);
+    // Peak lock — animations halt, hold steady so the Touch ID dialog
+    // appears against a still screen rather than mid-pulse
+    setScannerPeak(refs);
+    await sleep(600);
     if (settled) return;
 
     try {

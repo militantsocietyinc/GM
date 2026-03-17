@@ -589,10 +589,7 @@ fn open_sidecar_log_file(app: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 async fn open_settings_window_command(app: AppHandle) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("main") {
-        let _ = win.eval("document.dispatchEvent(new CustomEvent('wm:open-settings'))");
-    }
-    Ok(())
+    open_settings_window(&app)
 }
 
 #[tauri::command]
@@ -623,18 +620,6 @@ fn close_live_channels_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Truncate a UTF-8 string to at most `max_bytes` bytes without splitting a multi-byte codepoint.
-fn truncate_to_bytes(s: &str, max_bytes: usize) -> &str {
-    if s.len() <= max_bytes {
-        return s;
-    }
-    let mut boundary = max_bytes;
-    while !s.is_char_boundary(boundary) {
-        boundary -= 1;
-    }
-    &s[..boundary]
-}
-
 /// Send a native macOS notification via osascript. No-op on non-macOS platforms.
 /// Rate-limited to 1 notification per 30 seconds to prevent notification spam.
 /// Input fields are length-capped and sanitized before interpolation into AppleScript.
@@ -659,10 +644,10 @@ fn send_notification(title: String, body: String, sound: Option<String>) -> Resu
         }
 
         // Enforce length limits to bound log size and script length
-        let title = truncate_to_bytes(&title, 128);
-        let body  = truncate_to_bytes(&body, 256);
+        let title = if title.len() > 128 { &title[..128] } else { title.as_str() };
+        let body  = if body.len()  > 256 { &body[..256]  } else { body.as_str()  };
         let sound_name = sound.as_deref().unwrap_or("Ping");
-        let sound_name = truncate_to_bytes(sound_name, 64);
+        let sound_name = if sound_name.len() > 64 { &sound_name[..64] } else { sound_name };
 
         // Sanitize: remove characters that have meaning in AppleScript string literals.
         // We use double-quoted AppleScript strings so we strip " and \ (escape char).
@@ -715,7 +700,7 @@ async fn install_update(download_url: String) -> Result<(), String> {
         // 1. Download the DMG
         let client = reqwest::Client::builder()
             .use_native_tls()
-            .user_agent(concat!("WorldMonitor-Desktop/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("CrystalBall-Desktop/", env!("CARGO_PKG_VERSION")))
             .timeout(std::time::Duration::from_secs(300))
             .build()
             .map_err(|e| format!("HTTP client init failed: {e}"))?;
@@ -750,11 +735,33 @@ async fn install_update(download_url: String) -> Result<(), String> {
             ));
         }
 
-        // 3. Verify the app bundle identifier before overwriting /Applications.
+        // 3. Verify the app bundle identifier and code signature before overwriting /Applications.
         //    This prevents a compromised GitHub account or MITM from replacing the app
         //    with a malicious binary that passes the host check but is not World Monitor.
         let source = format!("{}/World Monitor.app", mount_point);
         let dest = "/Applications/World Monitor.app";
+
+        // 3a. Verify macOS code signature — ensures binary was signed by the legitimate developer.
+        //     --deep checks all nested bundles/frameworks, --strict applies additional requirements.
+        let sig_check = Command::new("codesign")
+            .args(["--verify", "--deep", "--strict", &source])
+            .output();
+        match sig_check {
+            Ok(out) if out.status.success() => { /* signature valid */ }
+            Ok(out) => {
+                let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
+                let _ = std::fs::remove_file(tmp_dmg);
+                return Err(format!(
+                    "Code signature verification failed: {}",
+                    String::from_utf8_lossy(&out.stderr).trim()
+                ));
+            }
+            Err(e) => {
+                let _ = Command::new("hdiutil").args(["detach", mount_point, "-quiet"]).output();
+                let _ = std::fs::remove_file(tmp_dmg);
+                return Err(format!("codesign command failed: {e}"));
+            }
+        }
 
         const EXPECTED_BUNDLE_ID: &str = "com.bradleybond.worldmonitor";
         let plist = format!("{source}/Contents/Info.plist");
@@ -841,6 +848,31 @@ async fn fetch_polymarket(webview: Webview, path: String, params: String) -> Res
         .map_err(|e| format!("Read body failed: {e}"))
 }
 
+fn open_settings_window(app: &AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.show();
+        window
+            .set_focus()
+            .map_err(|e| format!("Failed to focus settings window: {e}"))?;
+        return Ok(());
+    }
+
+    let _settings_window = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
+        .title("World Monitor Settings")
+        .inner_size(980.0, 760.0)
+        .min_inner_size(820.0, 620.0)
+        .resizable(true)
+        .background_color(tauri::webview::Color(26, 28, 30, 255))
+        .build()
+        .map_err(|e| format!("Failed to create settings window: {e}"))?;
+
+    // On Windows/Linux, menus are per-window. Remove the inherited app menu
+    // from the settings window (macOS uses a shared app-wide menu bar instead).
+    #[cfg(not(target_os = "macos"))]
+    let _ = _settings_window.remove_menu();
+
+    Ok(())
+}
 
 fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("live-channels") {
@@ -1056,8 +1088,9 @@ fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     match event.id().as_ref() {
         MENU_FILE_SETTINGS_ID => {
-            if let Some(win) = app.get_webview_window("main") {
-                let _ = win.eval("document.dispatchEvent(new CustomEvent('wm:open-settings'))");
+            if let Err(err) = open_settings_window(app) {
+                append_desktop_log(app, "ERROR", &format!("settings menu failed: {err}"));
+                eprintln!("[tauri] settings menu failed: {err}");
             }
         }
         MENU_FILE_GHOST_MODE_ID => {
@@ -1386,8 +1419,8 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
     *slot = Some(child);
     drop(slot);
 
-    // Wait for sidecar to write confirmed port (up to 15s — Node.js ESM startup can be slow)
-    if let Some(confirmed_port) = read_port_file(&port_file, 15000) {
+    // Wait for sidecar to write confirmed port (up to 5s)
+    if let Some(confirmed_port) = read_port_file(&port_file, 5000) {
         append_desktop_log(
             app,
             "INFO",
@@ -1652,7 +1685,7 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while running worldmonitor tauri application")
+        .expect("error while running worldmonitor-macos tauri application")
         .run(|app, event| {
             match &event {
                 // macOS: hide window on close instead of quitting (standard behavior)

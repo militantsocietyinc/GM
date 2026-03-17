@@ -857,6 +857,38 @@ test('validates OLLAMA_MODEL stores model name', async () => {
   }
 });
 
+test('validates ANTHROPIC_API_KEY via /api/local-validate-secret', async () => {
+  const localApi = await setupApiDir({});
+  const restoreHttps = mockHttpsRequestOnce({
+    statusCode: 200,
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ data: [{ id: 'claude-sonnet-4-5' }] }),
+  });
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await postJsonViaHttp(`http://127.0.0.1:${port}/api/local-validate-secret`, {
+      key: 'ANTHROPIC_API_KEY',
+      value: 'anthropic-test-key',
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.json?.valid, true);
+    assert.equal(response.json?.message, 'Anthropic key verified');
+  } finally {
+    restoreHttps();
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
 test('rejects OLLAMA_API_URL with non-http protocol', async () => {
   const localApi = await setupApiDir({});
   const app = await createLocalApiServer({
@@ -1353,18 +1385,18 @@ test('service-status reports bound fallback port after EADDRINUSE recovery', asy
     res.writeHead(200, { 'content-type': 'text/plain' });
     res.end('occupied');
   });
-  await listen(blocker, '127.0.0.1', 46123);
+  const blockedPort = await listen(blocker, '127.0.0.1', 0);
 
   const localApi = await setupApiDir({});
   const app = await createLocalApiServer({
-    port: 46123,
+    port: blockedPort,
     apiDir: localApi.apiDir,
     logger: { log() {}, warn() {}, error() {} },
   });
   const { port } = await app.start();
 
   try {
-    assert.notEqual(port, 46123);
+    assert.notEqual(port, blockedPort);
 
     const response = await fetch(`http://127.0.0.1:${port}/api/service-status`);
     assert.equal(response.status, 200);

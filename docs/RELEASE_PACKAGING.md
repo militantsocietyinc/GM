@@ -5,6 +5,8 @@ This guide provides reproducible local packaging steps for both desktop variants
 - **full** → `World Monitor`
 - **tech** → `Tech Monitor`
 
+Some public GitHub releases also contain Linux AppImage assets for the main `World Monitor` build, but this guide documents only the packaging paths currently maintained in-repo: macOS and Windows.
+
 Variant identity is controlled by Tauri config:
 
 - full: `src-tauri/tauri.conf.json`

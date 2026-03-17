@@ -17,9 +17,9 @@ Install built app: copy `src-tauri/target/release/bundle/dmg/*.dmg` to /Applicat
 ## CANONICAL REPO — SINGLE SOURCE OF TRUTH (MANDATE)
 There is exactly ONE place to develop this app:
 ```
-~/Library/Mobile Documents/com~apple~CloudDocs/World Monitor MacOS project/worldmonitor
+~/developer/worldmonitor
 ```
-- **Never** build, commit, or make changes in any other clone (e.g. `~/Documents/GitHub/worldmonitor-macos/`)
+- **Never** build, commit, or make changes in any other clone (e.g. `~/Documents/GitHub/worldmonitor-macos/` or the old iCloud clone)
 - **Never** install to `/Applications` from any other build directory
 - Always install from: `src-tauri/target/release/bundle/macos/World Monitor.app` in this directory
 - The Dock and Spotlight should point to `~/Applications/World Monitor.app` only

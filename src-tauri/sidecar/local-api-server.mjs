@@ -99,7 +99,7 @@ globalThis.fetch = async function ipv4Fetch(input, init) {
 };
 
 const ALLOWED_ENV_KEYS = new Set([
-  'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'FRED_API_KEY', 'EIA_API_KEY',
+  'ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'FRED_API_KEY', 'EIA_API_KEY',
   'CLOUDFLARE_API_TOKEN', 'ACLED_ACCESS_TOKEN', 'ACLED_EMAIL', 'URLHAUS_AUTH_KEY',
   'OTX_API_KEY', 'ABUSEIPDB_API_KEY', 'WINGBITS_API_KEY', 'WS_RELAY_URL',
   'VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET',
@@ -121,9 +121,10 @@ function isPrivateIP(ip) {
   // IPv6 loopback
   if (addr === '::1' || addr === '::') return true;
 
-  // IPv6 link-local / unique-local
-  if (/^f[cd][0-9a-f]{2}:/i.test(addr)) return true; // fc00::/7 (ULA)
-  if (/^fe[89ab][0-9a-f]:/i.test(addr)) return true;  // fe80::/10 (link-local)
+  // IPv6 unique-local (fc00::/7 — covers fc** and fd**)
+  if (/^f[cd]/i.test(addr)) return true;
+  // IPv6 link-local (fe80::/10 — covers fe80–febf)
+  if (/^fe[89ab]/i.test(addr)) return true;
 
   const parts = addr.split('.').map(Number);
   if (parts.length !== 4 || parts.some(p => isNaN(p))) return false; // not an IPv4
@@ -702,6 +703,22 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
 
   try {
     switch (key) {
+    case 'ANTHROPIC_API_KEY': {
+      const response = await fetchWithTimeout('https://api.anthropic.com/v1/models', {
+        headers: {
+          'x-api-key': value,
+          'anthropic-version': '2023-06-01',
+          Accept: 'application/json',
+          'User-Agent': CHROME_UA,
+        },
+      });
+      const text = await response.text();
+      if (isCloudflareChallenge403(response, text)) return ok('Anthropic key stored (Cloudflare blocked verification)');
+      if (isAuthFailure(response.status, text)) return fail('Anthropic rejected this key');
+      if (!response.ok) return fail(`Anthropic probe failed (${response.status})`);
+      return ok('Anthropic key verified');
+    }
+
     case 'GROQ_API_KEY': {
       const response = await fetchWithTimeout('https://api.groq.com/openai/v1/models', {
         headers: { Authorization: `Bearer ${value}`, 'User-Agent': CHROME_UA },
@@ -1085,7 +1102,11 @@ async function handleOllamaStream(requestUrl, req, res, context) {
       family: 4,
     };
 
-    await new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
+      // Safety timeout — reject if no response path resolves within 2 minutes.
+      const safetyTimeout = setTimeout(() => reject(new Error('Ollama streaming timed out')), 120_000);
+      const done = (err) => { clearTimeout(safetyTimeout); err ? reject(err) : resolve(); };
+
       const ollamaReq = mod.request(reqOptions, (ollamaRes) => {
         if (ollamaRes.statusCode !== 200) {
           const chunks = [];
@@ -1095,7 +1116,7 @@ async function handleOllamaStream(requestUrl, req, res, context) {
             res.write(`data: ${JSON.stringify({ error: `Ollama ${ollamaRes.statusCode}: ${errText}` })}\n\n`);
             res.write('data: [DONE]\n\n');
             res.end();
-            resolve();
+            done();
           });
           return;
         }
@@ -1131,24 +1152,24 @@ async function handleOllamaStream(requestUrl, req, res, context) {
           }
           res.write('data: [DONE]\n\n');
           res.end();
-          resolve();
+          done();
         });
 
         ollamaRes.on('error', (err) => {
           context.logger.error('[ollama-stream] response error:', err.message);
           try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.write('data: [DONE]\n\n'); res.end(); } catch { /* already ended */ }
-          resolve();
+          done();
         });
       });
 
       ollamaReq.on('error', (err) => {
         context.logger.error('[ollama-stream] request error:', err.message);
         try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.write('data: [DONE]\n\n'); res.end(); } catch { /* already ended */ }
-        resolve();
+        done();
       });
 
       // Destroy the Ollama request if the client disconnects
-      req.on('close', () => { try { ollamaReq.destroy(); } catch { /* ignore */ } resolve(); });
+      req.on('close', () => { try { ollamaReq.destroy(); } catch { /* ignore */ } done(); });
 
       ollamaReq.write(requestBody);
       ollamaReq.end();

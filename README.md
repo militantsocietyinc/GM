@@ -13,11 +13,19 @@
 [![Latest release](https://img.shields.io/github/v/release/bradleybond512/worldmonitor-macos?style=flat)](https://github.com/bradleybond512/worldmonitor-macos/releases/latest)
 
 <p align="center">
-  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon_(DMG)-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
+  <strong>Download v2.7.0</strong>
+</p>
+<p align="center">
+  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><img src="https://img.shields.io/badge/macOS_Apple_Silicon-DMG-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>&nbsp;
+  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><img src="https://img.shields.io/badge/macOS_Intel-DMG-636366?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Intel"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><img src="https://img.shields.io/badge/Windows-MSI_Installer-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows"></a>&nbsp;
+  <a href="https://github.com/bradleybond512/worldmonitor-macos/releases/latest"><img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download Linux"></a>
 </p>
 
 <p align="center">
-  <a href="https://worldmonitor.app"><img src="https://img.shields.io/badge/Upstream_Web_App-worldmonitor.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Upstream Web App"></a>&nbsp;
+  <a href="https://bradleybond512.github.io/worldmonitor-macos/"><img src="https://img.shields.io/badge/Live_Web_App-Try_It_Now-0a84ff?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Live Web App"></a>&nbsp;
   <a href="https://github.com/koala73/worldmonitor"><img src="https://img.shields.io/badge/Upstream_Repo-World_Monitor-gray?style=for-the-badge&logo=github&logoColor=white" alt="Upstream Repo"></a>
 </p>
 
@@ -47,16 +55,10 @@
 | **Claude AI provider** | Anthropic Claude Haiku in the summarization fallback chain alongside Groq/OpenRouter |
 | **Earthquakes panel** | USGS M4.5+ live seismic data with magnitude-color-coded table |
 | **Air Strikes & Drones panel** | ACLED-sourced air/drone strikes and missile attacks — last 30 days, mapped to globe, click-to-fly |
-| **Monitoring Modes** | 5 modes — Peace / Finance / War / Disaster / Ghost. Finance auto-triggers on ≥2.5% S&P or ≥5% BTC move; War on geopolitical escalation signals; Disaster on GDACS Red alert or M≥6.5 earthquake; Ghost is manual stealth mode (⌘⇧G) |
-| **GDACS Alerts panel** | UN-coordinated disaster alerts table with click-to-fly — color-coded by severity |
-| **Volcano Alerts panel** | USGS Volcano Hazards Program live alert levels for active volcanoes worldwide |
-| **NWS Alerts panel** | NOAA National Weather Service hazardous weather alerts — tornado, flood, hurricane |
-| **Cyber Intelligence expansion** | ThreatFox IOCs, OpenPhish phishing URLs, Spamhaus DROP/EDROP blocklists, CISA KEV — plotted on globe |
-| **EMA Threat Forecasting** | Rolling 24-session EMA on conflict event velocity per country — spikes feed into War Mode trigger scoring |
-| **Conflict Baseline Normalization** | Chronic conflict zones (Ukraine, Syria, Gaza, Sudan, Myanmar) require elevated signal counts before War Mode triggers, reducing false positives |
-| **Radiation Decay Calculator** | Offline Rule-of-7 dose estimator with shelter factor, cumulative dose, and SVG decay curve (disabled by default) |
-| **Resource Inventory** | Offline supplies tracker with days-remaining color coding, IndexedDB persistence, and JSON import/export (disabled by default) |
-| **Ghost Mode (👻)** | Manual stealth mode: 5× slower polling, analytics suppressed, desktop notifications suppressed, dark crimson sidebar tint. Toggle via ⌘⇧G or File → Toggle Ghost Mode |
+| **Monitoring Modes** | Peace / Finance / War / Disaster modes — Finance auto-triggers on ≥2.5% S&P or ≥5% BTC move; War mode on geopolitical escalation signals; Disaster mode on GDACS Red alerts or M6.5+ earthquakes |
+| **Ollama Streaming** | Real-time typewriter effect for AI panel summaries via SSE — Stop button mid-stream; falls through to Groq → Claude → OpenRouter → browser T5 if Ollama unavailable |
+| **Shareable Map URLs** | `Cmd+S` encodes map center, zoom, active layers, and time range into a shareable URL — LZ-string compressed when > 2 000 bytes |
+| **Arrival Choreography** | Canvas overlay animations on breaking news: wavefront ripple, corona pulse on hotspots, full-screen flare on mode transitions — threat-type color-coded (conflict=red, cyber=cyan, economic=gold, natural=orange) |
 | **Low Power Mode (⚡)** | Sidebar button disables animations, trail layers, and spatial audio to reduce CPU/GPU load |
 | **Window menu** | Standard macOS Window menu — Minimize, Zoom, Close |
 | **Open Logs Folder** | Help → Open Logs Folder opens the app log directory in Finder for easy debugging |
@@ -118,13 +120,12 @@
 
 ### Monitoring Modes
 
-Switch modes with the mode button in the bottom-left sidebar (or keyboard shortcuts):
+Switch modes with the mode button in the bottom-left sidebar:
 
 - **Peace Mode** — Default. All panels visible, balanced view.
 - **Finance Mode** — Auto-triggers when S&P 500 moves ≥2.5% or BTC ≥5% in a day. Prioritizes markets, economy, and trade panels.
-- **War Mode** — Auto-triggers on ≥2 independent geopolitical escalation signals above confidence 0.6 (conflict spikes, military surges, threat intelligence). Conflict-baseline normalization prevents chronic hotspots (Ukraine, Gaza, Sudan, etc.) from causing constant false triggers.
-- **Disaster Mode** — Auto-triggers on GDACS Red alert, 3+ GDACS Orange alerts, or M≥6.5 earthquake. Prioritizes hazard, disaster, and emergency panels.
-- **Ghost Mode (👻)** — Manual only (⌘⇧G or File → Toggle Ghost Mode). Stealth configuration: refresh intervals ×5 slower, analytics suppressed, macOS notifications suppressed, dark crimson/violet sidebar tint. Saves pre-ghost mode state and restores it on exit.
+- **War Mode** — Auto-triggers on geopolitical escalation signals (conflict spikes, military surges, threat intelligence). Prioritizes security, military, and intelligence panels.
+- **Disaster Mode** — Amber/orange theme. Auto-activates on GDACS Red alerts or M6.5+ earthquakes. Prioritizes disaster-relevant panels (earthquakes, disease outbreaks, air quality, humanitarian data).
 
 ---
 
@@ -140,7 +141,7 @@ This fork includes several security hardening measures beyond the base project:
 
 | Area | Protection |
 |---|---|
-| **Auto-update** | Bundle identifier verified via `plutil` before any file is replaced — rejects DMGs whose app is not `com.bradleybond.worldmonitor` |
+| **Auto-update** | Bundle identifier verified via `plutil` before any file is replaced — rejects DMGs whose app is not `com.bradleybond.crystalball` |
 | **URL opening** | `open_url` Tauri command blocks loopback/LAN addresses and non-HTTPS schemes — a compromised webview cannot trigger browser access to the local API server |
 | **Notifications** | Input length-capped, control characters stripped, 30-second global rate limit to prevent AppleScript injection and notification spam |
 | **XSS (href)** | All external URLs used in `href` attributes go through `sanitizeUrl()` which validates `https:`/`http:` scheme — blocks `javascript:` and `data:` injection |
@@ -164,7 +165,7 @@ This fork includes several security hardening measures beyond the base project:
 | Web-only dashboards                | **Native desktop app** (Tauri) for macOS, Windows, and Linux + installable PWA with offline map support    |
 | Flat 2D maps                       | **3D WebGL globe** with deck.gl rendering and 40+ toggleable data layers                                   |
 | Siloed financial data              | **Finance variant** with 92 stock exchanges, 19 financial centers, 13 central banks, BIS data, WTO trade policy, and Gulf FDI tracking |
-| Undocumented, fragile APIs         | **Proto-first API contracts** — 20 typed services with auto-generated clients, servers, and OpenAPI docs   |
+| Undocumented, fragile APIs         | **Proto-first API contracts** — 17 typed services with auto-generated clients, servers, and OpenAPI docs   |
 
 ---
 
@@ -207,7 +208,7 @@ All four variants run from a single codebase — switch between them with one cl
 ### AI-Powered Intelligence
 
 - **World Brief** — LLM-synthesized summary of top global developments with a 4-tier provider fallback chain: Ollama (local) → Groq (cloud) → OpenRouter (cloud) → browser-side T5 (Transformers.js). Each tier is attempted with a 5-second timeout before falling through to the next, so the UI is never blocked. Results are Redis-cached (24h TTL) and content-deduplicated so identical headlines across concurrent users trigger exactly one LLM call
-- **Local LLM Support** — Ollama and LM Studio (any OpenAI-compatible endpoint) run AI summarization entirely on local hardware. No API keys required, no data leaves the machine. The desktop app auto-discovers available models from the local instance and populates a selection dropdown, filtering out embedding-only models. Default fallback model: `llama3.1:8b`
+- **Local LLM Support** — Ollama and LM Studio (any OpenAI-compatible endpoint) run AI summarization entirely on local hardware. No API keys required, no data leaves the machine. The desktop app auto-discovers available models from the local instance and populates a selection dropdown, filtering out embedding-only models. Default fallback model: `llama3.1:8b`. Ollama supports real-time streaming responses via SSE, producing a typewriter effect in the AI analysis panel as tokens arrive.
 - **Hybrid Threat Classification** — instant keyword classifier with async LLM override for higher-confidence results
 - **Focal Point Detection** — correlates entities across news, military activity, protests, outages, and markets to identify convergence
 - **Country Instability Index** — real-time stability scores for every country with incoming data using weighted multi-signal blend. 23 curated tier-1 nations have tuned baseline risk profiles; all other countries receive universal scoring with sensible defaults when any event data (protests, conflicts, outages, displacement, climate anomalies) is detected
@@ -1267,7 +1268,7 @@ All three variants run on three platforms that work together:
 ┌─────────────────────────────────────┐
 │          Vercel (Edge)              │
 │  60+ edge functions · static SPA    │
-│  Proto gateway (20 typed services)  │
+│  Proto gateway (17 typed services)  │
 │  CORS allowlist · Redis cache       │
 │  AI pipeline · market analytics     │
 │  CDN caching (s-maxage) · PWA host  │

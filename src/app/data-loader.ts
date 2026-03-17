@@ -380,6 +380,8 @@ export class DataLoaderManager implements AppModule {
       tasks.push({ name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) });
       if (shouldLoad('economic')) {
         tasks.push({ name: 'fred', task: runGuarded('fred', () => this.loadFredData()) });
+        tasks.push({ name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) });
+        tasks.push({ name: 'bis', task: runGuarded('bis', () => this.loadBisData()) });
       }
       if (shouldLoad('energy-complex')) {
         tasks.push({ name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) });
@@ -1258,9 +1260,11 @@ export class DataLoaderManager implements AppModule {
       if (commoditiesPanel || energyPanel) {
         // Hydrate commodities from bootstrap (same pattern as sectors/markets)
         const hydratedCommodities = getHydratedData('commodityQuotes') as ListMarketQuotesResponse | undefined;
-        let commoditiesLoaded = stocksResult.rateLimited && stocksResult.data.length === 0;
+        const skipFetch = stocksResult.rateLimited && stocksResult.data.length === 0;
+        let metalsLoaded = skipFetch;
+        let energyLoaded = skipFetch;
 
-        if (!commoditiesLoaded && hydratedCommodities?.quotes?.length) {
+        if (!(metalsLoaded && energyLoaded) && hydratedCommodities?.quotes?.length) {
           const symbolMetaMap = new Map(COMMODITIES.map((s) => [s.symbol, s]));
           const data = hydratedCommodities.quotes.map((q) => ({
             symbol: q.symbol,
@@ -1272,16 +1276,17 @@ export class DataLoaderManager implements AppModule {
           }));
           const commodityMapped = filterCommodityTape(data).map(mapCommodity);
           const energyMapped = filterEnergyTape(data);
-          if (commodityMapped.some(d => d.price !== null) || energyMapped.some(d => d.price !== null)) {
-            if (commoditiesPanel && commodityMapped.some(d => d.price !== null)) {
-              commoditiesPanel.renderCommodities(commodityMapped);
-            }
+          if (commoditiesPanel && commodityMapped.some(d => d.price !== null)) {
+            commoditiesPanel.renderCommodities(commodityMapped);
+            metalsLoaded = true;
+          }
+          if (energyMapped.some(d => d.price !== null)) {
             energyPanel?.updateTape(energyMapped);
-            commoditiesLoaded = true;
+            energyLoaded = true;
           }
         }
 
-        for (let attempt = 0; attempt < 1 && !commoditiesLoaded; attempt++) {
+        for (let attempt = 0; attempt < 1 && (!metalsLoaded || !energyLoaded); attempt++) {
           const commoditiesResult = await fetchMultipleStocks(COMMODITIES, {
             onBatch: (partial) => {
               const commodityMapped = filterCommodityTape(partial).map(mapCommodity);
@@ -1293,18 +1298,17 @@ export class DataLoaderManager implements AppModule {
           });
           const commodityMapped = filterCommodityTape(commoditiesResult.data).map(mapCommodity);
           const energyMapped = filterEnergyTape(commoditiesResult.data);
-          if (commodityMapped.some(d => d.price !== null) || energyMapped.some(d => d.price !== null)) {
-            if (commoditiesPanel && commodityMapped.some(d => d.price !== null)) {
-              commoditiesPanel.renderCommodities(commodityMapped);
-            }
+          if (commoditiesPanel && commodityMapped.some(d => d.price !== null)) {
+            commoditiesPanel.renderCommodities(commodityMapped);
+            metalsLoaded = true;
+          }
+          if (energyMapped.some(d => d.price !== null)) {
             energyPanel?.updateTape(energyMapped);
-            commoditiesLoaded = true;
+            energyLoaded = true;
           }
         }
-        if (!commoditiesLoaded) {
-          commoditiesPanel?.renderCommodities([]);
-          energyPanel?.updateTape([]);
-        }
+        if (!metalsLoaded) commoditiesPanel?.renderCommodities([]);
+        if (!energyLoaded) energyPanel?.updateTape([]);
       }
     } catch {
       this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });

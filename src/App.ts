@@ -154,6 +154,8 @@ export class App {
     }
     if (shouldPrime('economic')) {
       primeTask('fred', () => this.dataLoader.loadFredData());
+      primeTask('spending', () => this.dataLoader.loadGovernmentSpending());
+      primeTask('bis', () => this.dataLoader.loadBisData());
     }
     if (shouldPrime('energy-complex')) {
       primeTask('oil', () => this.dataLoader.loadOilAnalytics());
@@ -779,6 +781,8 @@ export class App {
         { name: 'natural', fn: () => this.dataLoader.loadNatural(), intervalMs: 60 * 60 * 1000, condition: () => this.state.mapLayers.natural },
         { name: 'weather', fn: () => this.dataLoader.loadWeatherAlerts(), intervalMs: 10 * 60 * 1000, condition: () => this.state.mapLayers.weather },
         { name: 'fred', fn: () => this.dataLoader.loadFredData(), intervalMs: 6 * 60 * 60 * 1000, condition: () => this.isPanelNearViewport('economic') },
+        { name: 'spending', fn: () => this.dataLoader.loadGovernmentSpending(), intervalMs: 6 * 60 * 60 * 1000, condition: () => this.isPanelNearViewport('economic') },
+        { name: 'bis', fn: () => this.dataLoader.loadBisData(), intervalMs: 6 * 60 * 60 * 1000, condition: () => this.isPanelNearViewport('economic') },
         { name: 'oil', fn: () => this.dataLoader.loadOilAnalytics(), intervalMs: 6 * 60 * 60 * 1000, condition: () => this.isPanelNearViewport('energy-complex') },
         { name: 'firms', fn: () => this.dataLoader.loadFirmsData(), intervalMs: 30 * 60 * 1000, condition: () => this.shouldRefreshFirms() },
         { name: 'ais', fn: () => this.dataLoader.loadAisSignals(), intervalMs: REFRESH_INTERVALS.ais, condition: () => this.state.mapLayers.ais },

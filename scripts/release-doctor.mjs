@@ -44,11 +44,16 @@ function parseArgs(argv) {
   return options;
 }
 
-function parseCargoTomlVersion(cargoToml) {
+export function parseCargoPackageMetadata(cargoToml) {
   const packageSectionRegex = /\[package\][\s\S]*?(?=\n\[|$)/;
   const packageSectionMatch = cargoToml.match(packageSectionRegex);
   if (!packageSectionMatch) {
     throw new Error('Could not find [package] section in src-tauri/Cargo.toml');
+  }
+
+  const nameMatch = packageSectionMatch[0].match(/^name\s*=\s*"([^"]+)"\s*$/m);
+  if (!nameMatch) {
+    throw new Error('Could not find package name in src-tauri/Cargo.toml');
   }
 
   const versionMatch = packageSectionMatch[0].match(/^version\s*=\s*"([^"]+)"\s*$/m);
@@ -56,14 +61,18 @@ function parseCargoTomlVersion(cargoToml) {
     throw new Error('Could not find package version in src-tauri/Cargo.toml');
   }
 
-  return versionMatch[1];
+  return {
+    name: nameMatch[1],
+    version: versionMatch[1],
+  };
 }
 
-function parseCargoLockVersion(cargoLock) {
-  const packageBlockRegex = /\[\[package\]\]\nname = "worldmonitor"\nversion = "([^"]+)"/m;
+export function parseCargoLockVersion(cargoLock, packageName) {
+  const escapedPackageName = packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const packageBlockRegex = new RegExp(`\\[\\[package\\]\\]\\nname = "${escapedPackageName}"\\nversion = "([^"]+)"`, 'm');
   const versionMatch = cargoLock.match(packageBlockRegex);
   if (!versionMatch) {
-    throw new Error('Could not find worldmonitor package version in src-tauri/Cargo.lock');
+    throw new Error(`Could not find ${packageName} package version in src-tauri/Cargo.lock`);
   }
   return versionMatch[1];
 }
@@ -161,13 +170,14 @@ async function readVersionFiles() {
   const tauriConf = JSON.parse(await readFile(tauriConfPath, 'utf8'));
   const cargoToml = await readFile(cargoTomlPath, 'utf8');
   const cargoLock = await readFile(cargoLockPath, 'utf8');
+  const cargoPackage = parseCargoPackageMetadata(cargoToml);
 
   return {
     'package.json': packageJson.version,
     'package-lock.json': packageLock.version ?? packageLock.packages?.['']?.version ?? '',
     'src-tauri/tauri.conf.json': tauriConf.version,
-    'src-tauri/Cargo.toml': parseCargoTomlVersion(cargoToml),
-    'src-tauri/Cargo.lock': parseCargoLockVersion(cargoLock),
+    'src-tauri/Cargo.toml': cargoPackage.version,
+    'src-tauri/Cargo.lock': parseCargoLockVersion(cargoLock, cargoPackage.name),
   };
 }
 

@@ -5,6 +5,8 @@ import {
   findDuplicateDraftReleaseTags,
   findReleaseStateIssues,
   findVersionMismatches,
+  parseCargoLockVersion,
+  parseCargoPackageMetadata,
 } from '../scripts/release-doctor.mjs';
 
 test('findVersionMismatches accepts fully synchronized release files', () => {
@@ -84,4 +86,32 @@ test('findReleaseStateIssues accepts a fresh unreleased target version', () => {
   });
 
   assert.deepEqual(issues, []);
+});
+
+test('parseCargoPackageMetadata reads the package name and version from Cargo.toml', () => {
+  const metadata = parseCargoPackageMetadata(`
+[package]
+name = "worldmonitor-macos"
+version = "2.5.25"
+description = "World Monitor macOS native desktop application"
+`);
+
+  assert.deepEqual(metadata, {
+    name: 'worldmonitor-macos',
+    version: '2.5.25',
+  });
+});
+
+test('parseCargoLockVersion resolves the matching package version by Cargo package name', () => {
+  const version = parseCargoLockVersion(`
+[[package]]
+name = "serde"
+version = "1.0.0"
+
+[[package]]
+name = "worldmonitor-macos"
+version = "2.5.25"
+`, 'worldmonitor-macos');
+
+  assert.equal(version, '2.5.25');
 });

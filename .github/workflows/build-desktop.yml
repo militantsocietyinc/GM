@@ -219,7 +219,6 @@ jobs:
           WM_BUILD_VARIANT: ${{ needs.release-context.outputs.variant }}
           WM_BUILD_TAG: ${{ needs.release-context.outputs.tag }}
           WM_BUILD_COMMIT_SHA: ${{ needs.release-context.outputs.commit_sha }}
-          WM_BUILD_TIMESTAMP: ${{ env.WM_BUILD_TIMESTAMP }}
           CONVEX_URL: ${{ secrets.CONVEX_URL }}
           APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -292,7 +291,7 @@ jobs:
             --tag "${{ needs.release-context.outputs.tag }}" \
             --commit-sha "${{ needs.release-context.outputs.commit_sha }}" \
             --platform "${{ matrix.label }}" \
-            --generated-at "${{ env.WM_BUILD_TIMESTAMP }}" \
+            --generated-at "$WM_BUILD_TIMESTAMP" \
             --output release-dist/manifest.json
           node --input-type=module -e "import fs from 'node:fs'; import path from 'node:path'; const manifest = JSON.parse(fs.readFileSync('release-dist/manifest.json', 'utf8')); for (const asset of manifest.assets) { fs.copyFileSync(asset.path, path.join('release-dist/assets', asset.name)); }"
 

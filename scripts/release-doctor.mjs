@@ -16,6 +16,7 @@ const cargoLockPath = path.join(repoRoot, 'src-tauri', 'Cargo.lock');
 function parseArgs(argv) {
   const options = {
     allowExistingTargetRelease: false,
+    remote: 'origin',
     variant: 'full',
   };
 
@@ -23,6 +24,15 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === '--allow-existing-target-release') {
       options.allowExistingTargetRelease = true;
+      continue;
+    }
+    if (arg === '--remote') {
+      options.remote = argv[i + 1] ?? '';
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith('--remote=')) {
+      options.remote = arg.slice('--remote='.length);
       continue;
     }
     if (arg === '--variant') {
@@ -37,7 +47,7 @@ function parseArgs(argv) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  if (!['full', 'tech'].includes(options.variant)) {
+  if (!['full', 'tech', 'finance'].includes(options.variant)) {
     throw new Error(`Unsupported variant for release doctor: ${options.variant}`);
   }
 
@@ -78,7 +88,9 @@ export function parseCargoLockVersion(cargoLock, packageName) {
 }
 
 function buildTargetTag(version, variant) {
-  return variant === 'tech' ? `v${version}-tech` : `v${version}`;
+  if (variant === 'tech') return `v${version}-tech`;
+  if (variant === 'finance') return `v${version}-finance`;
+  return `v${version}`;
 }
 
 export function findVersionMismatches(versionsByFile) {
@@ -181,11 +193,11 @@ async function readVersionFiles() {
   };
 }
 
-async function fetchRemoteReleaseState(targetTag) {
+async function fetchRemoteReleaseState(targetTag, remoteName) {
   const repoSlug = process.env.GITHUB_REPOSITORY
-    || normalizeRepoSlug(runCommand('git', ['remote', 'get-url', 'origin']));
+    || normalizeRepoSlug(runCommand('git', ['remote', 'get-url', remoteName]));
 
-  const remoteTagOutput = runCommand('git', ['ls-remote', '--tags', 'origin', `refs/tags/${targetTag}`]);
+  const remoteTagOutput = runCommand('git', ['ls-remote', '--tags', remoteName, `refs/tags/${targetTag}`]);
   const remoteTags = new Set(remoteTagOutput ? [targetTag] : []);
 
   const releases = JSON.parse(
@@ -208,7 +220,7 @@ async function main() {
     ...findVersionMismatches(versionsByFile),
   ];
 
-  const { remoteTags, releases } = await fetchRemoteReleaseState(targetTag);
+  const { remoteTags, releases } = await fetchRemoteReleaseState(targetTag, options.remote);
   issues.push(
     ...findReleaseStateIssues({
       targetTag,

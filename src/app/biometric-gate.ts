@@ -332,6 +332,78 @@ function ensureOverlay(): {
     pointerEvents: 'none',
   } as CSSStyleDeclaration);
 
+  const depthShafts = document.createElement('div');
+  depthShafts.id = 'worldmonitor-depth-shafts';
+  Object.assign(depthShafts.style, {
+    position: 'absolute',
+    left: '50%',
+    top: '52%',
+    width: '54%',
+    height: '78%',
+    transform: 'translate(-50%, -50%)',
+    background: `
+      linear-gradient(90deg, rgba(255,255,255,0.00) 0%, rgba(255,255,255,0.16) 18%, rgba(255,255,255,0.00) 32%, rgba(255,255,255,0.12) 52%, rgba(255,255,255,0.00) 68%, rgba(255,255,255,0.16) 82%, rgba(255,255,255,0.00) 100%),
+      linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.00) 42%, rgba(0,0,0,0.00) 74%, rgba(0,0,0,0.28) 100%)
+    `,
+    filter: 'blur(20px)',
+    opacity: '0.38',
+    mixBlendMode: 'screen',
+    maskImage: 'radial-gradient(circle at 50% 44%, rgba(0,0,0,0.98), rgba(0,0,0,0.68) 56%, transparent 86%)',
+    pointerEvents: 'none',
+  } as CSSStyleDeclaration);
+
+  const airlockCrown = document.createElement('div');
+  airlockCrown.id = 'worldmonitor-airlock-crown';
+  Object.assign(airlockCrown.style, {
+    position: 'absolute',
+    left: '50%',
+    top: '14%',
+    width: '38%',
+    height: '76px',
+    transform: 'translateX(-50%)',
+    borderRadius: '26px 26px 18px 18px',
+    background: `
+      linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.04) 28%, rgba(0,0,0,0.12) 100%),
+      conic-gradient(from 180deg at 50% 50%, rgba(255,255,255,0.18), rgba(108,113,122,0.06), rgba(255,255,255,0.14), rgba(72,76,82,0.04), rgba(255,255,255,0.18))
+    `,
+    border: '1px solid rgba(255,255,255,0.14)',
+    boxShadow: `
+      inset 0 1px 0 rgba(255,255,255,0.24),
+      inset 0 -10px 18px rgba(0,0,0,0.22),
+      0 16px 36px rgba(0,0,0,0.18)
+    `,
+    pointerEvents: 'none',
+  } as CSSStyleDeclaration);
+
+  const thresholdPlate = document.createElement('div');
+  thresholdPlate.id = 'worldmonitor-threshold-plate';
+  Object.assign(thresholdPlate.style, {
+    position: 'absolute',
+    left: '50%',
+    bottom: '9%',
+    width: '52%',
+    height: '68px',
+    transform: 'translateX(-50%) perspective(1200px) rotateX(76deg)',
+    borderRadius: '18px',
+    background: `
+      linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04) 22%, rgba(0,0,0,0.12) 100%),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255,255,255,0.08) 0 2px,
+        rgba(255,255,255,0.01) 2px 16px
+      ),
+      conic-gradient(from 180deg at 50% 50%, rgba(255,255,255,0.08), rgba(66,71,78,0.02), rgba(255,255,255,0.10), rgba(52,56,63,0.02), rgba(255,255,255,0.08))
+    `,
+    border: '1px solid rgba(255,255,255,0.12)',
+    boxShadow: `
+      inset 0 1px 0 rgba(255,255,255,0.20),
+      inset 0 -10px 22px rgba(0,0,0,0.26),
+      0 18px 48px rgba(0,0,0,0.24)
+    `,
+    opacity: '0.88',
+    pointerEvents: 'none',
+  } as CSSStyleDeclaration);
+
   const leftTrack = document.createElement('div');
   leftTrack.id = 'worldmonitor-door-track-left';
   Object.assign(leftTrack.style, {
@@ -873,9 +945,12 @@ function ensureOverlay(): {
   stage.appendChild(starfield);
   stage.appendChild(airlockDepth);
   stage.appendChild(portalGlow);
+  stage.appendChild(depthShafts);
   stage.appendChild(apertureRing);
+  stage.appendChild(airlockCrown);
   stage.appendChild(ambientGrid);
   stage.appendChild(deckReflection);
+  stage.appendChild(thresholdPlate);
   stage.appendChild(lightSweep);
   stage.appendChild(lockFrame);
   stage.appendChild(orbitRing);

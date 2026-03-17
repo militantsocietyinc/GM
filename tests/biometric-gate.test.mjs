@@ -113,6 +113,21 @@ describe('desktop biometric bootstrap', () => {
     );
     assert.match(
       gateSrc,
+      /worldmonitor-depth-shafts/,
+      'unlock stage should include volumetric chamber light shafts for real depth',
+    );
+    assert.match(
+      gateSrc,
+      /worldmonitor-airlock-crown/,
+      'unlock stage should include a machined crown assembly above the aperture',
+    );
+    assert.match(
+      gateSrc,
+      /worldmonitor-threshold-plate/,
+      'unlock stage should include a foreground threshold plate so the airlock sits in a real bay',
+    );
+    assert.match(
+      gateSrc,
       /BIOMETRIC SIGNATURE VERIFIED/,
       'unlock overlay should include biometric access callouts instead of a generic modal body only',
     );
@@ -210,6 +225,11 @@ describe('desktop biometric bootstrap', () => {
       gateSrc,
       /conic-gradient/,
       'unlock surfaces should use more premium machined-light treatment instead of flat metal only',
+    );
+    assert.match(
+      gateSrc,
+      /mixBlendMode:\s*'screen'/,
+      'unlock lighting should use layered screen blending instead of flat overlay glows only',
     );
     assert.match(
       gateSrc,

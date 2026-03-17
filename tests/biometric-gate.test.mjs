@@ -42,7 +42,7 @@ describe('desktop biometric bootstrap', () => {
     );
   });
 
-  it('waits for an interactive window before prompting and keeps retry controls hidden on the happy path', () => {
+  it('waits for an interactive window before prompting and keeps the happy path free of custom auth chrome', () => {
     assert.match(
       gateSrc,
       /async function waitForInteractiveWindow\(/,
@@ -53,15 +53,15 @@ describe('desktop biometric bootstrap', () => {
       /const windowReady = await waitForInteractiveWindow\(\)/,
       'startup auth should check window readiness before prompting',
     );
-    assert.match(
+    assert.doesNotMatch(
       gateSrc,
-      /display:\s*'none'/,
-      'retry controls should stay hidden until the automatic biometric prompt needs fallback UI',
+      /document\.body\.appendChild\(container\)/,
+      'happy path should not inject a custom full-screen auth window before the OS prompt',
     );
     assert.match(
       gateSrc,
       /AUTO_PROMPT_DELAY_MS\s*=\s*80/,
-      'unlock overlay should move into biometric auth almost immediately once the window is interactive',
+      'unlock flow should move into biometric auth almost immediately once the window is interactive',
     );
   });
 
@@ -83,12 +83,12 @@ describe('desktop biometric bootstrap', () => {
     );
     assert.match(
       gateSrc,
-      /showFallbackActions\(/,
-      'manual retry controls should be a fallback path, not the default entry flow',
+      /showFallbackOverlay\(/,
+      'manual retry controls should be created only in the fallback overlay path',
     );
     assert.match(
       gateSrc,
-      /button\.textContent = 'Try Again'/,
+      /Try Again/,
       'fallback controls should present retry language instead of a primary authenticate click on startup',
     );
     assert.match(
@@ -103,186 +103,26 @@ describe('desktop biometric bootstrap', () => {
     );
   });
 
-  it('plays a sci-fi unlock sequence before dismissing the gate', () => {
+  it('uses a minimal fallback screen instead of a second theatrical auth window', () => {
     assert.match(
       gateSrc,
-      /async function playUnlockCelebration\(/,
-      'unlock flow should define a dedicated celebration sequence',
+      /const container = document\.createElement\('div'\)/,
+      'fallback path should still be able to render a minimal recovery screen',
     );
     assert.match(
       gateSrc,
-      /await playUnlockCelebration\(/,
-      'successful authentication should wait for the unlock celebration before continuing',
+      /Touch ID did not complete\./,
+      'fallback screen should explain the issue plainly',
     );
-    assert.match(
+    assert.doesNotMatch(
       gateSrc,
-      /worldmonitor-door-left/,
-      'unlock overlay should include spaceship-style door visuals',
+      /playUnlockSound|createConvolver|doorRumbleFilter|hydraulicNoiseFilter/,
+      'fallback auth should not ship the door sound stack',
     );
-    assert.match(
+    assert.doesNotMatch(
       gateSrc,
-      /worldmonitor-lock-frame/,
-      'unlock overlay should include a hard outer lock frame so the gate is unmistakable',
-    );
-    assert.match(
-      gateSrc,
-      /worldmonitor-biometric-hero/,
-      'unlock overlay should include a dedicated fingerprint access hero',
-    );
-    assert.match(
-      gateSrc,
-      /worldmonitor-airlock-depth/,
-      'unlock stage should include a dedicated inner airlock chamber instead of a flat backdrop only',
-    );
-    assert.match(
-      gateSrc,
-      /worldmonitor-aperture-ring/,
-      'unlock stage should include a machined aperture ring to frame the inner bay',
-    );
-    assert.match(
-      gateSrc,
-      /worldmonitor-door-track-left/,
-      'unlock stage should include visible door track hardware on the left side',
-    );
-    assert.match(
-      gateSrc,
-      /worldmonitor-door-track-right/,
-      'unlock stage should include visible door track hardware on the right side',
-    );
-    assert.match(
-      gateSrc,
-      /worldmonitor-depth-shafts/,
-      'unlock stage should include volumetric chamber light shafts for real depth',
-    );
-    assert.match(
-      gateSrc,
-      /worldmonitor-airlock-crown/,
-      'unlock stage should include a machined crown assembly above the aperture',
-    );
-    assert.match(
-      gateSrc,
-      /worldmonitor-threshold-plate/,
-      'unlock stage should include a foreground threshold plate so the airlock sits in a real bay',
-    );
-    assert.match(
-      gateSrc,
-      /BIOMETRIC SIGNATURE VERIFIED/,
-      'unlock overlay should include biometric access callouts instead of a generic modal body only',
-    );
-    assert.match(
-      gateSrc,
-      /appRoot\.style\.filter = 'blur\(10px\) saturate\(0\.75\)'/,
-      'unlock overlay should suppress the dashboard beneath it while active',
-    );
-    assert.match(
-      gateSrc,
-      /MIN_OVERLAY_VISIBLE_MS\s*=\s*900/,
-      'unlock overlay should remain visible long enough to be perceived before the success transition',
-    );
-    assert.match(
-      gateSrc,
-      /UNLOCK_SCAN_SETTLE_MS\s*=\s*720/,
-      'unlock success should pause long enough for a clean biometric verification beat before the doors move',
-    );
-    assert.match(
-      gateSrc,
-      /UNLOCK_DOOR_OPEN_MS\s*=\s*1820/,
-      'unlock doors should open on a slower, premium cadence instead of snapping away too fast',
-    );
-    assert.match(
-      gateSrc,
-      /UNLOCK_SEAL_BREAK_MS\s*=\s*240/,
-      'unlock motion should include a distinct seal-break beat before the full door travel',
-    );
-    assert.match(
-      gateSrc,
-      /UNLOCK_PANEL_WITHDRAW_MS\s*=\s*760/,
-      'the command panel should linger during the opening instead of disappearing the instant unlock starts',
-    );
-    assert.match(
-      gateSrc,
-      /wm-biometry-fingerprint-verify/,
-      'unlock sequence should drive a dedicated fingerprint verification animation',
-    );
-    assert.match(
-      gateSrc,
-      /wm-biometry-seal-break/,
-      'unlock sequence should include a dedicated seal-break lighting pass',
-    );
-    assert.match(
-      gateSrc,
-      /UNLOCK_SOUND_SEAL_TRANSIENT_MS\s*=\s*180/,
-      'unlock sound should include a short seal-break transient before the main door movement',
-    );
-    assert.match(
-      gateSrc,
-      /UNLOCK_SOUND_DOOR_SWELL_MS\s*=\s*1640/,
-      'unlock sound should sustain through the slower door travel instead of ending too early',
-    );
-    assert.match(
-      gateSrc,
-      /sealNoiseFilter/,
-      'unlock sound should have a distinct seal-break layer instead of one generic noise burst',
-    );
-    assert.match(
-      gateSrc,
-      /doorRumbleFilter/,
-      'unlock sound should include a separate low rumble for the door motion',
-    );
-    assert.match(
-      gateSrc,
-      /hydraulicNoiseFilter/,
-      'unlock sound should include a dedicated hydraulic pressure-release layer',
-    );
-    assert.match(
-      gateSrc,
-      /hydraulicPulseOsc/,
-      'unlock sound should include a pulsing hydraulic/mechanical actuator tone',
-    );
-    assert.match(
-      gateSrc,
-      /doorRumbleGain\.gain\.exponentialRampToValueAtTime\(0\.09, now \+ 0\.28\)/,
-      'unlock sound should push more low-end mass into the door movement',
-    );
-    assert.match(
-      gateSrc,
-      /hydraulicNoiseGain\.gain\.exponentialRampToValueAtTime\(0\.048, now \+ 0\.18\)/,
-      'unlock sound should make the hydraulic release audibly larger',
-    );
-    assert.match(
-      gateSrc,
-      /createDynamicsCompressor/,
-      'unlock sound should use mastering control so the layered effect feels polished instead of raw',
-    );
-    assert.match(
-      gateSrc,
-      /createConvolver/,
-      'unlock sound should include a designed reflective tail for a premium chamber feel',
-    );
-    assert.match(
-      gateSrc,
-      /createStereoPanner/,
-      'unlock sound should place mechanical motion across the sound field instead of dead center only',
-    );
-    assert.match(
-      gateSrc,
-      /hydraulicTailFilter/,
-      'unlock sound should include a separate hydraulic tail texture for the pressure release',
-    );
-    assert.match(
-      gateSrc,
-      /conic-gradient/,
-      'unlock surfaces should use more premium machined-light treatment instead of flat metal only',
-    );
-    assert.match(
-      gateSrc,
-      /mixBlendMode:\s*'screen'/,
-      'unlock lighting should use layered screen blending instead of flat overlay glows only',
-    );
-    assert.match(
-      gateSrc,
-      /BIOMETRIC MATCH CONFIRMED/,
-      'success state should read like a refined secure-facility verification screen',
+      /worldmonitor-door-left|worldmonitor-airlock-depth|worldmonitor-lock-frame|wm-biometry-seal-break/,
+      'fallback auth should not render the sci-fi door and airlock treatment',
     );
   });
 });

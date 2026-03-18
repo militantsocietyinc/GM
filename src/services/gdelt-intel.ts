@@ -119,6 +119,7 @@ const positiveGdeltBreaker = createCircuitBreaker<SearchGdeltDocumentsResponse>(
 const emptyGdeltFallback: SearchGdeltDocumentsResponse = { articles: [], query: '', error: '' };
 
 const CACHE_TTL = 5 * 60 * 1000;
+const STALE_MAX = 60 * 60 * 1000; // 1h ceiling — never serve cache older than this
 const articleCache = new Map<string, { articles: GdeltArticle[]; timestamp: number }>();
 
 /** Map proto GdeltArticle (all required strings) to service GdeltArticle (optional fields) */
@@ -158,12 +159,16 @@ export async function fetchGdeltArticles(
 
   if (resp.error) {
     if (resp.error === 'seed-unavailable') {
-      // Seed expired on the server — return stale client cache if available so
-      // the panel can show something while waiting for the next Railway seed run.
-      return cached?.articles || [];
+      // Seed expired on the server — return stale client cache only if within the
+      // staleness ceiling so we do not serve arbitrarily old headlines as current data.
+      if (cached && Date.now() - cached.timestamp < STALE_MAX) {
+        return cached.articles;
+      }
+      return [];
     }
     console.warn(`[GDELT-Intel] RPC error: ${resp.error}`);
-    return cached?.articles || [];
+    if (cached && Date.now() - cached.timestamp < STALE_MAX) return cached.articles;
+    return [];
   }
 
   const articles: GdeltArticle[] = (resp.articles || []).map(toGdeltArticle);

@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from 'fs/promises';
 import { brotliCompress } from 'zlib';
 import { promisify } from 'util';
 import pkg from './package.json';
-import { VARIANT_META } from './src/config/variant-meta';
+import { VARIANT_META, type VariantMeta } from './src/config/variant-meta';
 
 // Env-dependent constants moved inside defineConfig function
 
@@ -38,7 +38,7 @@ function brotliPrecompressPlugin(): Plugin {
   };
 }
 
-function htmlVariantPlugin(activeMeta: any, activeVariant: string, isDesktopBuild: boolean): Plugin {
+function htmlVariantPlugin(activeMeta: VariantMeta, activeVariant: string, isDesktopBuild: boolean): Plugin {
   return {
     name: 'html-variant',
     transformIndexHtml(html) {

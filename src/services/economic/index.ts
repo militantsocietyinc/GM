@@ -35,17 +35,31 @@ import { toApiUrl } from '@/services/runtime';
 // ---- Client + Circuit Breakers ----
 
 const client = new EconomicServiceClient(getRpcBaseUrl(), { fetch: (...args) => globalThis.fetch(...args) });
+const MAX_WB_BREAKERS = 50;
 const wbBreakers = new Map<string, ReturnType<typeof createCircuitBreaker<ListWorldBankIndicatorsResponse>>>();
 
 function getWbBreaker(indicatorCode: string) {
-  if (!wbBreakers.has(indicatorCode)) {
-    wbBreakers.set(indicatorCode, createCircuitBreaker<ListWorldBankIndicatorsResponse>({
-      name: `WB:${indicatorCode}`,
-      cacheTtlMs: 30 * 60 * 1000,
-      persistCache: true,
-    }));
+  let breaker = wbBreakers.get(indicatorCode);
+  if (breaker) {
+    wbBreakers.delete(indicatorCode);
+    wbBreakers.set(indicatorCode, breaker);
+    return breaker;
   }
-  return wbBreakers.get(indicatorCode)!;
+
+  if (wbBreakers.size >= MAX_WB_BREAKERS) {
+    const firstKey = wbBreakers.keys().next().value;
+    if (firstKey !== undefined) {
+      wbBreakers.delete(firstKey);
+    }
+  }
+
+  breaker = createCircuitBreaker<ListWorldBankIndicatorsResponse>({
+    name: `WB:${indicatorCode}`,
+    cacheTtlMs: 30 * 60 * 1000,
+    persistCache: true,
+  });
+  wbBreakers.set(indicatorCode, breaker);
+  return breaker;
 }
 const eiaBreaker = createCircuitBreaker<GetEnergyPricesResponse>({ name: 'EIA Energy', cacheTtlMs: 15 * 60 * 1000, persistCache: true });
 const capacityBreaker = createCircuitBreaker<GetEnergyCapacityResponse>({ name: 'EIA Capacity', cacheTtlMs: 30 * 60 * 1000, persistCache: true });

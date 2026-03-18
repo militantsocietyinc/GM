@@ -3284,7 +3284,7 @@ async function startWeatherSeedLoop() {
 // ─────────────────────────────────────────────────────────────
 const SPENDING_SEED_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const SPENDING_REDIS_KEY = 'economic:spending:v1';
-const SPENDING_CACHE_TTL = 3600;
+const SPENDING_CACHE_TTL = 7200; // 2h — must outlive the 1h seed interval
 let spendingSeedInFlight = false;
 
 function getDateDaysAgo(days) {

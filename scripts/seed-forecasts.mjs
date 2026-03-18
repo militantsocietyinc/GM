@@ -4107,6 +4107,8 @@ async function enrichScenariosWithLLM(predictions) {
   const scenarioOnly = enrichmentTargets.scenarioOnly;
   console.log(`  [LLM] selected combined=${topWithPerspectives.length} scenario=${scenarioOnly.length}`);
 
+  console.log(`  [LLM] selected combined=${topWithPerspectives.length} scenario=${scenarioOnly.length}`);
+
   // Call 1: Combined scenario + perspectives for top-2
   if (topWithPerspectives.length > 0) {
     const hash = buildCacheHash(topWithPerspectives);

@@ -2492,24 +2492,12 @@ function buildSituationSummary(situationClusters, situationContinuity) {
   };
 }
 
-function buildSituationForecastIndex(situationClusters) {
-  const index = new Map();
-  for (const cluster of situationClusters || []) {
-    for (const forecastId of cluster.forecastIds || []) {
-      if (index.has(forecastId)) continue;
-      index.set(forecastId, cluster);
-    }
-  }
-  return index;
-}
-
-function attachSituationContext(predictions) {
-  const situationClusters = buildSituationClusters(predictions);
+function attachSituationContext(predictions, situationClusters = buildSituationClusters(predictions)) {
   const situationIndex = buildSituationForecastIndex(situationClusters);
   for (const pred of predictions) {
     const cluster = situationIndex.get(pred.id);
     if (!cluster) continue;
-    pred.situationContext = {
+    const situationContext = {
       id: cluster.id,
       label: cluster.label,
       forecastCount: cluster.forecastCount,
@@ -2522,10 +2510,24 @@ function attachSituationContext(predictions) {
       topSignals: cluster.topSignals,
       sampleTitles: cluster.sampleTitles,
     };
+    pred.situationContext = situationContext;
     pred.caseFile = pred.caseFile || buildForecastCase(pred);
-    pred.caseFile.situationContext = pred.situationContext;
+    // Keep caseFile access convenient for prompt/fallback builders, but treat
+    // pred.situationContext as the canonical per-forecast reference.
+    pred.caseFile.situationContext = situationContext;
   }
   return situationClusters;
+}
+
+function buildSituationForecastIndex(situationClusters) {
+  const index = new Map();
+  for (const cluster of situationClusters || []) {
+    for (const forecastId of cluster.forecastIds || []) {
+      if (index.has(forecastId)) continue;
+      index.set(forecastId, cluster);
+    }
+  }
+  return index;
 }
 
 function summarizeWorldStateHistory(priorWorldStates = []) {
@@ -2910,7 +2912,7 @@ function buildForecastRunWorldState(data) {
   const actorContinuity = buildActorContinuitySummary(actorRegistry, priorWorldState);
   const branchStates = buildForecastBranchStates(predictions);
   const branchContinuity = buildBranchContinuitySummary(branchStates, priorWorldState);
-  const situationClusters = buildSituationClusters(predictions);
+  const situationClusters = data?.situationClusters || buildSituationClusters(predictions);
   const situationContinuity = buildSituationContinuitySummary(situationClusters, priorWorldState);
   const situationSummary = buildSituationSummary(situationClusters, situationContinuity);
   const reportContinuity = buildReportContinuity({
@@ -3420,16 +3422,24 @@ function computeAnalysisPriority(pred) {
 }
 
 function rankForecastsForAnalysis(predictions) {
-  const priorities = new Map(predictions.map((p) => {
-    p.readiness = p.readiness || scoreForecastReadiness(p);
-    p.analysisPriority = typeof p.analysisPriority === 'number' ? p.analysisPriority : computeAnalysisPriority(p);
-    return [p, p.analysisPriority];
-  }));
+  const priorities = new Map(predictions.map((p) => [
+    p,
+    typeof p.analysisPriority === 'number' ? p.analysisPriority : computeAnalysisPriority(p),
+  ]));
   predictions.sort((a, b) => {
     const delta = priorities.get(b) - priorities.get(a);
     if (Math.abs(delta) > 1e-6) return delta;
     return (b.probability * b.confidence) - (a.probability * a.confidence);
   });
+}
+
+function prepareForecastMetrics(predictions) {
+  for (const pred of predictions) {
+    pred.readiness = pred.readiness || scoreForecastReadiness(pred);
+    pred.analysisPriority = typeof pred.analysisPriority === 'number'
+      ? pred.analysisPriority
+      : computeAnalysisPriority(pred);
+  }
 }
 
 function intersectCount(left = [], right = []) {
@@ -3457,11 +3467,10 @@ function computeSituationDuplicateScore(current, kept) {
   const keptBranches = uniqueSortedStrings((kept.caseFile?.branches || []).map((branch) => branch.kind));
   const currentSignals = uniqueSortedStrings((current.situationContext?.topSignals || []).map((signal) => signal.type));
   const keptSignals = uniqueSortedStrings((kept.situationContext?.topSignals || []).map((signal) => signal.type));
-  const currentTokens = getForecastSituationTokens(current);
-  const keptTokens = getForecastSituationTokens(kept);
+  const currentTokens = current.publishTokens || getForecastSituationTokens(current);
+  const keptTokens = kept.publishTokens || getForecastSituationTokens(kept);
 
   let score = 0;
-  if (current.domain === kept.domain) score += 2.5;
   if ((current.situationContext?.id || '') && current.situationContext?.id === kept.situationContext?.id) score += 2;
   if ((current.region || '') === (kept.region || '')) score += 1.5;
   score += intersectCount(currentActors, keptActors) * 1.4;
@@ -3472,6 +3481,7 @@ function computeSituationDuplicateScore(current, kept) {
 }
 
 function summarizePublishFiltering(predictions) {
+  // Must be called after filterPublishedForecasts() has populated pred.publishDiagnostics.
   const reasonCounts = summarizeTypeCounts(
     predictions
       .map((pred) => pred.publishDiagnostics?.reason)
@@ -3501,6 +3511,7 @@ function filterPublishedForecasts(predictions, minProbability = PUBLISH_MIN_PROB
 
   for (const pred of predictions) {
     pred.publishDiagnostics = null;
+    pred.publishTokens = pred.publishTokens || getForecastSituationTokens(pred);
     if ((pred?.probability || 0) <= minProbability) continue;
     const narrativeSource = pred?.traceMeta?.narrativeSource || 'fallback';
     const readiness = pred?.readiness?.overall ?? scoreForecastReadiness(pred).overall;
@@ -4003,7 +4014,9 @@ function buildFeedSummary(pred) {
   const summary = compact.length > 180 ? `${compact.slice(0, 177).trimEnd()}...` : compact;
   if (summary) {
     if (situation?.forecastCount > 1 && !summary.toLowerCase().includes('broader')) {
-      return `${summary} It sits inside a broader ${situation.label.toLowerCase()} cluster.`.slice(0, 220);
+      const suffix = ` It sits inside a broader ${situation.label.toLowerCase()} cluster.`;
+      const combined = `${summary}${suffix}`;
+      return combined.length > 220 ? `${combined.slice(0, 217).trimEnd()}...` : combined;
     }
     return summary;
   }
@@ -4358,7 +4371,8 @@ async function fetchForecasts() {
   computeTrends(predictions, prior);
   buildForecastCases(predictions);
   annotateForecastChanges(predictions, prior);
-  attachSituationContext(predictions);
+  const situationClusters = attachSituationContext(predictions);
+  prepareForecastMetrics(predictions);
 
   rankForecastsForAnalysis(predictions);
 
@@ -4371,7 +4385,7 @@ async function fetchForecasts() {
     console.log(`  Filtered ${predictions.length - publishedPredictions.length} forecasts at publish floor > ${PUBLISH_MIN_PROBABILITY}`);
   }
 
-  return { predictions: publishedPredictions, generatedAt: Date.now(), enrichmentMeta, publishTelemetry };
+  return { predictions: publishedPredictions, generatedAt: Date.now(), enrichmentMeta, publishTelemetry, situationClusters };
 }
 
 async function readForecastRefreshRequest() {

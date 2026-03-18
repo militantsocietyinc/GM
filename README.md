@@ -43,112 +43,52 @@
 - **Finance radar** — 92 stock exchanges, commodities, crypto, and 7-signal market composite
 - **Local AI** — run everything with Ollama, no API keys required
 - **5 site variants** from a single codebase (world, tech, finance, commodity, happy)
-- **Native desktop app** (Tauri 2) for macOS, Windows, and Linux
-- **21 languages** with native-language feeds and RTL support
 
-For the full feature list, architecture, data sources, and algorithms, see the **[documentation](https://docs.worldmonitor.app)**.
+## Getting Started
 
----
+### Prerequisites
 
-## Quick Start
+- Node.js (v18 or higher recommended)
+- npm, pnpm, or yarn
 
-```bash
-git clone https://github.com/koala73/worldmonitor.git
-cd worldmonitor
-npm install
-npm run dev
-```
+### Installation
 
-Open [localhost:5173](http://localhost:5173). No environment variables required for basic operation.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/koala73/worldmonitor.git
+   cd worldmonitor
+   ```
 
-For variant-specific development:
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-```bash
-npm run dev:tech       # tech.worldmonitor.app
-npm run dev:finance    # finance.worldmonitor.app
-npm run dev:commodity  # commodity.worldmonitor.app
-npm run dev:happy      # happy.worldmonitor.app
-```
+### Local Development
 
-See the **[self-hosting guide](https://docs.worldmonitor.app/getting-started)** for deployment options (Vercel, Docker, static).
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
 
----
+2. Configure your environment variables in `.env`.
 
-## Tech Stack
+   **Important Configuration (`VITE_VARIANT`)**:
+   The application supports building different variants from the same codebase. Set the `VITE_VARIANT` environment variable to choose which variant to run:
+   - `world` (default)
+   - `tech`
+   - `finance`
+   - `commodity`
+   - `happy`
 
-| Category | Technologies |
-|----------|-------------|
-| **Frontend** | Vanilla TypeScript, Vite, globe.gl + Three.js, deck.gl + MapLibre GL |
-| **Desktop** | Tauri 2 (Rust) with Node.js sidecar |
-| **AI/ML** | Ollama / Groq / OpenRouter, Transformers.js (browser-side) |
-| **API Contracts** | Protocol Buffers (92 protos, 22 services), sebuf HTTP annotations |
-| **Deployment** | Vercel Edge Functions (60+), Railway relay, Tauri, PWA |
-| **Caching** | Redis (Upstash), 3-tier cache, CDN, service worker |
+   Example `.env`:
+   ```env
+   VITE_VARIANT=world
+   ```
 
-Full stack details in the **[architecture docs](https://docs.worldmonitor.app/architecture)**.
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
----
-
-## Contributing
-
-Contributions welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
-
-```bash
-npm run typecheck        # Type checking
-npm run build:full       # Production build
-```
-
----
-
-## License
-
-**AGPL-3.0** for non-commercial use. **Commercial license** required for any commercial use.
-
-| Use Case | Allowed? |
-|----------|----------|
-| Personal / research / educational | Yes |
-| Self-hosted (non-commercial) | Yes, with attribution |
-| Fork and modify (non-commercial) | Yes, share source under AGPL-3.0 |
-| Commercial use / SaaS / rebranding | Requires commercial license |
-
-See [LICENSE](LICENSE) for full terms. For commercial licensing, contact the maintainer.
-
-Copyright (C) 2024-2026 Elie Habib. All rights reserved.
-
----
-
-## Author
-
-**Elie Habib** — [GitHub](https://github.com/koala73)
-
-## Contributors
-
-<a href="https://github.com/koala73/worldmonitor/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=koala73/worldmonitor" />
-</a>
-
-## Security Acknowledgments
-
-We thank the following researchers for responsibly disclosing security issues:
-
-- **Cody Richard** — Disclosed three security findings covering IPC command exposure, renderer-to-sidecar trust boundary analysis, and fetch patch credential injection architecture (2026)
-
-See our [Security Policy](./SECURITY.md) for responsible disclosure guidelines.
-
----
-
-<p align="center">
-  <a href="https://worldmonitor.app">worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://docs.worldmonitor.app">docs.worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://finance.worldmonitor.app">finance.worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://commodity.worldmonitor.app">commodity.worldmonitor.app</a>
-</p>
-
-## Star History
-
-<a href="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date&type=Date&theme=dark" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date&type=Date" />
- </picture>
-</a>
+4. Open [http://localhost:5173](http://localhost:5173) in your browser.

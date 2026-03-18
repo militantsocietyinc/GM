@@ -55,7 +55,12 @@ async function fetchWingbitsLiveFlight(icao24: string): Promise<WingbitsLiveFlig
     signal: AbortSignal.timeout(8_000),
   });
 
-  if (!resp.ok) return null;
+  // Throw on transient upstream errors so cachedFetchJson does not cache them
+  // as negative hits. Only 404 (aircraft unknown to Wingbits) is a cacheable miss.
+  if (!resp.ok) {
+    if (resp.status === 404) return null;
+    throw new Error(`Wingbits ECS ${resp.status}`);
+  }
 
   const data = (await resp.json()) as { flight?: EcsFlightRaw | null };
   if (!data.flight) return null;

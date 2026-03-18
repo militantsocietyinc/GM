@@ -164,7 +164,9 @@ export async function fetchSanctionsPressure(): Promise<SanctionsPressureResult>
     const result = toResult(response);
     latestSanctionsPressureResult = result;
     return result;
-  }, emptyResult);
+  }, emptyResult, {
+    shouldCache: (result) => result.totalCount > 0,
+  });
 }
 
 export function getLatestSanctionsPressure(): SanctionsPressureResult | null {

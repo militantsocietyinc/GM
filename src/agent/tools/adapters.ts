@@ -11,8 +11,16 @@
 import type { Signal, Severity } from '../types';
 import { registerTool, createSignal } from './registry';
 
-/** Standard client constructor options matching the codebase pattern */
-const CLIENT_OPTS = { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) };
+/** Shared client constructor options — single source of truth */
+const CLIENT_OPTS = { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) } as const;
+
+/** Lazy-cached service clients to avoid re-instantiation per tool call */
+const clientCache = new Map<string, unknown>();
+
+async function getClient<T>(key: string, factory: () => Promise<T>): Promise<T> {
+  if (!clientCache.has(key)) clientCache.set(key, await factory());
+  return clientCache.get(key) as T;
+}
 
 // ============================================================================
 // ADAPTER: News/RSS → Signal
@@ -72,10 +80,10 @@ registerTool({
   concurrency: 1,
   timeout: 20_000,
   async execute(input) {
-    const { ConflictServiceClient } = await import(
-      '@/generated/client/worldmonitor/conflict/v1/service_client'
-    );
-    const client = new ConflictServiceClient('', CLIENT_OPTS);
+    const client = await getClient('conflict', async () => {
+      const { ConflictServiceClient } = await import('@/generated/client/worldmonitor/conflict/v1/service_client');
+      return new ConflictServiceClient('', CLIENT_OPTS);
+    });
     const country = (input.country as string) || 'global';
     const resp = await client.listAcledEvents({ country });
     return (resp.events ?? []).map(evt =>
@@ -110,10 +118,10 @@ registerTool({
   concurrency: 1,
   timeout: 15_000,
   async execute() {
-    const { MilitaryServiceClient } = await import(
-      '@/generated/client/worldmonitor/military/v1/service_client'
-    );
-    const client = new MilitaryServiceClient('', CLIENT_OPTS);
+    const client = await getClient('military', async () => {
+      const { MilitaryServiceClient } = await import('@/generated/client/worldmonitor/military/v1/service_client');
+      return new MilitaryServiceClient('', CLIENT_OPTS);
+    });
     const resp = await client.listMilitaryFlights({
       operator: 'MILITARY_OPERATOR_UNSPECIFIED',
       aircraftType: 'MILITARY_AIRCRAFT_TYPE_UNSPECIFIED',
@@ -150,10 +158,10 @@ registerTool({
   concurrency: 1,
   timeout: 15_000,
   async execute() {
-    const { CyberServiceClient } = await import(
-      '@/generated/client/worldmonitor/cyber/v1/service_client'
-    );
-    const client = new CyberServiceClient('', CLIENT_OPTS);
+    const client = await getClient('cyber', async () => {
+      const { CyberServiceClient } = await import('@/generated/client/worldmonitor/cyber/v1/service_client');
+      return new CyberServiceClient('', CLIENT_OPTS);
+    });
     const resp = await client.listCyberThreats({
       type: 'CYBER_THREAT_TYPE_UNSPECIFIED',
       source: 'CYBER_THREAT_SOURCE_UNSPECIFIED',
@@ -191,10 +199,10 @@ registerTool({
   concurrency: 1,
   timeout: 15_000,
   async execute() {
-    const { SeismologyServiceClient } = await import(
-      '@/generated/client/worldmonitor/seismology/v1/service_client'
-    );
-    const client = new SeismologyServiceClient('', CLIENT_OPTS);
+    const client = await getClient('seismology', async () => {
+      const { SeismologyServiceClient } = await import('@/generated/client/worldmonitor/seismology/v1/service_client');
+      return new SeismologyServiceClient('', CLIENT_OPTS);
+    });
     const resp = await client.listEarthquakes({ minMagnitude: 3.0 });
     return (resp.earthquakes ?? []).map(eq =>
       createSignal('seismology', {
@@ -228,10 +236,10 @@ registerTool({
   concurrency: 1,
   timeout: 20_000,
   async execute() {
-    const { EconomicServiceClient } = await import(
-      '@/generated/client/worldmonitor/economic/v1/service_client'
-    );
-    const client = new EconomicServiceClient('', CLIENT_OPTS);
+    const client = await getClient('economic', async () => {
+      const { EconomicServiceClient } = await import('@/generated/client/worldmonitor/economic/v1/service_client');
+      return new EconomicServiceClient('', CLIENT_OPTS);
+    });
     const resp = await client.getMacroSignals({});
 
     // The response is a composite — verdict, bullishCount, totalCount
@@ -275,10 +283,10 @@ registerTool({
   concurrency: 1,
   timeout: 15_000,
   async execute(input) {
-    const { InfrastructureServiceClient } = await import(
-      '@/generated/client/worldmonitor/infrastructure/v1/service_client'
-    );
-    const client = new InfrastructureServiceClient('', CLIENT_OPTS);
+    const client = await getClient('infrastructure', async () => {
+      const { InfrastructureServiceClient } = await import('@/generated/client/worldmonitor/infrastructure/v1/service_client');
+      return new InfrastructureServiceClient('', CLIENT_OPTS);
+    });
     const country = (input.country as string) || 'global';
     const resp = await client.listInternetOutages({ country });
     return (resp.outages ?? []).map(outage =>
@@ -313,10 +321,10 @@ registerTool({
   concurrency: 1,
   timeout: 15_000,
   async execute(input) {
-    const { UnrestServiceClient } = await import(
-      '@/generated/client/worldmonitor/unrest/v1/service_client'
-    );
-    const client = new UnrestServiceClient('', CLIENT_OPTS);
+    const client = await getClient('unrest', async () => {
+      const { UnrestServiceClient } = await import('@/generated/client/worldmonitor/unrest/v1/service_client');
+      return new UnrestServiceClient('', CLIENT_OPTS);
+    });
     const country = (input.country as string) || 'global';
     const resp = await client.listUnrestEvents({
       country,
@@ -354,10 +362,10 @@ registerTool({
   concurrency: 1,
   timeout: 20_000,
   async execute(input) {
-    const { IntelligenceServiceClient } = await import(
-      '@/generated/client/worldmonitor/intelligence/v1/service_client'
-    );
-    const client = new IntelligenceServiceClient('', CLIENT_OPTS);
+    const client = await getClient('intelligence', async () => {
+      const { IntelligenceServiceClient } = await import('@/generated/client/worldmonitor/intelligence/v1/service_client');
+      return new IntelligenceServiceClient('', CLIENT_OPTS);
+    });
     const region = (input.region as string) || 'global';
     const resp = await client.getRiskScores({ region });
 

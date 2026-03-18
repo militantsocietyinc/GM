@@ -276,15 +276,17 @@ export function collapse(
   signals: EncodedSignal[],
   rules: CollapseRule[] = DEFAULT_COLLAPSE_RULES,
 ): CollapsedSignal[] {
+  if (signals.length === 0) return [];
+
   const results: CollapsedSignal[] = [];
   const consumed = new Set<string>();
 
-  // Sort rules by priority (higher first)
+  // Sort rules by priority (higher first) — only sort once
   const sortedRules = [...rules].sort((a, b) => b.priority - a.priority);
 
   for (const rule of sortedRules) {
-    // Group candidates by region (or all together if regionMatch is false)
     const candidates = signals.filter(s => !consumed.has(s.id));
+    if (candidates.length < rule.minSignals) continue; // early exit
 
     const groups = rule.regionMatch
       ? groupByRegion(candidates)

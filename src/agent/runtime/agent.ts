@@ -465,16 +465,7 @@ export class AgentRuntime {
 
     return [...groups.entries()].map(([domain, sigs]) => ({
       domain: domain as import('../types').SignalDomain,
-      rawItems: sigs.map(s => ({
-        id: s.id,
-        severity: s.severity,
-        regions: s.regions,
-        timestamp: s.timestamp,
-        geo: s.geo,
-        payload: s.payload,
-        confidence: s.confidence,
-        tags: s.tags,
-      })),
+      rawItems: sigs,
     }));
   }
 

@@ -12,6 +12,9 @@
 import type { Signal, Severity } from '../types';
 import { registerTool, createSignal } from './registry';
 
+const CLIENT_OPTS = { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) } as const;
+let cachedMarketClient: unknown = null;
+
 // ============================================================================
 // GICS SECTOR DEFINITIONS
 // ============================================================================
@@ -129,7 +132,10 @@ registerTool({
     const { MarketServiceClient } = await import(
       '@/generated/client/worldmonitor/market/v1/service_client'
     );
-    const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
+    if (!cachedMarketClient) {
+      cachedMarketClient = new MarketServiceClient('', CLIENT_OPTS);
+    }
+    const client = cachedMarketClient as InstanceType<typeof MarketServiceClient>;
 
     const sectorFilter = input.sectors as string[] | undefined;
     const sectors = sectorFilter

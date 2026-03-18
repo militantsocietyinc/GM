@@ -14,7 +14,6 @@
 import type { Severity, SignalDomain } from './types';
 import { PipelineStage } from './types';
 import { ingest, encode, filter, collapse, synthesize, type IngestInput } from './pipeline/stages';
-import type { PipelineRunner as _PipelineRunner } from './pipeline/runner';
 import { InvariantVerifier } from './invariants/verifier';
 import { INVARIANT_RULES } from './invariants/rules';
 import { EventBus } from './bus/event-bus';

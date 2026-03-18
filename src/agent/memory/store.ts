@@ -43,6 +43,8 @@ export class MemoryStore {
   private session: Map<string, MemoryEntry> = new Map();
   private episodic: Map<string, MemoryEntry> = new Map();
   private longterm: Map<string, MemoryEntry> = new Map();
+  /** Tag → entry IDs index for fast lookup */
+  private tagIndex: Map<string, Set<string>> = new Map();
   private config: MemoryConfig;
   private lastCompactedAt = 0;
 
@@ -77,6 +79,7 @@ export class MemoryStore {
     };
 
     this.getStore(type).set(entry.id, entry);
+    this.indexTags(entry);
     this.enforceCapacity(type);
     agentBus.emit('memory:updated', { type, entryId: entry.id, action: 'store' }, 'memory-store');
     return entry;
@@ -86,14 +89,22 @@ export class MemoryStore {
    * Retrieve entries by tags (any match).
    */
   queryByTags(tags: string[], type?: MemoryType): MemoryEntry[] {
+    // Use tag index for O(1) candidate lookup instead of scanning all entries
+    const candidateIds = new Set<string>();
+    for (const tag of tags) {
+      const ids = this.tagIndex.get(tag.toLowerCase());
+      if (ids) for (const id of ids) candidateIds.add(id);
+    }
+
     const stores = type ? [this.getStore(type)] : [this.session, this.episodic, this.longterm];
     const results: MemoryEntry[] = [];
-    const tagSet = new Set(tags.map(t => t.toLowerCase()));
+    const now = Date.now();
 
     for (const store of stores) {
-      for (const entry of store.values()) {
-        if (entry.tags.some(t => tagSet.has(t.toLowerCase()))) {
-          entry.lastAccessedAt = Date.now();
+      for (const id of candidateIds) {
+        const entry = store.get(id);
+        if (entry) {
+          entry.lastAccessedAt = now;
           entry.accessCount++;
           results.push(entry);
         }
@@ -155,6 +166,7 @@ export class MemoryStore {
     for (const entry of this.session.values()) {
       const ageHours = (now - entry.lastAccessedAt) / 3600_000;
       if (ageHours > this.config.sessionTtlHours) {
+        this.deindexEntry(entry);
         this.session.delete(entry.id);
         demoted++;
       }
@@ -162,9 +174,9 @@ export class MemoryStore {
     for (const entry of this.episodic.values()) {
       const ageHours = (now - entry.lastAccessedAt) / 3600_000;
       if (ageHours > this.config.episodicTtlHours) {
-        // Don't delete — just decay importance
         entry.importance = Math.max(0, entry.importance - 5);
         if (entry.importance === 0) {
+          this.deindexEntry(entry);
           this.episodic.delete(entry.id);
           demoted++;
         }
@@ -193,11 +205,28 @@ export class MemoryStore {
    */
   clear(type?: MemoryType): void {
     if (type) {
+      for (const entry of this.getStore(type).values()) this.deindexEntry(entry);
       this.getStore(type).clear();
     } else {
       this.session.clear();
       this.episodic.clear();
       this.longterm.clear();
+      this.tagIndex.clear();
+    }
+  }
+
+  private indexTags(entry: MemoryEntry): void {
+    for (const tag of entry.tags) {
+      const key = tag.toLowerCase();
+      if (!this.tagIndex.has(key)) this.tagIndex.set(key, new Set());
+      this.tagIndex.get(key)!.add(entry.id);
+    }
+  }
+
+  private deindexEntry(entry: MemoryEntry): void {
+    for (const tag of entry.tags) {
+      const key = tag.toLowerCase();
+      this.tagIndex.get(key)?.delete(entry.id);
     }
   }
 

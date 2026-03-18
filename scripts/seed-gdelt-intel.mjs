@@ -101,7 +101,7 @@ async function fetchAllTopics() {
 function validate(data) {
   if (!Array.isArray(data?.topics) || data.topics.length === 0) return false;
   const populated = data.topics.filter((t) => Array.isArray(t.articles) && t.articles.length > 0);
-  return populated.length >= 2; // at least 2 of 4 topics must have articles
+  return populated.length >= 4; // all 4 topics must have articles; partial writes are worse than TTL-extending the last complete snapshot
 }
 
 runSeed('intelligence', 'gdelt-intel', CANONICAL_KEY, fetchAllTopics, {

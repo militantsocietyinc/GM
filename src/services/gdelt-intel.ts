@@ -157,6 +157,11 @@ export async function fetchGdeltArticles(
   }, emptyGdeltFallback);
 
   if (resp.error) {
+    if (resp.error === 'seed-unavailable') {
+      // Seed expired on the server — return stale client cache if available so
+      // the panel can show something while waiting for the next Railway seed run.
+      return cached?.articles || [];
+    }
     console.warn(`[GDELT-Intel] RPC error: ${resp.error}`);
     return cached?.articles || [];
   }

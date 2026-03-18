@@ -3788,6 +3788,14 @@ export class DeckGLMap {
       x,
       y,
     });
+
+    // Async Wingbits live enrichment for military flight popups
+    if (popupType === 'militaryFlight') {
+      const hexCode = (data as { hexCode?: string }).hexCode;
+      if (hexCode) {
+        this.popup.loadWingbitsLiveFlight(hexCode);
+      }
+    }
   }
 
   private async showWebcamClickPopup(webcam: WebcamEntry, x: number, y: number): Promise<void> {

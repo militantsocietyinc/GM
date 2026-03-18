@@ -284,14 +284,10 @@ export function createDomainGateway(
         if (cdnCache) mergedHeaders.set('CDN-Cache-Control', cdnCache);
         mergedHeaders.set('X-Cache-Tier', tier);
 
-        // For cacheable public responses: use ACAO: * to collapse Vary: Origin cache
-        // fragmentation. Vercel would otherwise store one cache entry per unique
-        // Origin value (worldmonitor.app, tech.*, finance.*, tauri://, etc.),
-        // multiplying cold-start origin hits by the number of distinct origins.
-        // Security: isDisallowedOrigin() has already 403'd unauthorized origins
-        // before this point, so returning * here only affects allowed callers.
-        mergedHeaders.set('Access-Control-Allow-Origin', '*');
-        mergedHeaders.delete('Vary');
+        // Keep per-origin ACAO (already set from corsHeaders above) and preserve Vary: Origin.
+        // ACAO: * with no Vary would collapse all origins into one cache entry, bypassing
+        // isDisallowedOrigin() for cache hits — Vercel CDN serves s-maxage responses without
+        // re-invoking the function, so a disallowed origin could read a cached ACAO: * response.
       }
       mergedHeaders.delete('X-No-Cache');
       if (!new URL(request.url).searchParams.has('_debug')) {

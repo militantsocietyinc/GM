@@ -22,6 +22,7 @@ import { createSignal } from './tools/registry';
 import './tools/adapters';
 import './tools/sp500-sectors';
 import './tools/earnings-capture';
+import './tools/llm-provider';
 
 // ============================================================================
 // BRIDGE STATE

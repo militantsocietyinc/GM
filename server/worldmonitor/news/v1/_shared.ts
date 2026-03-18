@@ -143,6 +143,11 @@ export interface ProviderCredentials {
   extraBody?: Record<string, unknown>;
 }
 
+/**
+ * Provider credential resolution.
+ * Priority: ollama (local Llama) → groq (cloud) → openrouter (fallback)
+ * Default Ollama model changed to llama3.2:3b for small-param inference.
+ */
 export function getProviderCredentials(provider: string): ProviderCredentials | null {
   if (provider === 'ollama') {
     const baseUrl = process.env.OLLAMA_API_URL;
@@ -154,7 +159,7 @@ export function getProviderCredentials(provider: string): ProviderCredentials | 
     }
     return {
       apiUrl: new URL('/v1/chat/completions', baseUrl).toString(),
-      model: process.env.OLLAMA_MODEL || 'llama3.1:8b',
+      model: process.env.OLLAMA_MODEL || 'llama3.2:3b',
       headers,
       extraBody: { think: false },
     };
@@ -165,7 +170,7 @@ export function getProviderCredentials(provider: string): ProviderCredentials | 
     if (!apiKey) return null;
     return {
       apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
-      model: 'llama-3.1-8b-instant',
+      model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',

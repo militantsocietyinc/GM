@@ -91,6 +91,9 @@ export {
   createSignal,
 } from './tools/registry';
 
+// LLM tools are registered via side-effect import in bridge.ts
+// (llm.classify, llm.brief, llm.synthesize)
+
 // SP500 & Earnings
 export { SP500_SECTORS, ALL_SP500_HOLDINGS, matchSectors } from './tools/sp500-sectors';
 export type { SectorDefinition } from './tools/sp500-sectors';

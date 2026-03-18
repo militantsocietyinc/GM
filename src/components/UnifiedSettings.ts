@@ -386,7 +386,6 @@ export class UnifiedSettings {
     this.draftPanelSettings = this.clonePanelSettings();
     this.panelsJustSaved = true;
     this.renderPanelsTab();
-    showToast(t('modals.settingsWindow.saved'));
     if (this.savedTimeout) clearTimeout(this.savedTimeout);
     this.savedTimeout = setTimeout(() => {
       this.panelsJustSaved = false;

@@ -5,11 +5,11 @@ import { loadEnvFile, CHROME_UA, runSeed, sleep } from './_seed-utils.mjs';
 loadEnvFile(import.meta.url);
 
 const CANONICAL_KEY = 'intelligence:gdelt-intel:v1';
-const CACHE_TTL = 21600; // 6h — cron runs every 4h; TTL must outlive maxStaleMin:300 to allow STALE warning before EMPTY/CRIT
+const CACHE_TTL = 21600; // 6h — cron runs every 2h; TTL must outlive maxStaleMin:300 to allow STALE warning before EMPTY/CRIT
 const GDELT_DOC_API = 'https://api.gdeltproject.org/api/v2/doc/doc';
 const INTER_TOPIC_DELAY_MS = 20_000; // 20s between topics to avoid 429
 
-// 4 topics (down from 6) to reduce GDELT 429 pressure on the 2h cron cycle.
+// 4 topics (down from 6 in prior fix #1817) to reduce GDELT 429 pressure on the 2h cron cycle.
 // Dropped: sanctions (covered by market/economic data), intelligence (overlaps with military).
 const INTEL_TOPICS = [
   { id: 'military',     query: '(military exercise OR troop deployment OR airstrike OR "naval exercise") sourcelang:eng' },
@@ -101,7 +101,7 @@ async function fetchAllTopics() {
 function validate(data) {
   if (!Array.isArray(data?.topics) || data.topics.length === 0) return false;
   const populated = data.topics.filter((t) => Array.isArray(t.articles) && t.articles.length > 0);
-  return populated.length >= 4; // all 4 topics must have articles; partial writes are worse than TTL-extending the last complete snapshot
+  return populated.length >= 2; // at least 2/4 topics must have articles; a partial write extends seed-meta TTL and prevents STALE
 }
 
 runSeed('intelligence', 'gdelt-intel', CANONICAL_KEY, fetchAllTopics, {

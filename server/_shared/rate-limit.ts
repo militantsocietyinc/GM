@@ -19,14 +19,33 @@ function getRatelimit(): Ratelimit | null {
 }
 
 function getClientIp(request: Request): string {
-  // Vercel injects x-real-ip from the TCP connection — cannot be spoofed by clients.
+  // With Cloudflare proxy → Vercel, x-real-ip is the CF edge IP (shared across users).
+  // cf-connecting-ip is the actual client IP set by Cloudflare — prefer it.
   // x-forwarded-for is client-settable and MUST NOT be trusted for rate limiting.
   return (
-    request.headers.get('x-real-ip') ||
     request.headers.get('cf-connecting-ip') ||
+    request.headers.get('x-real-ip') ||
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     '0.0.0.0'
   );
+}
+
+function tooManyRequestsResponse(
+  limit: number,
+  reset: number,
+  corsHeaders: Record<string, string>,
+): Response {
+  return new Response(JSON.stringify({ error: 'Too many requests' }), {
+    status: 429,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-RateLimit-Limit': String(limit),
+      'X-RateLimit-Remaining': '0',
+      'X-RateLimit-Reset': String(reset),
+      'Retry-After': String(Math.ceil((reset - Date.now()) / 1000)),
+      ...corsHeaders,
+    },
+  });
 }
 
 export async function checkRateLimit(
@@ -42,17 +61,7 @@ export async function checkRateLimit(
     const { success, limit, reset } = await rl.limit(ip);
 
     if (!success) {
-      return new Response(JSON.stringify({ error: 'Too many requests' }), {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-RateLimit-Limit': String(limit),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(reset),
-          'Retry-After': String(Math.ceil((reset - Date.now()) / 1000)),
-          ...corsHeaders,
-        },
-      });
+      return tooManyRequestsResponse(limit, reset, corsHeaders);
     }
 
     return null;
@@ -114,17 +123,7 @@ export async function checkEndpointRateLimit(
     const { success, limit, reset } = await rl.limit(`${pathname}:${ip}`);
 
     if (!success) {
-      return new Response(JSON.stringify({ error: 'Too many requests' }), {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-RateLimit-Limit': String(limit),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(reset),
-          'Retry-After': String(Math.ceil((reset - Date.now()) / 1000)),
-          ...corsHeaders,
-        },
-      });
+      return tooManyRequestsResponse(limit, reset, corsHeaders);
     }
 
     return null;

@@ -5,6 +5,7 @@
  * All data now flows through the MarketServiceClient RPCs.
  */
 
+import { getRpcBaseUrl } from '@/services/rpc-client';
 import {
   MarketServiceClient,
   type ListMarketQuotesResponse,
@@ -13,15 +14,16 @@ import {
   type CryptoQuote as ProtoCryptoQuote,
 } from '@/generated/client/worldmonitor/market/v1/service_client';
 import type { MarketData, CryptoData } from '@/types';
-import { createCircuitBreaker } from '@/utils';
+import { createCircuitBreaker } from '@/utils/circuit-breaker';
 import { getHydratedData } from '@/services/bootstrap';
 
 // ---- Client + Circuit Breakers ----
 
-const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
-const stockBreaker = createCircuitBreaker<ListMarketQuotesResponse>({ name: 'Market Quotes', cacheTtlMs: 0 });
-const commodityBreaker = createCircuitBreaker<ListMarketQuotesResponse>({ name: 'Commodity Quotes', cacheTtlMs: 0 });
-const cryptoBreaker = createCircuitBreaker<ListCryptoQuotesResponse>({ name: 'Crypto Quotes' });
+const client = new MarketServiceClient(getRpcBaseUrl(), { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
+const MARKET_QUOTES_CACHE_TTL_MS = 5 * 60 * 1000;
+const stockBreaker = createCircuitBreaker<ListMarketQuotesResponse>({ name: 'Market Quotes', cacheTtlMs: MARKET_QUOTES_CACHE_TTL_MS, persistCache: true });
+const commodityBreaker = createCircuitBreaker<ListMarketQuotesResponse>({ name: 'Commodity Quotes', cacheTtlMs: MARKET_QUOTES_CACHE_TTL_MS, persistCache: true });
+const cryptoBreaker = createCircuitBreaker<ListCryptoQuotesResponse>({ name: 'Crypto Quotes', persistCache: true });
 
 const emptyStockFallback: ListMarketQuotesResponse = { quotes: [], finnhubSkipped: false, skipReason: '', rateLimited: false };
 const emptyCryptoFallback: ListCryptoQuotesResponse = { quotes: [] };
@@ -67,24 +69,45 @@ export interface MarketFetchResult {
 const lastSuccessfulByKey = new Map<string, MarketData[]>();
 
 function symbolSetKey(symbols: string[]): string {
-  return [...symbols].sort().join(',');
+  return [...new Set(symbols.map((symbol) => symbol.trim()))].sort().join(',');
 }
 
 export async function fetchMultipleStocks(
   symbols: Array<{ symbol: string; name: string; display: string }>,
   options: { onBatch?: (results: MarketData[]) => void; useCommodityBreaker?: boolean } = {},
 ): Promise<MarketFetchResult> {
-  const allSymbolStrings = symbols.map((s) => s.symbol);
+  // Preserve exact requested symbols for cache keys and request payloads so
+  // case-distinct instruments do not collapse into one cache entry.
+  const symbolMetaMap = new Map<string, { symbol: string; name: string; display: string }>();
+  // Case-insensitive fallback: maps UPPER(symbol) → first requested candidate.
+  // "First wins" is intentional — assumes case-variants are the same instrument
+  // (e.g. btc-usd / BTC-USD both refer to the same asset). When the backend
+  // normalizes casing (e.g. returns "Btc-Usd"), we still recover metadata
+  // rather than silently dropping it as the old null-sentinel approach did.
+  const uppercaseMetaMap = new Map<string, { symbol: string; name: string; display: string }>();
+  for (const s of symbols) {
+    const trimmed = s.symbol.trim();
+    if (!symbolMetaMap.has(trimmed)) symbolMetaMap.set(trimmed, s);
+
+    const upper = trimmed.toUpperCase();
+    if (!uppercaseMetaMap.has(upper)) {
+      uppercaseMetaMap.set(upper, s);
+    }
+  }
+  const allSymbolStrings = [...symbolMetaMap.keys()];
   const setKey = symbolSetKey(allSymbolStrings);
-  const symbolMetaMap = new Map(symbols.map((s) => [s.symbol, s]));
 
   const breaker = options.useCommodityBreaker ? commodityBreaker : stockBreaker;
   const resp = await breaker.execute(async () => {
     return client.listMarketQuotes({ symbols: allSymbolStrings });
-  }, emptyStockFallback);
+  }, emptyStockFallback, {
+    cacheKey: setKey,
+    shouldCache: (r) => r.quotes.length > 0,
+  });
 
   const results = resp.quotes.map((q) => {
-    const meta = symbolMetaMap.get(q.symbol);
+    const trimmed = q.symbol.trim();
+    const meta = symbolMetaMap.get(trimmed) ?? uppercaseMetaMap.get(trimmed.toUpperCase()) ?? undefined;
     return toMarketData(q, meta);
   });
 

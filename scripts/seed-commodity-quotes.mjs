@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-import { loadEnvFile, CHROME_UA, sleep, runSeed, parseYahooChart, writeExtraKey } from './_seed-utils.mjs';
+import { loadEnvFile, loadSharedConfig, CHROME_UA, sleep, runSeed, parseYahooChart, writeExtraKey } from './_seed-utils.mjs';
+
+const commodityConfig = loadSharedConfig('commodities.json');
 
 loadEnvFile(import.meta.url);
 
@@ -30,7 +32,7 @@ async function fetchYahooWithRetry(url, label, maxAttempts = 4) {
   return null;
 }
 
-const COMMODITY_SYMBOLS = ['^VIX', 'GC=F', 'CL=F', 'NG=F', 'SI=F', 'HG=F'];
+const COMMODITY_SYMBOLS = commodityConfig.commodities.map(c => c.symbol);
 
 async function fetchCommodityQuotes() {
   const quotes = [];
@@ -90,6 +92,6 @@ runSeed('market', 'commodities', CANONICAL_KEY, fetchAndStash, {
   await writeExtraKey(commodityKey, seedData, CACHE_TTL);
   await writeExtraKey(quotesKey, quotesPayload, CACHE_TTL);
 }).catch((err) => {
-  console.error('FATAL:', err.message || err);
+  const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : ''; console.error('FATAL:', (err.message || err) + _cause);
   process.exit(1);
 });

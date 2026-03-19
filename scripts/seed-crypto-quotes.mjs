@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 
-import { createRequire } from 'module';
-import { loadEnvFile, CHROME_UA, runSeed, sleep } from './_seed-utils.mjs';
+import { loadEnvFile, loadSharedConfig, CHROME_UA, runSeed, sleep } from './_seed-utils.mjs';
 
-const require = createRequire(import.meta.url);
-const cryptoConfig = require('../shared/crypto.json');
+const cryptoConfig = loadSharedConfig('crypto.json');
 
 loadEnvFile(import.meta.url);
 
@@ -122,6 +120,6 @@ runSeed('market', 'crypto', CANONICAL_KEY, fetchCryptoQuotes, {
   ttlSeconds: CACHE_TTL,
   sourceVersion: 'coingecko-markets',
 }).catch((err) => {
-  console.error('FATAL:', err.message || err);
+  const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : ''; console.error('FATAL:', (err.message || err) + _cause);
   process.exit(1);
 });

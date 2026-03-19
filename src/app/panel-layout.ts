@@ -6,15 +6,19 @@ import {
   MapContainer,
   NewsPanel,
   MarketPanel,
+  StockAnalysisPanel,
+  StockBacktestPanel,
   HeatmapPanel,
   CommoditiesPanel,
   CryptoPanel,
   PredictionPanel,
   MonitorPanel,
   EconomicPanel,
+  EnergyComplexPanel,
   GdeltIntelPanel,
   LiveNewsPanel,
   LiveWebcamsPanel,
+  PinnedWebcamsPanel,
   CIIPanel,
   CascadePanel,
   StrategicRiskPanel,
@@ -30,10 +34,15 @@ import {
   InvestmentsPanel,
   TradePolicyPanel,
   SupplyChainPanel,
+  SanctionsPressurePanel,
   GulfEconomiesPanel,
   WorldClockPanel,
   AirlineIntelPanel,
   AviationCommandBar,
+  MilitaryCorrelationPanel,
+  EscalationCorrelationPanel,
+  EconomicCorrelationPanel,
+  DisasterCorrelationPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
@@ -51,6 +60,14 @@ import { t } from '@/services/i18n';
 import { getCurrentTheme } from '@/utils';
 import { trackCriticalBannerAction } from '@/services/analytics';
 import { getSecretState } from '@/services/runtime-config';
+import { CustomWidgetPanel } from '@/components/CustomWidgetPanel';
+import { openWidgetChatModal } from '@/components/WidgetChatModal';
+import { isWidgetFeatureEnabled, isProWidgetEnabled, loadWidgets, saveWidget } from '@/services/widget-store';
+import type { CustomWidgetSpec } from '@/services/widget-store';
+import { McpDataPanel } from '@/components/McpDataPanel';
+import { openMcpConnectModal } from '@/components/McpConnectModal';
+import { loadMcpPanels, saveMcpPanel } from '@/services/mcp-store';
+import type { McpPanelSpec } from '@/services/mcp-store';
 
 export interface PanelLayoutCallbacks {
   openCountryStory: (code: string, name: string) => void;
@@ -120,8 +137,9 @@ export class PanelLayoutManager implements AppModule {
           </button>
           <div class="variant-switcher">${(() => {
         const local = this.ctx.isDesktopApp || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        const inIframe = window.self !== window.top;
         const vHref = (v: string, prod: string) => local || SITE_VARIANT === v ? '#' : prod;
-        const vTarget = (_v: string) => '';
+        const vTarget = (v: string) => !local && SITE_VARIANT !== v && inIframe ? 'target="_blank" rel="noopener"' : '';
         return `
             <a href="${vHref('full', 'https://worldmonitor.app')}"
                class="variant-option ${SITE_VARIANT === 'full' ? 'active' : ''}"
@@ -149,24 +167,24 @@ export class PanelLayoutManager implements AppModule {
               <span class="variant-icon">📈</span>
               <span class="variant-label">${t('header.finance')}</span>
             </a>
-            ${SITE_VARIANT === 'commodity' ? `<span class="variant-divider"></span>
+            <span class="variant-divider"></span>
             <a href="${vHref('commodity', 'https://commodity.worldmonitor.app')}"
-               class="variant-option active"
+               class="variant-option ${SITE_VARIANT === 'commodity' ? 'active' : ''}"
                data-variant="commodity"
                ${vTarget('commodity')}
-               title="${t('header.commodity')} ${t('common.currentVariant')}">
+               title="${t('header.commodity')}${SITE_VARIANT === 'commodity' ? ` ${t('common.currentVariant')}` : ''}">
               <span class="variant-icon">⛏️</span>
               <span class="variant-label">${t('header.commodity')}</span>
-            </a>` : ''}
-            ${SITE_VARIANT === 'happy' ? `<span class="variant-divider"></span>
+            </a>
+            <span class="variant-divider"></span>
             <a href="${vHref('happy', 'https://happy.worldmonitor.app')}"
-               class="variant-option active"
+               class="variant-option ${SITE_VARIANT === 'happy' ? 'active' : ''}"
                data-variant="happy"
                ${vTarget('happy')}
-               title="Good News ${t('common.currentVariant')}">
+               title="Good News${SITE_VARIANT === 'happy' ? ` ${t('common.currentVariant')}` : ''}">
               <span class="variant-icon">☀️</span>
               <span class="variant-label">Good News</span>
-            </a>` : ''}`;
+            </a>`;
       })()}</div>
           <span class="logo">MONITOR</span><span class="logo-mobile">World Monitor</span><span class="version">v${__APP_VERSION__}</span>${BETA_MODE ? '<span class="beta-badge">BETA</span>' : ''}
           <a href="https://x.com/eliehabib" target="_blank" rel="noopener" class="credit-link">
@@ -209,11 +227,6 @@ export class PanelLayoutManager implements AppModule {
           </div>`}
           <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> ${t('header.search')}</button>
           ${this.ctx.isDesktopApp ? '' : `<button class="copy-link-btn" id="copyLinkBtn">${t('header.copyLink')}</button>`}
-          <button class="theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}">
-            ${getCurrentTheme() === 'dark'
-        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
-        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'}
-          </button>
           ${this.ctx.isDesktopApp ? '' : `<button class="fullscreen-btn" id="fullscreenBtn" title="${t('header.fullscreen')}">⛶</button>`}
           ${SITE_VARIANT === 'happy' ? `<button class="tv-mode-btn" id="tvModeBtn" title="TV Mode (Shift+T)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>` : ''}
           <span id="unifiedSettingsMount"></span>
@@ -233,8 +246,9 @@ export class PanelLayoutManager implements AppModule {
           { key: 'full', icon: '🌍', label: t('header.world') },
           { key: 'tech', icon: '💻', label: t('header.tech') },
           { key: 'finance', icon: '📈', label: t('header.finance') },
+          { key: 'commodity', icon: '⛏️', label: t('header.commodity') },
+          { key: 'happy', icon: '☀️', label: 'Good News' },
         ];
-        if (SITE_VARIANT === 'happy') variants.push({ key: 'happy', icon: '☀️', label: 'Good News' });
         return variants.map(v =>
           `<button class="mobile-menu-item mobile-menu-variant ${v.key === SITE_VARIANT ? 'active' : ''}" data-variant="${v.key}">
             <span class="mobile-menu-item-icon">${v.icon}</span>
@@ -263,6 +277,12 @@ export class PanelLayoutManager implements AppModule {
           <span class="mobile-menu-item-label">@eliehabib</span>
         </a>
         <div class="mobile-menu-divider"></div>
+        <div class="mobile-menu-footer-links">
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/pro' : 'https://www.worldmonitor.app/pro'}" target="_blank" rel="noopener">Pro</a>
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/blog/' : 'https://www.worldmonitor.app/blog/'}" target="_blank" rel="noopener">Blog</a>
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/docs' : 'https://www.worldmonitor.app/docs'}" target="_blank" rel="noopener">Docs</a>
+          <a href="https://status.worldmonitor.app/" target="_blank" rel="noopener">Status</a>
+        </div>
         <div class="mobile-menu-version">v${__APP_VERSION__}</div>
       </nav>
       <div class="region-sheet-backdrop" id="regionSheetBackdrop"></div>
@@ -315,6 +335,25 @@ export class PanelLayoutManager implements AppModule {
         <div class="panels-grid" id="panelsGrid"></div>
         <button class="search-mobile-fab" id="searchMobileFab" aria-label="Search">\u{1F50D}</button>
       </div>
+      <footer class="site-footer">
+        <div class="site-footer-brand">
+          <img src="/favico/favicon-32x32.png" alt="" width="28" height="28" class="site-footer-icon" />
+          <div class="site-footer-brand-text">
+            <span class="site-footer-name">WORLD MONITOR</span>
+            <span class="site-footer-sub">by Someone.ceo</span>
+          </div>
+        </div>
+        <nav>
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/pro' : 'https://www.worldmonitor.app/pro'}" target="_blank" rel="noopener">Pro</a>
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/blog/' : 'https://www.worldmonitor.app/blog/'}" target="_blank" rel="noopener">Blog</a>
+          <a href="${this.ctx.isDesktopApp ? 'https://worldmonitor.app/docs' : 'https://www.worldmonitor.app/docs'}" target="_blank" rel="noopener">Docs</a>
+          <a href="https://status.worldmonitor.app/" target="_blank" rel="noopener">Status</a>
+          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/koala73/worldmonitor/discussions" target="_blank" rel="noopener">Discussions</a>
+          <a href="https://x.com/worldmonitorai" target="_blank" rel="noopener">X</a>
+        </nav>
+        <span class="site-footer-copy">&copy; ${new Date().getFullYear()} World Monitor</span>
+      </footer>
     `;
 
     this.createPanels();
@@ -429,12 +468,33 @@ export class PanelLayoutManager implements AppModule {
           if (mainContent) {
             mainContent.classList.toggle('map-hidden', !config.enabled);
           }
+          this.ensureCorrectZones();
         }
         return;
       }
       const panel = this.ctx.panels[key];
       panel?.toggle(config.enabled);
     });
+  }
+
+  private shouldCreatePanel(key: string): boolean {
+    return Object.prototype.hasOwnProperty.call(DEFAULT_PANELS, key);
+  }
+
+  private createNewsPanel(key: string, labelKey: string): NewsPanel | null {
+    if (!this.shouldCreatePanel(key)) return null;
+    const panel = new NewsPanel(key, t(labelKey));
+    this.attachRelatedAssetHandlers(panel);
+    this.ctx.newsPanels[key] = panel;
+    this.ctx.panels[key] = panel;
+    return panel;
+  }
+
+  private createPanel<T extends import('@/components/Panel').Panel>(key: string, factory: () => T): T | null {
+    if (!this.shouldCreatePanel(key)) return null;
+    const panel = factory();
+    this.ctx.panels[key] = panel;
+    return panel;
   }
 
   private createPanels(): void {
@@ -453,180 +513,79 @@ export class PanelLayoutManager implements AppModule {
     this.ctx.map.initEscalationGetters();
     this.ctx.currentTimeRange = this.ctx.map.getTimeRange();
 
-    const politicsPanel = new NewsPanel('politics', t('panels.politics'));
-    this.attachRelatedAssetHandlers(politicsPanel);
-    this.ctx.newsPanels['politics'] = politicsPanel;
-    this.ctx.panels['politics'] = politicsPanel;
+    this.createNewsPanel('politics', 'panels.politics');
+    this.createNewsPanel('tech', 'panels.tech');
+    this.createNewsPanel('finance', 'panels.finance');
 
-    const techPanel = new NewsPanel('tech', t('panels.tech'));
-    this.attachRelatedAssetHandlers(techPanel);
-    this.ctx.newsPanels['tech'] = techPanel;
-    this.ctx.panels['tech'] = techPanel;
+    this.createPanel('heatmap', () => new HeatmapPanel());
+    this.createPanel('markets', () => new MarketPanel());
+    const stockAnalysisPanel = this.createPanel('stock-analysis', () => new StockAnalysisPanel());
+    if (stockAnalysisPanel && !getSecretState('WORLDMONITOR_API_KEY').present && !isProWidgetEnabled()) {
+      stockAnalysisPanel.showLocked([
+        'AI stock briefs with technical + news synthesis',
+        'Trend scoring from MA, MACD, RSI, and volume structure',
+        'Actionable watchlist monitoring for your premium workspace',
+      ]);
+    }
+    const stockBacktestPanel = this.createPanel('stock-backtest', () => new StockBacktestPanel());
+    if (stockBacktestPanel && !getSecretState('WORLDMONITOR_API_KEY').present && !isProWidgetEnabled()) {
+      stockBacktestPanel.showLocked([
+        'Historical replay of premium stock-analysis signals',
+        'Win-rate, accuracy, and simulated-return metrics',
+        'Recent evaluation samples for your tracked symbols',
+      ]);
+    }
 
-    const financePanel = new NewsPanel('finance', t('panels.finance'));
-    this.attachRelatedAssetHandlers(financePanel);
-    this.ctx.newsPanels['finance'] = financePanel;
-    this.ctx.panels['finance'] = financePanel;
-
-    const heatmapPanel = new HeatmapPanel();
-    this.ctx.panels['heatmap'] = heatmapPanel;
-
-    const marketsPanel = new MarketPanel();
-    this.ctx.panels['markets'] = marketsPanel;
-
-    const monitorPanel = new MonitorPanel(this.ctx.monitors);
-    this.ctx.panels['monitors'] = monitorPanel;
-    monitorPanel.onChanged((monitors) => {
+    const monitorPanel = this.createPanel('monitors', () => new MonitorPanel(this.ctx.monitors));
+    monitorPanel?.onChanged((monitors) => {
       this.ctx.monitors = monitors;
       saveToStorage(STORAGE_KEYS.monitors, monitors);
       this.callbacks.updateMonitorResults();
     });
 
-    const commoditiesPanel = new CommoditiesPanel();
-    this.ctx.panels['commodities'] = commoditiesPanel;
+    this.createPanel('commodities', () => new CommoditiesPanel());
+    this.createPanel('energy-complex', () => new EnergyComplexPanel());
+    this.createPanel('polymarket', () => new PredictionPanel());
 
-    const predictionPanel = new PredictionPanel();
-    this.ctx.panels['polymarket'] = predictionPanel;
+    this.createNewsPanel('gov', 'panels.gov');
+    this.createNewsPanel('intel', 'panels.intel');
 
-    const govPanel = new NewsPanel('gov', t('panels.gov'));
-    this.attachRelatedAssetHandlers(govPanel);
-    this.ctx.newsPanels['gov'] = govPanel;
-    this.ctx.panels['gov'] = govPanel;
+    this.createPanel('crypto', () => new CryptoPanel());
+    this.createNewsPanel('middleeast', 'panels.middleeast');
+    this.createNewsPanel('layoffs', 'panels.layoffs');
+    this.createNewsPanel('ai', 'panels.ai');
+    this.createNewsPanel('startups', 'panels.startups');
+    this.createNewsPanel('vcblogs', 'panels.vcblogs');
+    this.createNewsPanel('regionalStartups', 'panels.regionalStartups');
+    this.createNewsPanel('unicorns', 'panels.unicorns');
+    this.createNewsPanel('accelerators', 'panels.accelerators');
+    this.createNewsPanel('funding', 'panels.funding');
+    this.createNewsPanel('producthunt', 'panels.producthunt');
+    this.createNewsPanel('security', 'panels.security');
+    this.createNewsPanel('policy', 'panels.policy');
+    this.createNewsPanel('hardware', 'panels.hardware');
+    this.createNewsPanel('cloud', 'panels.cloud');
+    this.createNewsPanel('dev', 'panels.dev');
+    this.createNewsPanel('github', 'panels.github');
+    this.createNewsPanel('ipo', 'panels.ipo');
+    this.createNewsPanel('thinktanks', 'panels.thinktanks');
+    this.createPanel('economic', () => new EconomicPanel());
 
-    const intelPanel = new NewsPanel('intel', t('panels.intel'));
-    this.attachRelatedAssetHandlers(intelPanel);
-    this.ctx.newsPanels['intel'] = intelPanel;
-    this.ctx.panels['intel'] = intelPanel;
+    this.createPanel('trade-policy', () => new TradePolicyPanel());
+    this.createPanel('sanctions-pressure', () => new SanctionsPressurePanel());
+    this.createPanel('supply-chain', () => new SupplyChainPanel());
 
-    const cryptoPanel = new CryptoPanel();
-    this.ctx.panels['crypto'] = cryptoPanel;
-
-    const middleeastPanel = new NewsPanel('middleeast', t('panels.middleeast'));
-    this.attachRelatedAssetHandlers(middleeastPanel);
-    this.ctx.newsPanels['middleeast'] = middleeastPanel;
-    this.ctx.panels['middleeast'] = middleeastPanel;
-
-    const layoffsPanel = new NewsPanel('layoffs', t('panels.layoffs'));
-    this.attachRelatedAssetHandlers(layoffsPanel);
-    this.ctx.newsPanels['layoffs'] = layoffsPanel;
-    this.ctx.panels['layoffs'] = layoffsPanel;
-
-    const aiPanel = new NewsPanel('ai', t('panels.ai'));
-    this.attachRelatedAssetHandlers(aiPanel);
-    this.ctx.newsPanels['ai'] = aiPanel;
-    this.ctx.panels['ai'] = aiPanel;
-
-    const startupsPanel = new NewsPanel('startups', t('panels.startups'));
-    this.attachRelatedAssetHandlers(startupsPanel);
-    this.ctx.newsPanels['startups'] = startupsPanel;
-    this.ctx.panels['startups'] = startupsPanel;
-
-    const vcblogsPanel = new NewsPanel('vcblogs', t('panels.vcblogs'));
-    this.attachRelatedAssetHandlers(vcblogsPanel);
-    this.ctx.newsPanels['vcblogs'] = vcblogsPanel;
-    this.ctx.panels['vcblogs'] = vcblogsPanel;
-
-    const regionalStartupsPanel = new NewsPanel('regionalStartups', t('panels.regionalStartups'));
-    this.attachRelatedAssetHandlers(regionalStartupsPanel);
-    this.ctx.newsPanels['regionalStartups'] = regionalStartupsPanel;
-    this.ctx.panels['regionalStartups'] = regionalStartupsPanel;
-
-    const unicornsPanel = new NewsPanel('unicorns', t('panels.unicorns'));
-    this.attachRelatedAssetHandlers(unicornsPanel);
-    this.ctx.newsPanels['unicorns'] = unicornsPanel;
-    this.ctx.panels['unicorns'] = unicornsPanel;
-
-    const acceleratorsPanel = new NewsPanel('accelerators', t('panels.accelerators'));
-    this.attachRelatedAssetHandlers(acceleratorsPanel);
-    this.ctx.newsPanels['accelerators'] = acceleratorsPanel;
-    this.ctx.panels['accelerators'] = acceleratorsPanel;
-
-    const fundingPanel = new NewsPanel('funding', t('panels.funding'));
-    this.attachRelatedAssetHandlers(fundingPanel);
-    this.ctx.newsPanels['funding'] = fundingPanel;
-    this.ctx.panels['funding'] = fundingPanel;
-
-    const producthuntPanel = new NewsPanel('producthunt', t('panels.producthunt'));
-    this.attachRelatedAssetHandlers(producthuntPanel);
-    this.ctx.newsPanels['producthunt'] = producthuntPanel;
-    this.ctx.panels['producthunt'] = producthuntPanel;
-
-    const securityPanel = new NewsPanel('security', t('panels.security'));
-    this.attachRelatedAssetHandlers(securityPanel);
-    this.ctx.newsPanels['security'] = securityPanel;
-    this.ctx.panels['security'] = securityPanel;
-
-    const policyPanel = new NewsPanel('policy', t('panels.policy'));
-    this.attachRelatedAssetHandlers(policyPanel);
-    this.ctx.newsPanels['policy'] = policyPanel;
-    this.ctx.panels['policy'] = policyPanel;
-
-    const hardwarePanel = new NewsPanel('hardware', t('panels.hardware'));
-    this.attachRelatedAssetHandlers(hardwarePanel);
-    this.ctx.newsPanels['hardware'] = hardwarePanel;
-    this.ctx.panels['hardware'] = hardwarePanel;
-
-    const cloudPanel = new NewsPanel('cloud', t('panels.cloud'));
-    this.attachRelatedAssetHandlers(cloudPanel);
-    this.ctx.newsPanels['cloud'] = cloudPanel;
-    this.ctx.panels['cloud'] = cloudPanel;
-
-    const devPanel = new NewsPanel('dev', t('panels.dev'));
-    this.attachRelatedAssetHandlers(devPanel);
-    this.ctx.newsPanels['dev'] = devPanel;
-    this.ctx.panels['dev'] = devPanel;
-
-    const githubPanel = new NewsPanel('github', t('panels.github'));
-    this.attachRelatedAssetHandlers(githubPanel);
-    this.ctx.newsPanels['github'] = githubPanel;
-    this.ctx.panels['github'] = githubPanel;
-
-    const ipoPanel = new NewsPanel('ipo', t('panels.ipo'));
-    this.attachRelatedAssetHandlers(ipoPanel);
-    this.ctx.newsPanels['ipo'] = ipoPanel;
-    this.ctx.panels['ipo'] = ipoPanel;
-
-    const thinktanksPanel = new NewsPanel('thinktanks', t('panels.thinktanks'));
-    this.attachRelatedAssetHandlers(thinktanksPanel);
-    this.ctx.newsPanels['thinktanks'] = thinktanksPanel;
-    this.ctx.panels['thinktanks'] = thinktanksPanel;
-
-    const economicPanel = new EconomicPanel();
-    this.ctx.panels['economic'] = economicPanel;
-
-    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
-      const tradePolicyPanel = new TradePolicyPanel();
-      this.ctx.panels['trade-policy'] = tradePolicyPanel;
-
-      const supplyChainPanel = new SupplyChainPanel();
-      this.ctx.panels['supply-chain'] = supplyChainPanel;
-    }
-
-    const africaPanel = new NewsPanel('africa', t('panels.africa'));
-    this.attachRelatedAssetHandlers(africaPanel);
-    this.ctx.newsPanels['africa'] = africaPanel;
-    this.ctx.panels['africa'] = africaPanel;
-
-    const latamPanel = new NewsPanel('latam', t('panels.latam'));
-    this.attachRelatedAssetHandlers(latamPanel);
-    this.ctx.newsPanels['latam'] = latamPanel;
-    this.ctx.panels['latam'] = latamPanel;
-
-    const asiaPanel = new NewsPanel('asia', t('panels.asia'));
-    this.attachRelatedAssetHandlers(asiaPanel);
-    this.ctx.newsPanels['asia'] = asiaPanel;
-    this.ctx.panels['asia'] = asiaPanel;
-
-    const energyPanel = new NewsPanel('energy', t('panels.energy'));
-    this.attachRelatedAssetHandlers(energyPanel);
-    this.ctx.newsPanels['energy'] = energyPanel;
-    this.ctx.panels['energy'] = energyPanel;
+    this.createNewsPanel('africa', 'panels.africa');
+    this.createNewsPanel('latam', 'panels.latam');
+    this.createNewsPanel('asia', 'panels.asia');
+    this.createNewsPanel('energy', 'panels.energy');
 
     for (const key of Object.keys(FEEDS)) {
       if (this.ctx.newsPanels[key]) continue;
       if (!Array.isArray((FEEDS as Record<string, unknown>)[key])) continue;
       const panelKey = this.ctx.panels[key] && !this.ctx.newsPanels[key] ? `${key}-news` : key;
       if (this.ctx.panels[panelKey]) continue;
+      if (!DEFAULT_PANELS[panelKey] && !DEFAULT_PANELS[key]) continue;
       const panelConfig = DEFAULT_PANELS[panelKey] ?? DEFAULT_PANELS[key];
       const label = panelConfig?.name ?? key.charAt(0).toUpperCase() + key.slice(1);
       const panel = new NewsPanel(panelKey, label);
@@ -635,28 +594,27 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels[panelKey] = panel;
     }
 
-    if (SITE_VARIANT === 'full') {
-      const gdeltIntelPanel = new GdeltIntelPanel();
-      this.ctx.panels['gdelt-intel'] = gdeltIntelPanel;
+    this.createPanel('gdelt-intel', () => new GdeltIntelPanel());
 
-      if (this.ctx.isDesktopApp) {
-        import('@/components/DeductionPanel').then(({ DeductionPanel }) => {
-          const deductionPanel = new DeductionPanel(() => this.ctx.allNews);
-          this.ctx.panels['deduction'] = deductionPanel;
-          const el = deductionPanel.getElement();
-          this.makeDraggable(el, 'deduction');
-          const grid = document.getElementById('panelsGrid');
-          if (grid) {
-            const gdeltEl = this.ctx.panels['gdelt-intel']?.getElement();
-            if (gdeltEl?.nextSibling) {
-              grid.insertBefore(el, gdeltEl.nextSibling);
-            } else {
-              grid.appendChild(el);
-            }
+    if (SITE_VARIANT === 'full' && this.ctx.isDesktopApp) {
+      import('@/components/DeductionPanel').then(({ DeductionPanel }) => {
+        const deductionPanel = new DeductionPanel(() => this.ctx.allNews);
+        this.ctx.panels['deduction'] = deductionPanel;
+        const el = deductionPanel.getElement();
+        this.makeDraggable(el, 'deduction');
+        const grid = document.getElementById('panelsGrid');
+        if (grid) {
+          const gdeltEl = this.ctx.panels['gdelt-intel']?.getElement();
+          if (gdeltEl?.nextSibling) {
+            grid.insertBefore(el, gdeltEl.nextSibling);
+          } else {
+            grid.appendChild(el);
           }
-        });
-      }
+        }
+      });
+    }
 
+    if (this.shouldCreatePanel('cii')) {
       const ciiPanel = new CIIPanel();
       ciiPanel.setShareStoryHandler((code, name) => {
         this.callbacks.openCountryStory(code, name);
@@ -665,128 +623,182 @@ export class PanelLayoutManager implements AppModule {
         this.callbacks.openCountryBrief(code);
       });
       this.ctx.panels['cii'] = ciiPanel;
+    }
 
-      const cascadePanel = new CascadePanel();
-      this.ctx.panels['cascade'] = cascadePanel;
+    this.createPanel('cascade', () => new CascadePanel());
+    this.createPanel('satellite-fires', () => new SatelliteFiresPanel());
 
-      const satelliteFiresPanel = new SatelliteFiresPanel();
-      this.ctx.panels['satellite-fires'] = satelliteFiresPanel;
+    // Correlation engine panels
+    if (this.shouldCreatePanel('military-correlation')) {
+      const p = new MilitaryCorrelationPanel();
+      p.setMapNavigateHandler((lat, lon) => { this.ctx.map?.setCenter(lat, lon, 6); });
+      this.ctx.panels['military-correlation'] = p;
+    }
+    if (this.shouldCreatePanel('escalation-correlation')) {
+      const p = new EscalationCorrelationPanel();
+      p.setMapNavigateHandler((lat, lon) => { this.ctx.map?.setCenter(lat, lon, 4); });
+      this.ctx.panels['escalation-correlation'] = p;
+    }
+    if (this.shouldCreatePanel('economic-correlation')) {
+      const p = new EconomicCorrelationPanel();
+      p.setMapNavigateHandler((lat, lon) => { this.ctx.map?.setCenter(lat, lon, 4); });
+      this.ctx.panels['economic-correlation'] = p;
+    }
+    if (this.shouldCreatePanel('disaster-correlation')) {
+      const p = new DisasterCorrelationPanel();
+      p.setMapNavigateHandler((lat, lon) => { this.ctx.map?.setCenter(lat, lon, 5); });
+      this.ctx.panels['disaster-correlation'] = p;
+    }
 
+    if (this.shouldCreatePanel('strategic-risk')) {
       const strategicRiskPanel = new StrategicRiskPanel();
       strategicRiskPanel.setLocationClickHandler((lat, lon) => {
         this.ctx.map?.setCenter(lat, lon, 4);
       });
       this.ctx.panels['strategic-risk'] = strategicRiskPanel;
+    }
 
+    if (this.shouldCreatePanel('strategic-posture')) {
       const strategicPosturePanel = new StrategicPosturePanel(() => this.ctx.allNews);
       strategicPosturePanel.setLocationClickHandler((lat, lon) => {
         console.log('[App] StrategicPosture handler called:', { lat, lon, hasMap: !!this.ctx.map });
         this.ctx.map?.setCenter(lat, lon, 4);
       });
       this.ctx.panels['strategic-posture'] = strategicPosturePanel;
+    }
 
+    if (this.shouldCreatePanel('ucdp-events')) {
       const ucdpEventsPanel = new UcdpEventsPanel();
       ucdpEventsPanel.setEventClickHandler((lat, lon) => {
         this.ctx.map?.setCenter(lat, lon, 5);
       });
       this.ctx.panels['ucdp-events'] = ucdpEventsPanel;
-
-      this.lazyPanel('displacement', () =>
-        import('@/components/DisplacementPanel').then(m => {
-          const p = new m.DisplacementPanel();
-          p.setCountryClickHandler((lat: number, lon: number) => { this.ctx.map?.setCenter(lat, lon, 4); });
-          return p;
-        }),
-      );
-
-      this.lazyPanel('climate', () =>
-        import('@/components/ClimateAnomalyPanel').then(m => {
-          const p = new m.ClimateAnomalyPanel();
-          p.setZoneClickHandler((lat: number, lon: number) => { this.ctx.map?.setCenter(lat, lon, 4); });
-          return p;
-        }),
-      );
-
-      this.lazyPanel('population-exposure', () =>
-        import('@/components/PopulationExposurePanel').then(m => new m.PopulationExposurePanel()),
-      );
-
-      this.lazyPanel('security-advisories', () =>
-        import('@/components/SecurityAdvisoriesPanel').then(m => {
-          const p = new m.SecurityAdvisoriesPanel();
-          p.setRefreshHandler(() => { void this.callbacks.loadSecurityAdvisories?.(); });
-          return p;
-        }),
-      );
-
-      const _wmKeyPresent = getSecretState('WORLDMONITOR_API_KEY').present;
-      const _lockPanels = this.ctx.isDesktopApp && !_wmKeyPresent;
-
-      this.lazyPanel('oref-sirens', () =>
-        import('@/components/OrefSirensPanel').then(m => new m.OrefSirensPanel()),
-        undefined,
-        _lockPanels ? [t('premium.features.orefSirens1'), t('premium.features.orefSirens2')] : undefined,
-      );
-
-      this.lazyPanel('telegram-intel', () =>
-        import('@/components/TelegramIntelPanel').then(m => new m.TelegramIntelPanel()),
-        undefined,
-        _lockPanels ? [t('premium.features.telegramIntel1'), t('premium.features.telegramIntel2')] : undefined,
-      );
     }
 
-    if (SITE_VARIANT === 'finance') {
+    this.lazyPanel('displacement', () =>
+      import('@/components/DisplacementPanel').then(m => {
+        const p = new m.DisplacementPanel();
+        p.setCountryClickHandler((lat: number, lon: number) => { this.ctx.map?.setCenter(lat, lon, 4); });
+        return p;
+      }),
+    );
+
+    this.lazyPanel('climate', () =>
+      import('@/components/ClimateAnomalyPanel').then(m => {
+        const p = new m.ClimateAnomalyPanel();
+        p.setZoneClickHandler((lat: number, lon: number) => { this.ctx.map?.setCenter(lat, lon, 4); });
+        return p;
+      }),
+    );
+
+    this.lazyPanel('population-exposure', () =>
+      import('@/components/PopulationExposurePanel').then(m => new m.PopulationExposurePanel()),
+    );
+
+    this.lazyPanel('security-advisories', () =>
+      import('@/components/SecurityAdvisoriesPanel').then(m => {
+        const p = new m.SecurityAdvisoriesPanel();
+        p.setRefreshHandler(() => { void this.callbacks.loadSecurityAdvisories?.(); });
+        return p;
+      }),
+    );
+
+    this.lazyPanel('radiation-watch', () =>
+      import('@/components/RadiationWatchPanel').then(m => {
+        const p = new m.RadiationWatchPanel();
+        p.setLocationClickHandler((lat: number, lon: number) => { this.ctx.map?.setCenter(lat, lon, 4); });
+        return p;
+      }),
+    );
+
+    this.lazyPanel('thermal-escalation', () =>
+      import('@/components/ThermalEscalationPanel').then(m => {
+        const p = new m.ThermalEscalationPanel();
+        p.setLocationClickHandler((lat: number, lon: number) => { this.ctx.map?.setCenter(lat, lon, 4); });
+        return p;
+      }),
+    );
+
+    const _wmKeyPresent = getSecretState('WORLDMONITOR_API_KEY').present;
+    const _lockPanels = this.ctx.isDesktopApp && !_wmKeyPresent;
+
+    this.lazyPanel('daily-market-brief', () =>
+      import('@/components/DailyMarketBriefPanel').then(m => new m.DailyMarketBriefPanel()),
+      undefined,
+      (!_wmKeyPresent && !isProWidgetEnabled()) ? ['Pre-market watchlist priorities', 'Action plan for the session', 'Risk watch tied to current finance headlines'] : undefined,
+    );
+
+    this.lazyPanel('forecast', () =>
+      import('@/components/ForecastPanel').then(m => new m.ForecastPanel()),
+      undefined,
+      _lockPanels ? ['AI-powered geopolitical forecasts', 'Cross-domain cascade predictions', 'Prediction market calibration'] : undefined,
+    );
+
+    this.lazyPanel('oref-sirens', () =>
+      import('@/components/OrefSirensPanel').then(m => new m.OrefSirensPanel()),
+      undefined,
+      _lockPanels ? [t('premium.features.orefSirens1'), t('premium.features.orefSirens2')] : undefined,
+    );
+
+    this.lazyPanel('telegram-intel', () =>
+      import('@/components/TelegramIntelPanel').then(m => new m.TelegramIntelPanel()),
+      undefined,
+      _lockPanels ? [t('premium.features.telegramIntel1'), t('premium.features.telegramIntel2')] : undefined,
+    );
+
+    if (this.shouldCreatePanel('gcc-investments')) {
       const investmentsPanel = new InvestmentsPanel((inv) => {
         focusInvestmentOnMap(this.ctx.map, this.ctx.mapLayers, inv.lat, inv.lon);
       });
       this.ctx.panels['gcc-investments'] = investmentsPanel;
-
-      const gulfEconomiesPanel = new GulfEconomiesPanel();
-      this.ctx.panels['gulf-economies'] = gulfEconomiesPanel;
     }
 
-    this.ctx.panels['world-clock'] = new WorldClockPanel();
+    if (this.shouldCreatePanel('world-clock')) {
+      this.ctx.panels['world-clock'] = new WorldClockPanel();
+    }
 
-    // Airline Intelligence panel (non-happy variants)
-    if (SITE_VARIANT !== 'happy') {
+    if (this.shouldCreatePanel('airline-intel')) {
       this.ctx.panels['airline-intel'] = new AirlineIntelPanel();
-      // Launch the Ctrl+J command bar (attaches global keydown listener)
       this.aviationCommandBar = new AviationCommandBar();
     }
 
-    if (SITE_VARIANT !== 'happy') {
-      if (!this.ctx.panels['gulf-economies']) {
-        const gulfEconomiesPanel = new GulfEconomiesPanel();
-        this.ctx.panels['gulf-economies'] = gulfEconomiesPanel;
-      }
-
-      const liveNewsPanel = new LiveNewsPanel();
-      this.ctx.panels['live-news'] = liveNewsPanel;
-
-      const liveWebcamsPanel = new LiveWebcamsPanel();
-      this.ctx.panels['live-webcams'] = liveWebcamsPanel;
-
-      this.ctx.panels['events'] = new TechEventsPanel('events', () => this.ctx.allNews);
-
-      const serviceStatusPanel = new ServiceStatusPanel();
-      this.ctx.panels['service-status'] = serviceStatusPanel;
-
-      this.lazyPanel('tech-readiness', () =>
-        import('@/components/TechReadinessPanel').then(m => new m.TechReadinessPanel()),
-      );
-
-      this.ctx.panels['macro-signals'] = new MacroSignalsPanel();
-      this.ctx.panels['etf-flows'] = new ETFFlowsPanel();
-      this.ctx.panels['stablecoins'] = new StablecoinPanel();
+    if (this.shouldCreatePanel('gulf-economies') && !this.ctx.panels['gulf-economies']) {
+      this.ctx.panels['gulf-economies'] = new GulfEconomiesPanel();
     }
+
+    if (this.shouldCreatePanel('live-news')) {
+      this.ctx.panels['live-news'] = new LiveNewsPanel();
+    }
+
+    if (this.shouldCreatePanel('live-webcams')) {
+      this.ctx.panels['live-webcams'] = new LiveWebcamsPanel();
+    }
+
+    if (this.shouldCreatePanel('windy-webcams')) {
+      this.ctx.panels['windy-webcams'] = new PinnedWebcamsPanel();
+    }
+
+    this.createPanel('events', () => new TechEventsPanel('events', () => this.ctx.allNews));
+    this.createPanel('service-status', () => new ServiceStatusPanel());
+
+    this.lazyPanel('tech-readiness', () =>
+      import('@/components/TechReadinessPanel').then(m => {
+        const p = new m.TechReadinessPanel();
+        void p.refresh();
+        return p;
+      }),
+    );
+
+    this.createPanel('macro-signals', () => new MacroSignalsPanel());
+    this.createPanel('etf-flows', () => new ETFFlowsPanel());
+    this.createPanel('stablecoins', () => new StablecoinPanel());
 
     if (this.ctx.isDesktopApp) {
       const runtimeConfigPanel = new RuntimeConfigPanel({ mode: 'alert' });
       this.ctx.panels['runtime-config'] = runtimeConfigPanel;
     }
 
-    const insightsPanel = new InsightsPanel();
-    this.ctx.panels['insights'] = insightsPanel;
+    this.createPanel('insights', () => new InsightsPanel());
 
     // Global Giving panel (all variants)
     this.lazyPanel('giving', () =>
@@ -863,6 +875,24 @@ export class PanelLayoutManager implements AppModule {
           return p;
         }),
       );
+    }
+
+    if (isWidgetFeatureEnabled() || isProWidgetEnabled()) {
+      for (const spec of loadWidgets()) {
+        const panel = new CustomWidgetPanel(spec);
+        this.ctx.panels[spec.id] = panel;
+        if (!this.ctx.panelSettings[spec.id]) {
+          this.ctx.panelSettings[spec.id] = { name: spec.title, enabled: true, priority: 3 };
+        }
+      }
+    }
+
+    for (const spec of loadMcpPanels()) {
+      const panel = new McpDataPanel(spec);
+      this.ctx.panels[spec.id] = panel;
+      if (!this.ctx.panelSettings[spec.id]) {
+        this.ctx.panelSettings[spec.id] = { name: spec.title, enabled: true, priority: 3 };
+      }
     }
 
     const defaultOrder = Object.keys(DEFAULT_PANELS).filter(k => k !== 'map');
@@ -943,6 +973,91 @@ export class PanelLayoutManager implements AppModule {
       }
     });
 
+    // "+" Add Panel block at the end of the grid
+    const addPanelBlock = document.createElement('button');
+    addPanelBlock.className = 'add-panel-block';
+    addPanelBlock.setAttribute('aria-label', t('components.panel.addPanel'));
+    const addIcon = document.createElement('span');
+    addIcon.className = 'add-panel-block-icon';
+    addIcon.textContent = '+';
+    const addLabel = document.createElement('span');
+    addLabel.className = 'add-panel-block-label';
+    addLabel.textContent = t('components.panel.addPanel');
+    addPanelBlock.appendChild(addIcon);
+    addPanelBlock.appendChild(addLabel);
+    addPanelBlock.addEventListener('click', () => {
+      this.ctx.unifiedSettings?.open('panels');
+    });
+    panelsGrid.appendChild(addPanelBlock);
+
+    if (isWidgetFeatureEnabled()) {
+      const aiBlock = document.createElement('button');
+      aiBlock.className = 'add-panel-block ai-widget-block';
+      aiBlock.setAttribute('aria-label', t('widgets.createWithAi'));
+      const aiIcon = document.createElement('span');
+      aiIcon.className = 'add-panel-block-icon';
+      aiIcon.textContent = '\u2728';
+      const aiLabel = document.createElement('span');
+      aiLabel.className = 'add-panel-block-label';
+      aiLabel.textContent = t('widgets.createWithAi');
+      aiBlock.appendChild(aiIcon);
+      aiBlock.appendChild(aiLabel);
+      aiBlock.addEventListener('click', () => {
+        openWidgetChatModal({
+          mode: 'create',
+          tier: 'basic',
+          onComplete: (spec) => this.addCustomWidget(spec),
+        });
+      });
+      panelsGrid.appendChild(aiBlock);
+    }
+
+    if (isProWidgetEnabled()) {
+      const proBlock = document.createElement('button');
+      proBlock.className = 'add-panel-block ai-widget-block ai-widget-block-pro';
+      proBlock.setAttribute('aria-label', t('widgets.createInteractive'));
+      const proIcon = document.createElement('span');
+      proIcon.className = 'add-panel-block-icon';
+      proIcon.textContent = '\u26a1';
+      const proLabel = document.createElement('span');
+      proLabel.className = 'add-panel-block-label';
+      proLabel.textContent = t('widgets.createInteractive');
+      const proBadge = document.createElement('span');
+      proBadge.className = 'widget-pro-badge';
+      proBadge.textContent = t('widgets.proBadge');
+      proBlock.appendChild(proIcon);
+      proBlock.appendChild(proLabel);
+      proBlock.appendChild(proBadge);
+      proBlock.addEventListener('click', () => {
+        openWidgetChatModal({
+          mode: 'create',
+          tier: 'pro',
+          onComplete: (spec) => this.addCustomWidget(spec),
+        });
+      });
+      panelsGrid.appendChild(proBlock);
+    }
+
+    {
+      const mcpBlock = document.createElement('button');
+      mcpBlock.className = 'add-panel-block mcp-panel-block';
+      mcpBlock.setAttribute('aria-label', t('mcp.connectPanel'));
+      const mcpIcon = document.createElement('span');
+      mcpIcon.className = 'add-panel-block-icon';
+      mcpIcon.textContent = '\u26a1';
+      const mcpLabel = document.createElement('span');
+      mcpLabel.className = 'add-panel-block-label';
+      mcpLabel.textContent = t('mcp.connectPanel');
+      mcpBlock.appendChild(mcpIcon);
+      mcpBlock.appendChild(mcpLabel);
+      mcpBlock.addEventListener('click', () => {
+        openMcpConnectModal({
+          onComplete: (spec) => this.addMcpPanel(spec),
+        });
+      });
+      panelsGrid.appendChild(mcpBlock);
+    }
+
     const bottomGrid = document.getElementById('mapBottomGrid');
     if (bottomGrid) {
       bottomOrder.forEach(key => {
@@ -964,6 +1079,13 @@ export class PanelLayoutManager implements AppModule {
 
     this.applyPanelSettings();
     this.applyInitialUrlState();
+
+    if (import.meta.env.DEV) {
+      const configured = new Set(Object.keys(DEFAULT_PANELS).filter(k => k !== 'map'));
+      const created = new Set(Object.keys(this.ctx.panels));
+      const extra = [...created].filter(k => !configured.has(k) && k !== 'deduction' && k !== 'runtime-config' && !k.startsWith('cw-') && !k.startsWith('mcp-'));
+      if (extra.length) console.warn('[PanelLayout] Panels created but not in DEFAULT_PANELS:', extra);
+    }
   }
 
   private applyTimeRangeFilterToNewsPanels(): void {
@@ -1033,6 +1155,48 @@ export class PanelLayoutManager implements AppModule {
     if (regionSelect && currentView) {
       regionSelect.value = currentView;
     }
+  }
+
+  addCustomWidget(spec: CustomWidgetSpec): void {
+    saveWidget(spec);
+    const panel = new CustomWidgetPanel(spec);
+    this.ctx.panels[spec.id] = panel;
+    this.ctx.panelSettings[spec.id] = { name: spec.title, enabled: true, priority: 3 };
+    saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
+    const el = panel.getElement();
+    this.makeDraggable(el, spec.id);
+    const grid = document.getElementById('panelsGrid');
+    if (grid) {
+      const addBlock = grid.querySelector('.add-panel-block');
+      if (addBlock) {
+        grid.insertBefore(el, addBlock);
+      } else {
+        grid.appendChild(el);
+      }
+    }
+    this.savePanelOrder();
+    this.applyPanelSettings();
+  }
+
+  addMcpPanel(spec: McpPanelSpec): void {
+    saveMcpPanel(spec);
+    const panel = new McpDataPanel(spec);
+    this.ctx.panels[spec.id] = panel;
+    this.ctx.panelSettings[spec.id] = { name: spec.title, enabled: true, priority: 3 };
+    saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
+    const el = panel.getElement();
+    this.makeDraggable(el, spec.id);
+    const grid = document.getElementById('panelsGrid');
+    if (grid) {
+      const addBlock = grid.querySelector('.add-panel-block');
+      if (addBlock) {
+        grid.insertBefore(el, addBlock);
+      } else {
+        grid.appendChild(el);
+      }
+    }
+    this.savePanelOrder();
+    this.applyPanelSettings();
   }
 
   private getSavedPanelOrder(): string[] {
@@ -1269,6 +1433,7 @@ export class PanelLayoutManager implements AppModule {
     setup?: (panel: T) => void,
     lockedFeatures?: string[],
   ): void {
+    if (!this.shouldCreatePanel(key)) return;
     loader().then(async (panel) => {
       this.ctx.panels[key] = panel as unknown as import('@/components/Panel').Panel;
       if (lockedFeatures) {
@@ -1301,6 +1466,13 @@ export class PanelLayoutManager implements AppModule {
     let startX = 0;
     let startY = 0;
     let rafId = 0;
+    let ghostEl: HTMLElement | null = null;
+    let dropIndicator: HTMLElement | null = null;
+    let originalParent: HTMLElement | null = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let originalIndex = -1;
+    let onKeyDown: ((e: KeyboardEvent) => void) | null = null;
     const DRAG_THRESHOLD = 8;
 
     const onMouseDown = (e: MouseEvent) => {
@@ -1319,8 +1491,154 @@ export class PanelLayoutManager implements AppModule {
       dragStarted = false;
       startX = e.clientX;
       startY = e.clientY;
+      
+      // Calculate offset within the element for smooth dragging
+      const rect = el.getBoundingClientRect();
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+      
       e.preventDefault();
     };
+
+    const createGhostElement = (): HTMLElement => {
+      const ghost = el.cloneNode(true) as HTMLElement;
+      // Strip iframes to prevent duplicate network requests and postMessage handlers
+      ghost.querySelectorAll('iframe').forEach(ifr => ifr.remove());
+      ghost.classList.add('panel-drag-ghost');
+      ghost.style.position = 'fixed';
+      ghost.style.pointerEvents = 'none';
+      ghost.style.zIndex = '10000';
+      ghost.style.opacity = '0.8';
+      ghost.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.3)';
+      ghost.style.transform = 'scale(1.02)';
+      
+      // Copy dimensions from original
+      const rect = el.getBoundingClientRect();
+      ghost.style.width = rect.width + 'px';
+      ghost.style.height = rect.height + 'px';
+      
+      document.body.appendChild(ghost);
+      return ghost;
+    };
+
+    const createDropIndicator = (): HTMLElement => {
+      const indicator = document.createElement('div');
+      indicator.classList.add('panel-drop-indicator');
+      // overlay on body so it doesn't shift grid children
+      indicator.style.position = 'fixed';
+      indicator.style.pointerEvents = 'none';
+      indicator.style.zIndex = '9999';
+      document.body.appendChild(indicator);
+      return indicator;
+    };
+    const swapElements = (a: HTMLElement, b: HTMLElement) => {
+      if (a === b) return;
+      const aParent = a.parentElement;
+      const bParent = b.parentElement;
+      if (!aParent || !bParent) return;
+
+      const aNext = a.nextSibling;
+      const bNext = b.nextSibling;
+
+      if (aParent === bParent) {
+        if (aNext === b) {
+          aParent.insertBefore(b, a);
+        } else if (bNext === a) {
+          aParent.insertBefore(a, b);
+        } else {
+          aParent.insertBefore(b, aNext);
+          aParent.insertBefore(a, bNext);
+        }
+      } else {
+        aParent.insertBefore(b, aNext);
+        bParent.insertBefore(a, bNext);
+      }
+    };
+
+    const updateGhostPosition = (clientX: number, clientY: number) => {
+      if (!ghostEl) return;
+      ghostEl.style.left = (clientX - dragOffsetX) + 'px';
+      ghostEl.style.top = (clientY - dragOffsetY) + 'px';
+    };
+
+    const findDropPosition = (clientX: number, clientY: number) => {
+      const grid = document.getElementById('panelsGrid');
+      const bottomGrid = document.getElementById('mapBottomGrid');
+      if (!grid || !bottomGrid) return null;
+
+      // Temporarily hide the ghost to get accurate hit detection
+      const prevPointerEvents = ghostEl?.style.pointerEvents;
+      if (ghostEl) ghostEl.style.pointerEvents = 'none';
+      const target = document.elementFromPoint(clientX, clientY);
+      if (ghostEl && typeof prevPointerEvents === 'string') ghostEl.style.pointerEvents = prevPointerEvents;
+
+      if (!target) return null;
+
+      const targetGrid = (target.closest('.panels-grid') || target.closest('.map-bottom-grid')) as HTMLElement | null;
+      const targetPanel = target.closest('.panel') as HTMLElement | null;
+
+      if (!targetGrid && !targetPanel) return null;
+
+      const currentTargetGrid = targetGrid || (targetPanel ? targetPanel.parentElement as HTMLElement : null);
+      if (!currentTargetGrid || (currentTargetGrid !== grid && currentTargetGrid !== bottomGrid)) return null;
+
+      return {
+        grid: currentTargetGrid,
+        panel: targetPanel && targetPanel !== el ? targetPanel : null,
+      };
+    };
+
+    let lastTargetPanel: HTMLElement | null = null;
+
+    const updateDropIndicator = (clientX: number, clientY: number) => {
+      const dropPos = findDropPosition(clientX, clientY);
+      if (!dropPos) {
+        if (dropIndicator) dropIndicator.style.opacity = '0';
+        if (lastTargetPanel) {
+          lastTargetPanel.classList.remove('panel-drop-target');
+          lastTargetPanel = null;
+        }
+        return;
+      }
+
+      const { grid, panel } = dropPos;
+      if (!dropIndicator) return;
+
+      // highlight hovered panel
+      if (panel !== lastTargetPanel) {
+        if (lastTargetPanel) lastTargetPanel.classList.remove('panel-drop-target');
+        if (panel) panel.classList.add('panel-drop-target');
+        lastTargetPanel = panel;
+      }
+
+      // compute absolute coordinates for the indicator
+      let top = 0;
+      let left = 0;
+      let width = 0;
+
+      if (panel) {
+        const panelRect = panel.getBoundingClientRect();
+        const panelMid = panelRect.top + panelRect.height / 2;
+        const shouldInsertBefore = clientY < panelMid;
+        width = panelRect.width;
+        left = panelRect.left;
+        top = shouldInsertBefore ? panelRect.top - 4 : panelRect.bottom;
+      } else {
+        // dropping into empty grid: position at grid bottom
+        const gridRect = grid.getBoundingClientRect();
+        width = gridRect.width;
+        left = gridRect.left;
+        top = gridRect.bottom;
+      }
+
+      dropIndicator.style.width = width + 'px';
+      dropIndicator.style.left = left + 'px';
+      dropIndicator.style.top = top + 'px';
+      dropIndicator.style.opacity = '0.8';
+    };
+
+    let lastX = 0;
+    let lastY = 0;
 
     const onMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
@@ -1329,13 +1647,64 @@ export class PanelLayoutManager implements AppModule {
         const dy = Math.abs(e.clientY - startY);
         if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
         dragStarted = true;
-        el.classList.add('dragging');
+        
+        // Initialize drag visualization
+        el.classList.add('dragging-source');
+        originalParent = el.parentElement as HTMLElement;
+        originalIndex = Array.from(originalParent.children).indexOf(el);
+        ghostEl = createGhostElement();
+        dropIndicator = createDropIndicator();
+        onKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            // Cancel drag and restore original position
+            el.classList.remove('dragging-source');
+            if (ghostEl) {
+              ghostEl.style.opacity = '0';
+              const g = ghostEl;
+              setTimeout(() => g.remove(), 200);
+              ghostEl = null;
+            }
+            if (dropIndicator) {
+              dropIndicator.style.opacity = '0';
+              const d = dropIndicator;
+              setTimeout(() => d.remove(), 200);
+              dropIndicator = null;
+            }
+            if (lastTargetPanel) {
+              lastTargetPanel.classList.remove('panel-drop-target');
+              lastTargetPanel = null;
+            }
+
+            if (originalParent && originalIndex >= 0) {
+              const children = Array.from(originalParent.children);
+              const insertBefore = children[originalIndex];
+              if (insertBefore) {
+                originalParent.insertBefore(el, insertBefore);
+              } else {
+                originalParent.appendChild(el);
+              }
+            }
+
+            document.removeEventListener('keydown', onKeyDown!);
+            onKeyDown = null;
+            isDragging = false;
+            dragStarted = false;
+            if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+          }
+        };
+        document.addEventListener('keydown', onKeyDown);
       }
+
+      lastX = e.clientX;
+      lastY = e.clientY;
       const cx = e.clientX;
       const cy = e.clientY;
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        this.handlePanelDragMove(el, cx, cy);
+        if (dragStarted) {
+          updateGhostPosition(cx, cy);
+          updateDropIndicator(cx, cy);
+        }
         rafId = 0;
       });
     };
@@ -1344,8 +1713,41 @@ export class PanelLayoutManager implements AppModule {
       if (!isDragging) return;
       isDragging = false;
       if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      
       if (dragStarted) {
-        el.classList.remove('dragging');
+        // Find final drop position using most recent cursor coords
+        const dropPos = findDropPosition(lastX, lastY);
+        
+        if (dropPos) {
+          const { grid, panel } = dropPos;
+
+          if (panel && panel !== el) {
+            swapElements(el, panel);
+          } else if (grid !== originalParent) {
+            grid.appendChild(el);
+          }
+        }
+        
+        // Clean up drag visualization
+        el.classList.remove('dragging-source');
+        if (ghostEl) {
+          ghostEl.style.opacity = '0';
+          const g = ghostEl;
+          setTimeout(() => g.remove(), 200);
+          ghostEl = null;
+        }
+        if (dropIndicator) {
+          dropIndicator.style.opacity = '0';
+          const d = dropIndicator;
+          setTimeout(() => d.remove(), 200);
+          dropIndicator = null;
+        }
+        if (lastTargetPanel) {
+          lastTargetPanel.classList.remove('panel-drop-target');
+          lastTargetPanel = null;
+        }
+        
+        // Update status
         const isInBottom = !!el.closest('.map-bottom-grid');
         if (isInBottom) {
           this.bottomSetMemory.add(key);
@@ -1355,6 +1757,10 @@ export class PanelLayoutManager implements AppModule {
         this.savePanelOrder();
       }
       dragStarted = false;
+      if (onKeyDown) {
+        document.removeEventListener('keydown', onKeyDown);
+        onKeyDown = null;
+      }
     };
 
     el.addEventListener('mousedown', onMouseDown);
@@ -1365,73 +1771,20 @@ export class PanelLayoutManager implements AppModule {
       el.removeEventListener('mousedown', onMouseDown);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      if (onKeyDown) {
+        document.removeEventListener('keydown', onKeyDown);
+        onKeyDown = null;
+      }
       if (rafId) {
         cancelAnimationFrame(rafId);
         rafId = 0;
       }
+      if (ghostEl) ghostEl.remove();
+      if (dropIndicator) dropIndicator.remove();
       isDragging = false;
       dragStarted = false;
-      el.classList.remove('dragging');
+      el.classList.remove('dragging-source');
     });
-  }
-
-  private handlePanelDragMove(dragging: HTMLElement, clientX: number, clientY: number): void {
-    const grid = document.getElementById('panelsGrid');
-    const bottomGrid = document.getElementById('mapBottomGrid');
-    if (!grid || !bottomGrid) return;
-
-    dragging.style.pointerEvents = 'none';
-    const target = document.elementFromPoint(clientX, clientY);
-    dragging.style.pointerEvents = '';
-
-    if (!target) return;
-
-    // Check if we are over a grid or a panel inside a grid
-    const targetGrid = (target.closest('.panels-grid') || target.closest('.map-bottom-grid')) as HTMLElement | null;
-    const targetPanel = target.closest('.panel') as HTMLElement | null;
-
-    if (!targetGrid && !targetPanel) return;
-
-    const currentTargetGrid = targetGrid || (targetPanel ? targetPanel.parentElement as HTMLElement : null);
-    if (!currentTargetGrid || (currentTargetGrid !== grid && currentTargetGrid !== bottomGrid)) return;
-
-    if (targetPanel && targetPanel !== dragging && !targetPanel.classList.contains('hidden')) {
-      const targetRect = targetPanel.getBoundingClientRect();
-      const draggingRect = dragging.getBoundingClientRect();
-
-      const children = Array.from(currentTargetGrid.children);
-      const dragIdx = children.indexOf(dragging);
-      const targetIdx = children.indexOf(targetPanel);
-
-      const sameRow = Math.abs(draggingRect.top - targetRect.top) < 30;
-      const targetMid = sameRow
-        ? targetRect.left + targetRect.width / 2
-        : targetRect.top + targetRect.height / 2;
-      const cursorPos = sameRow ? clientX : clientY;
-
-      if (dragIdx === -1) {
-        // Moving from one grid to another
-        if (cursorPos < targetMid) {
-          currentTargetGrid.insertBefore(dragging, targetPanel);
-        } else {
-          currentTargetGrid.insertBefore(dragging, targetPanel.nextSibling);
-        }
-      } else {
-        // Reordering within same grid
-        if (dragIdx < targetIdx) {
-          if (cursorPos > targetMid) {
-            currentTargetGrid.insertBefore(dragging, targetPanel.nextSibling);
-          }
-        } else {
-          if (cursorPos < targetMid) {
-            currentTargetGrid.insertBefore(dragging, targetPanel);
-          }
-        }
-      }
-    } else if (currentTargetGrid !== dragging.parentElement) {
-      // Dragging over an empty or near-empty grid zone
-      currentTargetGrid.appendChild(dragging);
-    }
   }
 
   getLocalizedPanelName(panelKey: string, fallback: string): string {

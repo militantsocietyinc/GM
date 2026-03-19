@@ -2905,6 +2905,65 @@ function buildSituationForecastIndex(situationClusters) {
   return index;
 }
 
+function projectSituationClusters(situationClusters, predictions) {
+  if (!Array.isArray(situationClusters) || !situationClusters.length) return [];
+  const predictionById = new Map((predictions || []).map((pred) => [pred.id, pred]));
+  const projected = [];
+
+  for (const cluster of situationClusters) {
+    const clusterPredictions = (cluster?.forecastIds || [])
+      .map((forecastId) => predictionById.get(forecastId))
+      .filter(Boolean);
+    if (!clusterPredictions.length) continue;
+
+    const regionCounts = {};
+    const domainCounts = {};
+    const signalCounts = {};
+    let probabilityTotal = 0;
+    let confidenceTotal = 0;
+
+    for (const prediction of clusterPredictions) {
+      probabilityTotal += Number(prediction.probability || 0);
+      confidenceTotal += Number(prediction.confidence || 0);
+      incrementSituationCounts(regionCounts, [prediction.region].filter(Boolean));
+      incrementSituationCounts(domainCounts, [prediction.domain].filter(Boolean));
+      for (const signal of prediction.signals || []) {
+        const type = signal?.type || 'unknown';
+        signalCounts[type] = (signalCounts[type] || 0) + 1;
+      }
+    }
+
+    const topSignals = Object.entries(signalCounts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 4)
+      .map(([type, count]) => ({ type, count }));
+    const avgProbability = clusterPredictions.length ? probabilityTotal / clusterPredictions.length : 0;
+    const avgConfidence = clusterPredictions.length ? confidenceTotal / clusterPredictions.length : 0;
+    const dominantRegion = pickDominantSituationValue(regionCounts, cluster.regions || []);
+    const dominantDomain = pickDominantSituationValue(domainCounts, cluster.domains || []);
+
+    projected.push({
+      ...cluster,
+      label: formatSituationLabel({
+        regions: cluster.regions || [],
+        domains: cluster.domains || [],
+        dominantRegion,
+        dominantDomain,
+      }),
+      forecastCount: clusterPredictions.length,
+      forecastIds: clusterPredictions.map((prediction) => prediction.id).slice(0, 12),
+      avgProbability: +avgProbability.toFixed(3),
+      avgConfidence: +avgConfidence.toFixed(3),
+      topSignals,
+      sampleTitles: clusterPredictions.map((prediction) => prediction.title).slice(0, 6),
+      dominantRegion,
+      dominantDomain,
+    });
+  }
+
+  return projected.sort((a, b) => b.forecastCount - a.forecastCount || b.avgProbability - a.avgProbability);
+}
+
 function summarizeWorldStateHistory(priorWorldStates = []) {
   return priorWorldStates
     .filter(Boolean)
@@ -4573,6 +4632,20 @@ function populateFallbackNarratives(predictions) {
   }
 }
 
+function refreshPublishedNarratives(predictions) {
+  for (const pred of predictions || []) {
+    if (!pred.caseFile) buildForecastCase(pred);
+    pred.caseFile.baseCase = buildFallbackBaseCase(pred);
+    pred.caseFile.escalatoryCase = buildFallbackEscalatoryCase(pred);
+    pred.caseFile.contrarianCase = buildFallbackContrarianCase(pred);
+    if ((pred?.traceMeta?.narrativeSource || 'fallback') === 'fallback') {
+      pred.scenario = buildFallbackScenario(pred);
+      pred.perspectives = buildFallbackPerspectives(pred);
+    }
+    pred.feedSummary = buildFeedSummary(pred);
+  }
+}
+
 async function enrichScenariosWithLLM(predictions) {
   if (predictions.length === 0) return null;
   const { url, token } = getRedisCredentials();
@@ -4904,7 +4977,9 @@ async function fetchForecasts() {
 
   const publishedPredictions = filterPublishedForecasts(predictions);
   const publishTelemetry = summarizePublishFiltering(predictions);
-  const publishedSituationClusters = attachSituationContext(publishedPredictions);
+  const publishedSituationClusters = projectSituationClusters(fullRunSituationClusters, publishedPredictions);
+  attachSituationContext(publishedPredictions, publishedSituationClusters);
+  refreshPublishedNarratives(publishedPredictions);
   if (publishedPredictions.length !== predictions.length) {
     console.log(`  Filtered ${predictions.length - publishedPredictions.length} forecasts at publish floor > ${PUBLISH_MIN_PROBABILITY}`);
   }
@@ -5101,6 +5176,9 @@ export {
   buildFeedSummary,
   buildFallbackPerspectives,
   populateFallbackNarratives,
+  attachSituationContext,
+  projectSituationClusters,
+  refreshPublishedNarratives,
   loadCascadeRules,
   evaluateRuleConditions,
   SIGNAL_TO_SOURCE,

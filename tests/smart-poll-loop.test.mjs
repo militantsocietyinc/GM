@@ -584,6 +584,56 @@ describe('startSmartPollLoop', () => {
       handle.stop();
     });
   });
+
+  describe('visibilityHub integration', () => {
+    it('subscribes to a provided hub on start and unsubscribes on stop()', () => {
+      let subscribeCalls = 0;
+      let unsubscribeCalls = 0;
+      const fakeHub = {
+        subscribe(cb) {
+          subscribeCalls++;
+          return () => { unsubscribeCalls++; };
+        },
+      };
+
+      const handle = startSmartPollLoop(() => {}, {
+        intervalMs: 1_000,
+        jitterFraction: 0,
+        visibilityHub: fakeHub,
+      });
+
+      assert.equal(subscribeCalls, 1, 'subscribe() called once on start');
+      assert.equal(unsubscribeCalls, 0, 'unsubscribe not called before stop');
+
+      handle.stop();
+
+      assert.equal(unsubscribeCalls, 1, 'unsubscribe() called once on stop');
+      assert.equal(subscribeCalls, 1, 'subscribe() not called again after stop');
+    });
+
+    it('uses hub callbacks for visibility changes instead of direct DOM listener', () => {
+      let hubCallback = null;
+      const fakeHub = {
+        subscribe(cb) {
+          hubCallback = cb;
+          return () => {};
+        },
+      };
+
+      let ticks = 0;
+      const handle = startSmartPollLoop(() => { ticks++; return true; }, {
+        intervalMs: 60_000,
+        jitterFraction: 0,
+        pauseWhenHidden: true,
+        visibilityHub: fakeHub,
+      });
+
+      assert.ok(hubCallback, 'hub subscriber callback was registered');
+      assert.equal(doc._listenerCount('visibilitychange'), 0, 'no direct DOM listener added when hub provided');
+
+      handle.stop();
+    });
+  });
 });
 
 // Build a plain-JS VisibilityHub that mirrors the contract of the real class,

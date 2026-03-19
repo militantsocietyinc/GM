@@ -94,7 +94,7 @@ export class RefreshScheduler implements AppModule {
     }
     stale.sort((a, b) => a.intervalMs - b.intervalMs);
 
-    // Tiered stagger: first 4 tasks at 100ms gaps, rest at 300ms gaps
+    // Tiered stagger: first 4 gaps are 100ms (covering tasks 1-5), remaining gaps are 300ms
     const FLUSH_STAGGER_FAST_MS = 100;
     const FLUSH_STAGGER_SLOW_MS = 300;
     let stagger = 0;

@@ -210,6 +210,17 @@ export interface BisCreditToGdp {
   date: string;
 }
 
+export interface GetFredSeriesBatchRequest {
+  seriesIds: string[];
+  limit: number;
+}
+
+export interface GetFredSeriesBatchResponse {
+  results: Record<string, FredSeries>;
+  fetched: number;
+  requested: number;
+}
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -454,6 +465,30 @@ export class EconomicServiceClient {
     }
 
     return await resp.json() as GetBisCreditResponse;
+  }
+
+  async getFredSeriesBatch(req: GetFredSeriesBatchRequest, options?: EconomicServiceCallOptions): Promise<GetFredSeriesBatchResponse> {
+    let path = "/api/economic/v1/get-fred-series-batch";
+    const url = this.baseURL + path;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(req),
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as GetFredSeriesBatchResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

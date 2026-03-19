@@ -123,6 +123,26 @@ export interface CableHealthEvidence {
   ts: number;
 }
 
+export interface ListTemporalAnomaliesRequest {
+}
+
+export interface ListTemporalAnomaliesResponse {
+  anomalies: TemporalAnomaly[];
+  trackedTypes: string[];
+  computedAt: string;
+}
+
+export interface TemporalAnomaly {
+  type: string;
+  region: string;
+  currentCount: number;
+  expectedCount: number;
+  zScore: number;
+  severity: string;
+  multiplier: number;
+  message: string;
+}
+
 export type CableHealthStatus = "CABLE_HEALTH_STATUS_UNSPECIFIED" | "CABLE_HEALTH_STATUS_OK" | "CABLE_HEALTH_STATUS_DEGRADED" | "CABLE_HEALTH_STATUS_FAULT";
 
 export type OutageSeverity = "OUTAGE_SEVERITY_UNSPECIFIED" | "OUTAGE_SEVERITY_PARTIAL" | "OUTAGE_SEVERITY_MAJOR" | "OUTAGE_SEVERITY_TOTAL";
@@ -303,6 +323,29 @@ export class InfrastructureServiceClient {
     }
 
     return await resp.json() as GetCableHealthResponse;
+  }
+
+  async listTemporalAnomalies(req: ListTemporalAnomaliesRequest, options?: InfrastructureServiceCallOptions): Promise<ListTemporalAnomaliesResponse> {
+    let path = "/api/infrastructure/v1/list-temporal-anomalies";
+    const url = this.baseURL + path;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as ListTemporalAnomaliesResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

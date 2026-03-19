@@ -114,7 +114,7 @@ export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'ntv-turkey', name: 'NTV', handle: '@NTV', fallbackVideoId: 'pqq5c6k70kk' },
   { id: 'cnn-turk', name: 'CNN TURK', handle: '@cnnturk', fallbackVideoId: 'lsY4GFoj_xY' },
   { id: 'tv-rain', name: 'TV Rain', handle: '@tvrain' },
-  { id: 'rt', name: 'RT', handle: '@RT_com', hlsUrl: 'https://rt-glb.rttv.com/dvr/rtnews/playlist.m3u8' },
+  { id: 'rt', name: 'RT', hlsUrl: 'https://rt-glb.rttv.com/dvr/rtnews/playlist.m3u8', useFallbackOnly: true },
   { id: 'tvp-info', name: 'TVP Info', handle: '@tvpinfo', fallbackVideoId: '3jKb-uThfrg' },
   { id: 'telewizja-republika', name: 'Telewizja Republika', handle: '@Telewizja_Republika', fallbackVideoId: 'dzntyCTgJMQ' },
   // Latin America & Portuguese
@@ -168,7 +168,7 @@ export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'channels-tv', name: 'Channels TV', handle: '@ChannelsTelevision' },
   { id: 'ktn-news', name: 'KTN News', handle: '@ktnnews_kenya', fallbackVideoId: 'RmHtsdVb3mo' },
   { id: 'enca', name: 'eNCA', handle: '@encanews' },
-  { id: 'sabc-news', name: 'SABC News', handle: '@SABCDigitalNews', hlsUrl: 'https://sabconetanw.cdn.mangomolo.com/news/smil:news.stream.smil/chunklist_b250000_t64MjQwcA==.m3u8' },
+  { id: 'sabc-news', name: 'SABC News', handle: '@SABCDigitalNews', hlsUrl: 'https://sabconetanw.cdn.mangomolo.com/news/smil:news.stream.smil/playlist.m3u8' },
   { id: 'arise-news', name: 'Arise News', handle: '@AriseNewsChannel', fallbackVideoId: '4uHZdlX-DT4' },
   // Europe (additional)
   { id: 'welt', name: 'WELT', handle: '@WELTVideoTV', fallbackVideoId: 'L-TNmYmaAKQ', geoAvailability: ['DE', 'AT', 'CH'] },
@@ -180,8 +180,8 @@ export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'france24-fr', name: 'France 24 FR', handle: '@France24_fr', fallbackVideoId: 'l8PMl7tUDIE' },
   { id: 'france-info', name: 'France Info', handle: '@franceinfo', fallbackVideoId: 'Z-Nwo-ypKtM' },
   { id: 'bfmtv', name: 'BFMTV', handle: '@BFMTV', fallbackVideoId: 'smB_F6DW7cI' },
-  { id: 'tv5monde-info', name: 'TV5 Monde Info', handle: '@TV5MONDEInfo', hlsUrl: 'https://ott.tv5monde.com/Content/HLS/Live/channel(info)/index.m3u8' },
-  { id: 'nrk1', name: 'NRK1', handle: '@nrk', hlsUrl: 'https://nrk-nrk1.akamaized.net/21/0/hls/nrk_1/playlist.m3u8' },
+  { id: 'tv5monde-info', name: 'TV5 Monde Info', handle: '@TV5MONDEInfo', hlsUrl: 'https://ott.tv5monde.com/Content/HLS/Live/channel(info)/index.m3u8', geoAvailability: ['FR', 'BE', 'CH', 'CA'] },
+  { id: 'nrk1', name: 'NRK1', handle: '@nrk', hlsUrl: 'https://nrk-nrk1.akamaized.net/21/0/hls/nrk_1/playlist.m3u8', geoAvailability: ['NO'] },
   { id: 'aljazeera-balkans', name: 'Al Jazeera Balkans', handle: '@AlJazeeraBalkans', hlsUrl: 'https://live-hls-web-ajb.getaj.net/AJB/index.m3u8' },
   // Oceania
   { id: 'abc-news-au', name: 'ABC News Australia', handle: '@abcnewsaustralia', fallbackVideoId: 'vOTiJkg1voo' },

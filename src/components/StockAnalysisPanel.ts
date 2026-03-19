@@ -81,7 +81,7 @@ export class StockAnalysisPanel extends Panel {
             <div style="margin-top:6px;font-size:11px;color:var(--text-dim)">Score ${escapeHtml(String(item.signalScore))} · ${escapeHtml(item.confidence)}</div>
           </div>
           ${history.length >= 2 ? (() => {
-            const scores = [...history.slice(0, 5).reverse(), item].map(e => e.signalScore);
+            const scores = history.slice(0, 6).reverse().map(e => e.signalScore);
             const last = scores[scores.length - 1] ?? 0;
             const prev = scores[scores.length - 2] ?? last;
             return sparkline(scores, last >= prev ? '#8df0b2' : '#ff8c8c', 60, 20, 'display:block;margin-top:4px;align-self:flex-end');

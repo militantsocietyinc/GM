@@ -2598,6 +2598,8 @@ function summarizeSituationPressure(cluster, actors, branches) {
   return clampUnitInterval(((cluster.avgProbability || 0) * 0.5) + (signalWeight * 0.2) + (actorWeight * 0.15) + (branchWeight * 0.15));
 }
 
+const SIMULATION_STATE_VERSION = 2;
+
 const SIMULATION_DOMAIN_PROFILES = {
   conflict: {
     pressureBias: 0.12,
@@ -2844,8 +2846,6 @@ function buildSimulationRound(stage, situation, context) {
 
   const rawPressureDelta = pressureDelta;
   const rawStabilizationDelta = stabilizationDelta;
-  pressureDelta = clampUnitInterval(pressureDelta * (profile.actionPressureMultiplier || 1));
-  stabilizationDelta = clampUnitInterval(stabilizationDelta * (profile.actionStabilizationMultiplier || 1));
   const netPressure = +clampUnitInterval(
     ((situation.avgProbability || 0) * 0.78) +
     ((pressureDelta - stabilizationDelta) * 0.36)
@@ -2902,7 +2902,11 @@ function buildSituationSimulationState(worldState, priorWorldState = null) {
   const branchStates = Array.isArray(worldState?.branchStates) ? worldState.branchStates : [];
   const supporting = Array.isArray(worldState?.evidenceLedger?.supporting) ? worldState.evidenceLedger.supporting : [];
   const counter = Array.isArray(worldState?.evidenceLedger?.counter) ? worldState.evidenceLedger.counter : [];
-  const priorSimulations = new Map((priorWorldState?.simulationState?.situationSimulations || []).map((item) => [item.situationId, item]));
+  const priorSimulationState = priorWorldState?.simulationState;
+  const compatiblePriorSimulations = priorSimulationState?.version === SIMULATION_STATE_VERSION
+    ? (priorSimulationState?.situationSimulations || [])
+    : [];
+  const priorSimulations = new Map(compatiblePriorSimulations.map((item) => [item.situationId, item]));
 
   const situationSimulations = (worldState?.situationClusters || []).map((situation) => {
     const forecastIds = situation.forecastIds || [];
@@ -2985,6 +2989,7 @@ function buildSituationSimulationState(worldState, priorWorldState = null) {
   });
 
   return {
+    version: SIMULATION_STATE_VERSION,
     summary,
     totalSituationSimulations: situationSimulations.length,
     totalRounds: roundTransitions.length,

@@ -918,4 +918,39 @@ describe('forecast run world state', () => {
     assert.equal(dominantSimulation?.dominantDomain, 'supply_chain');
     assert.ok(dominantInput);
   });
+
+  it('ignores incompatible prior simulation momentum when the simulation version changes', () => {
+    const conflict = makePrediction('conflict', 'Israel', 'Active armed conflict: Israel', 0.76, 0.66, '7d', [
+      { type: 'ucdp', value: 'Israeli theater remains active', weight: 0.4 },
+    ]);
+    buildForecastCase(conflict);
+
+    const priorWorldState = buildForecastRunWorldState({
+      generatedAt: Date.parse('2026-03-19T08:00:00Z'),
+      predictions: [conflict],
+    });
+    priorWorldState.simulationState = {
+      ...priorWorldState.simulationState,
+      version: 1,
+      situationSimulations: (priorWorldState.simulationState?.situationSimulations || []).map((item) => ({
+        ...item,
+        postureScore: 0.99,
+        rounds: (item.rounds || []).map((round) => ({
+          ...round,
+          pressureDelta: 0.99,
+          stabilizationDelta: 0,
+        })),
+      })),
+    };
+
+    const worldState = buildForecastRunWorldState({
+      generatedAt: Date.parse('2026-03-19T09:00:00Z'),
+      predictions: [conflict],
+      priorWorldState,
+      priorWorldStates: [priorWorldState],
+    });
+
+    assert.equal(worldState.simulationState.version, 2);
+    assert.ok((worldState.simulationState.situationSimulations || []).every((item) => item.postureScore < 0.99));
+  });
 });

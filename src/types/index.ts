@@ -276,6 +276,13 @@ export interface APTGroup {
   sponsor: string;
   lat: number;
   lon: number;
+  // MITRE ATT&CK fields
+  mitreId?: string;
+  mitreUrl?: string;
+  description?: string;
+  tactics?: string[];
+  targetSectors?: string[];
+  active?: boolean;
 }
 
 export type CyberThreatType = 'c2_server' | 'malware_host' | 'phishing' | 'malicious_url';

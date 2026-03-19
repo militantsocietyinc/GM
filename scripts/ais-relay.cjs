@@ -1264,11 +1264,13 @@ const MARKET_SYMBOLS = [
   '^DJI', '^GSPC', '^IXIC',
 ];
 
-const COMMODITY_SYMBOLS = ['^VIX', 'GC=F', 'CL=F', 'NG=F', 'SI=F', 'HG=F'];
+const _commodityCfg = requireShared('commodities.json');
+const COMMODITY_SYMBOLS = _commodityCfg.commodities.map(c => c.symbol);
 
 const SECTOR_SYMBOLS = ['XLK', 'XLF', 'XLE', 'XLV', 'XLY', 'XLI', 'XLP', 'XLU', 'XLB', 'XLRE', 'XLC', 'SMH'];
 
-const YAHOO_ONLY = new Set(['^GSPC', '^DJI', '^IXIC', '^VIX', 'GC=F', 'CL=F', 'NG=F', 'SI=F', 'HG=F']);
+// Futures (=F) and index (^) symbols must come from Yahoo — Finnhub doesn't carry them.
+const YAHOO_ONLY = new Set(COMMODITY_SYMBOLS.filter(s => s.endsWith('=F') || s.startsWith('^')));
 
 function fetchYahooChartDirect(symbol) {
   return new Promise((resolve) => {

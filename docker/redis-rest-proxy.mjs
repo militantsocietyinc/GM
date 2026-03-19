@@ -41,7 +41,7 @@ function checkAuth(req) {
 // Command safety: allowlist of expected Redis commands.
 // Blocks dangerous operations like FLUSHALL, CONFIG SET, EVAL, DEBUG, SLAVEOF.
 const ALLOWED_COMMANDS = new Set([
-  'GET', 'SET', 'DEL', 'MGET', 'MSET', 'KEYS', 'SCAN',
+  'GET', 'SET', 'DEL', 'MGET', 'MSET', 'SCAN',
   'TTL', 'EXPIRE', 'PEXPIRE', 'EXISTS', 'TYPE',
   'HGET', 'HSET', 'HDEL', 'HGETALL', 'HMGET', 'HMSET', 'HKEYS', 'HVALS', 'HEXISTS',
   'LPUSH', 'RPUSH', 'LPOP', 'RPOP', 'LRANGE', 'LLEN',

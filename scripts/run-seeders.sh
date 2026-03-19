@@ -22,7 +22,7 @@ if [ -f "$OVERRIDE" ]; then
     | sed 's/^\s*//' \
     | sed 's/: */=/' \
     | sed "s/[\"']//g" \
-    | grep -E '^(NASA_FIRMS|GROQ|AISSTREAM|FRED|FINNHUB|EIA|ACLED|CLOUDFLARE|AVIATIONSTACK|OPENROUTER)' \
+    | grep -E '^(NASA_FIRMS|GROQ|AISSTREAM|FRED|FINNHUB|EIA|ACLED|CLOUDFLARE|AVIATIONSTACK|OPENROUTER|LLM_API_URL|LLM_API_KEY|LLM_MODEL)' \
     | sed 's/^/export /' > "$_env_tmp"
   . "$_env_tmp"
   rm -f "$_env_tmp"

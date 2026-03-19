@@ -20,24 +20,38 @@ jobs:
         id: brin
         run: |
           AUTHOR="${{ github.event.pull_request.user.login }}"
-          RESPONSE=$(curl -sf "https://api.brin.sh/contributor/${AUTHOR}" || echo '{}')
-          VERDICT=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('verdict','unknown'))")
-          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          # Use --fail-with-body so non-2xx responses are captured; fall back to empty string on network error.
+          RESPONSE=$(curl -sf --max-time 10 "https://api.brin.sh/contributor/${AUTHOR}" 2>/dev/null || true)
+          if [ -z "$RESPONSE" ]; then
+            # API unavailable — skip labeling entirely
+            echo "verdict=unavailable" >> "$GITHUB_OUTPUT"
+          else
+            VERDICT=$(echo "$RESPONSE" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    v = d.get('verdict', '')
+    print(v if v in ('safe', 'caution', 'suspicious', 'dangerous') else 'unavailable')
+except Exception:
+    print('unavailable')
+")
+            echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Apply trust label
+        if: >
+          steps.brin.outputs.verdict == 'safe' ||
+          steps.brin.outputs.verdict == 'caution' ||
+          steps.brin.outputs.verdict == 'suspicious' ||
+          steps.brin.outputs.verdict == 'dangerous'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         env:
           BRIN_VERDICT: ${{ steps.brin.outputs.verdict }}
         with:
           script: |
-            const verdict = process.env.BRIN_VERDICT || 'unknown';
-            const label = `trust:${verdict}`;
-            const validLabels = ['trust:safe', 'trust:caution', 'trust:suspicious', 'trust:dangerous'];
-            if (!validLabels.includes(label)) return;
-
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              labels: [label],
+              labels: [`trust:${process.env.BRIN_VERDICT}`],
             });

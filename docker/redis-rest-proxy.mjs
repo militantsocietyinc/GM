@@ -43,10 +43,10 @@ function checkAuth(req) {
 const ALLOWED_COMMANDS = new Set([
   'GET', 'SET', 'DEL', 'MGET', 'MSET', 'SCAN',
   'TTL', 'EXPIRE', 'PEXPIRE', 'EXISTS', 'TYPE',
-  'HGET', 'HSET', 'HDEL', 'HGETALL', 'HMGET', 'HMSET', 'HKEYS', 'HVALS', 'HEXISTS',
-  'LPUSH', 'RPUSH', 'LPOP', 'RPOP', 'LRANGE', 'LLEN',
+  'HGET', 'HSET', 'HDEL', 'HGETALL', 'HMGET', 'HMSET', 'HKEYS', 'HVALS', 'HEXISTS', 'HLEN',
+  'LPUSH', 'RPUSH', 'LPOP', 'RPOP', 'LRANGE', 'LLEN', 'LTRIM',
   'SADD', 'SREM', 'SMEMBERS', 'SISMEMBER', 'SCARD',
-  'ZADD', 'ZREM', 'ZRANGE', 'ZRANGEBYSCORE', 'ZSCORE', 'ZCARD',
+  'ZADD', 'ZREM', 'ZRANGE', 'ZRANGEBYSCORE', 'ZREVRANGE', 'ZSCORE', 'ZCARD', 'ZRANDMEMBER',
   'GEOADD', 'GEOSEARCH', 'GEOPOS', 'GEODIST',
   'INCR', 'DECR', 'INCRBY', 'DECRBY',
   'PING', 'ECHO', 'INFO', 'DBSIZE',
@@ -144,6 +144,22 @@ const server = http.createServer(async (req, res) => {
 
     // GET /{command}/{args...} — REST style
     if (req.method === 'GET') {
+      const pathname = new URL(req.url, 'http://localhost').pathname;
+      const parts = pathname.slice(1).split('/').map(decodeURIComponent);
+      if (parts.length === 0 || !parts[0]) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'No command specified' }));
+        return;
+      }
+      const result = await runCommand(parts);
+      res.writeHead(200);
+      res.end(JSON.stringify({ result }));
+      return;
+    }
+
+    // POST /{command}/{args...} — Upstash-compatible path-based POST
+    // Used by setCachedJson(): POST /set/<key>/<value>/EX/<ttl>
+    if (req.method === 'POST') {
       const pathname = new URL(req.url, 'http://localhost').pathname;
       const parts = pathname.slice(1).split('/').map(decodeURIComponent);
       if (parts.length === 0 || !parts[0]) {

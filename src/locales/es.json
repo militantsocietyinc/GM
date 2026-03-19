@@ -760,6 +760,13 @@
       "upstreamUnavailable": "Datos de cadena de suministro temporalmente no disponibles — mostrando datos en caché",
       "spikeAlert": "Pico detectado — tarifa significativamente por encima del promedio de 52 semanas (semanal)",
       "warnings": "advertencia(s)",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Mineral",
       "topProducers": "Principales productores",
       "risk": "Riesgo",
@@ -807,7 +814,10 @@
       "yes": "Sí",
       "no": "No",
       "vol": "volumen",
-      "closes": "Cierra"
+      "closes": "Cierra",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "deckgl": {
       "views": {
@@ -1370,7 +1380,9 @@
       "filterAlerts": "Alertas",
       "filterOsint": "OSINT",
       "filterPolitics": "Política",
-      "filterMiddleeast": "Medio Oriente"
+      "filterMiddleeast": "Medio Oriente",
+      "live": "EN VIVO",
+      "viewSource": "Ver fuente"
     },
     "investments": {
       "infoTooltip": "Base de datos de inversiones extranjeras directas de Arabia Saudita y Emiratos Árabes Unidos en infraestructura crítica global. Haga clic en una fila para volar a la inversión en el mapa.",

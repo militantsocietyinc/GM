@@ -790,7 +790,10 @@
       "yes": "نعم",
       "no": "لا",
       "vol": "الحجم",
-      "closes": "يغلق"
+      "closes": "يغلق",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "stablecoins": {
       "pegHealth": "صحة الربط",
@@ -1426,7 +1429,9 @@
       "filterAlerts": "تنبيهات",
       "filterOsint": "OSINT",
       "filterPolitics": "سياسة",
-      "filterMiddleeast": "الشرق الأوسط"
+      "filterMiddleeast": "الشرق الأوسط",
+      "live": "مباشر",
+      "viewSource": "عرض المصدر"
     },
     "investments": {
       "infoTooltip": "قاعدة بيانات الاستثمارات الأجنبية المباشرة للمملكة العربية السعودية والإمارات في البنية التحتية الحيوية العالمية. انقر على صف للانتقال إلى موقع الاستثمار على الخريطة.",
@@ -1664,6 +1669,13 @@
     "supplyChain": {
       "chokepoints": "نقاط الاختناق",
       "fredKeyMissing": "مفتاح FRED API مطلوب لأسعار الشحن — أضفه في الإعدادات. نقاط الاختناق والمعادن متاحة بدون مفتاح.",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "المعدن",
       "minerals": "المعادن",
       "noChokepoints": "جارٍ تحميل بيانات نقاط الاختناق...",

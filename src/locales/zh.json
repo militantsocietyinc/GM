@@ -771,6 +771,13 @@
       "spikeAlert": "检测到异常飙升 — 费率显著高于52周均值（周度）",
       "warnings": "条警告",
       "aisDisruptions": "AIS中断",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "矿产",
       "topProducers": "主要生产国",
       "risk": "风险",
@@ -817,7 +824,10 @@
       "yes": "是",
       "no": "否",
       "vol": "交易量",
-      "closes": "截止"
+      "closes": "截止",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "stablecoins": {
       "pegHealth": "锚定健康度",
@@ -1532,7 +1542,9 @@
       "filterAlerts": "警报",
       "filterOsint": "OSINT",
       "filterPolitics": "政治",
-      "filterMiddleeast": "中东"
+      "filterMiddleeast": "中东",
+      "live": "直播",
+      "viewSource": "查看来源"
     },
     "investments": {
       "infoTooltip": "沙特阿拉伯和阿联酋在全球关键基础设施领域的对外直接投资数据库。点击某行可在地图上飞到该投资所在位置。",

@@ -771,6 +771,13 @@
       "spikeAlert": "Открит скок — курс значително над 52-седмичната средна стойност (седмично)",
       "warnings": "предупреждение(я)",
       "aisDisruptions": "AIS нарушение(я)",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Минерал",
       "topProducers": "Топ производители",
       "risk": "Риск",
@@ -817,7 +824,10 @@
       "yes": "Да",
       "no": "Не",
       "vol": "Обем",
-      "closes": "Затвария"
+      "closes": "Затвария",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "stablecoins": {
       "pegHealth": "Здравина на пега",
@@ -1532,7 +1542,9 @@
       "filterAlerts": "Алерти",
       "filterOsint": "OSINT",
       "filterPolitics": "Политика",
-      "filterMiddleeast": "Близкия изток"
+      "filterMiddleeast": "Близкия изток",
+      "live": "НА ЖИВО",
+      "viewSource": "Виж източника"
     },
     "investments": {
       "infoTooltip": "База данни на Саудитска Арабия и UAE преки чужди инвестиции в глобална критична инфраструктура. Кликнете на ред, за да летите на инвестицията на карта.",

@@ -760,6 +760,13 @@
       "upstreamUnavailable": "Lieferkettendaten vorübergehend nicht verfügbar — zwischengespeicherte Daten werden angezeigt",
       "spikeAlert": "Spitze erkannt — Rate deutlich über dem 52-Wochen-Durchschnitt (wöchentlich)",
       "warnings": "Warnung(en)",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Mineral",
       "topProducers": "Top-Produzenten",
       "risk": "Risiko",
@@ -807,7 +814,10 @@
       "yes": "Ja",
       "no": "NEIN",
       "vol": "Bd",
-      "closes": "Schließt"
+      "closes": "Schließt",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "deckgl": {
       "views": {
@@ -1370,7 +1380,9 @@
       "filterAlerts": "Warnungen",
       "filterOsint": "OSINT",
       "filterPolitics": "Politik",
-      "filterMiddleeast": "Naher Osten"
+      "filterMiddleeast": "Naher Osten",
+      "live": "LIVE",
+      "viewSource": "Quelle anzeigen"
     },
     "investments": {
       "infoTooltip": "Datenbank über ausländische Direktinvestitionen Saudi-Arabiens und der VAE in globale kritische Infrastruktur. Klicken Sie auf eine Zeile, um zur Investition auf der Karte zu fliegen.",

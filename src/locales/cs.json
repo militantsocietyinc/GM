@@ -760,6 +760,13 @@
       "upstreamUnavailable": "Data dodavatelského řetězce jsou dočasně nedostupná — zobrazuji data z mezipaměti",
       "spikeAlert": "Detekován prudký nárůst — sazba výrazně nad 52týdenním průměrem (týdenní)",
       "warnings": "varování",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Minerál",
       "topProducers": "Největší producenti",
       "risk": "Riziko",
@@ -807,7 +814,10 @@
       "yes": "Ano",
       "no": "Ne",
       "vol": "Obj",
-      "closes": "Zavírá"
+      "closes": "Zavírá",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "stablecoins": {
       "pegHealth": "Zdraví vazby (Peg)",
@@ -1512,7 +1522,9 @@
       "filterAlerts": "Upozornění",
       "filterOsint": "OSINT",
       "filterPolitics": "Politika",
-      "filterMiddleeast": "Blízký východ"
+      "filterMiddleeast": "Blízký východ",
+      "live": "ŽIVĚ",
+      "viewSource": "Zobrazit zdroj"
     },
     "investments": {
       "infoTooltip": "Databáze přímých zahraničních investic Saúdské Arábie a SAE do globální kritické infrastruktury. Kliknutím na řádek přejdete k investici na mapě.",

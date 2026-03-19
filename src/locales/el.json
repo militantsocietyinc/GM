@@ -771,6 +771,13 @@
       "spikeAlert": "Ανιχνεύθηκε κορύφωση — τιμή σημαντικά πάνω από τον μέσο όρο 52 εβδομάδων (εβδομαδιαία)",
       "warnings": "προειδοποίηση(-εις)",
       "aisDisruptions": "Διαταραχή(ές) AIS",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Ορυκτό",
       "topProducers": "Κορυφαίοι Παραγωγοί",
       "risk": "Κίνδυνος",
@@ -817,7 +824,10 @@
       "yes": "Ναι",
       "no": "Όχι",
       "vol": "Όγκ",
-      "closes": "Κλείνει"
+      "closes": "Κλείνει",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "stablecoins": {
       "pegHealth": "Υγεία Σύνδεσης",
@@ -1532,7 +1542,9 @@
       "filterAlerts": "Ειδοποιήσεις",
       "filterOsint": "OSINT",
       "filterPolitics": "Πολιτική",
-      "filterMiddleeast": "Μέση Ανατολή"
+      "filterMiddleeast": "Μέση Ανατολή",
+      "live": "ΖΩΝΤΑΝΑ",
+      "viewSource": "Προβολή πηγής"
     },
     "investments": {
       "infoTooltip": "Βάση δεδομένων άμεσων ξένων επενδύσεων Σαουδικής Αραβίας και ΗΑΕ σε παγκόσμιες κρίσιμες υποδομές. Κάντε κλικ σε μια γραμμή για μετάβαση στην επένδυση στον χάρτη.",

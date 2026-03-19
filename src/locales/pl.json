@@ -790,7 +790,10 @@
       "yes": "Tak",
       "no": "NIE",
       "vol": "Tom",
-      "closes": "Zamyka się"
+      "closes": "Zamyka się",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "deckgl": {
       "views": {
@@ -1319,7 +1322,9 @@
       "filterAlerts": "Alarmy",
       "filterOsint": "OSINT",
       "filterPolitics": "Polityka",
-      "filterMiddleeast": "Bliski Wschód"
+      "filterMiddleeast": "Bliski Wschód",
+      "live": "NA ŻYWO",
+      "viewSource": "Zobacz źródło"
     },
     "investments": {
       "infoTooltip": "Baza danych bezpośrednich inwestycji zagranicznych Arabii Saudyjskiej i Zjednoczonych Emiratów Arabskich w globalną infrastrukturę krytyczną. Kliknij wiersz, aby przejść do inwestycji na mapie.",
@@ -1664,6 +1669,13 @@
     "supplyChain": {
       "chokepoints": "Wąskie gardła",
       "fredKeyMissing": "Klucz API FRED wymagany do stawek frachtowych — dodaj go w Ustawieniach. Wąskie gardła i minerały dostępne bez klucza.",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Minerał",
       "minerals": "Minerały",
       "noChokepoints": "Dane o wąskich gardłach ładują się...",

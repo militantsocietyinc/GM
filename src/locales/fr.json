@@ -790,7 +790,10 @@
       "yes": "Oui",
       "no": "Non",
       "vol": "Vol",
-      "closes": "Ferme"
+      "closes": "Ferme",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "stablecoins": {
       "pegHealth": "Santé de l'ancrage",
@@ -1470,7 +1473,9 @@
       "filterAlerts": "Alertes",
       "filterOsint": "OSINT",
       "filterPolitics": "Politique",
-      "filterMiddleeast": "Moyen-Orient"
+      "filterMiddleeast": "Moyen-Orient",
+      "live": "EN DIRECT",
+      "viewSource": "Voir la source"
     },
     "investments": {
       "infoTooltip": "Base de données des investissements directs étrangers de l'Arabie saoudite et des Émirats arabes unis dans les infrastructures critiques mondiales. Cliquez sur une ligne pour accéder à l'investissement sur la carte.",
@@ -1674,6 +1679,13 @@
     "supplyChain": {
       "chokepoints": "Points d'étranglement",
       "fredKeyMissing": "Clé API FRED requise pour les tarifs d'expédition — ajoutez-la dans les Paramètres. Points d'étranglement et minéraux disponibles sans clé.",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Minéral",
       "minerals": "Minéraux",
       "noChokepoints": "Données des points d'étranglement en cours de chargement...",

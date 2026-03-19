@@ -165,9 +165,10 @@ export class RuntimeConfigPanel extends Panel {
 
   public override show(): void {
     this.hiddenByUser = false;
-    this.setEffectiveVisibility(true);
     if (this.mode === 'alert') {
       this.render();
+    } else {
+      this.setEffectiveVisibility(true);
     }
   }
 

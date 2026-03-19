@@ -22,14 +22,23 @@ import { toApiUrl } from '@/services/runtime';
 const client = new ConflictServiceClient(getRpcBaseUrl(), { fetch: (...args) => globalThis.fetch(...args) });
 const acledBreaker = createCircuitBreaker<ListAcledEventsResponse>({ name: 'ACLED Conflicts', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
 const ucdpBreaker = createCircuitBreaker<ListUcdpEventsResponse>({ name: 'UCDP Events', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
+const MAX_HAPI_BREAKERS = 100;
 const hapiBreakers = new Map<string, ReturnType<typeof createCircuitBreaker<GetHumanitarianSummaryResponse>>>();
 function getHapiBreaker(iso2: string) {
   if (!hapiBreakers.has(iso2)) {
+    if (hapiBreakers.size >= MAX_HAPI_BREAKERS) {
+      const oldestKey = hapiBreakers.keys().next().value;
+      if (oldestKey !== undefined) hapiBreakers.delete(oldestKey);
+    }
     hapiBreakers.set(iso2, createCircuitBreaker<GetHumanitarianSummaryResponse>({
       name: `HDX HAPI:${iso2}`,
       cacheTtlMs: 10 * 60 * 1000,
       persistCache: true,
     }));
+  } else {
+    const breaker = hapiBreakers.get(iso2)!;
+    hapiBreakers.delete(iso2);
+    hapiBreakers.set(iso2, breaker);
   }
   return hapiBreakers.get(iso2)!;
 }

@@ -27,7 +27,7 @@ const FX_FALLBACKS = {
 async function fetchFxRates() {
   const rates = {};
   for (const [currency, symbol] of Object.entries(config.fxSymbols)) {
-    if (currency === 'USD') { rates['USD'] = 1.0; continue; } // USD is the base
+    if (currency === 'USD') { rates['USD'] = 1.0; continue; }
     try {
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`;
       const resp = await fetch(url, {
@@ -50,10 +50,26 @@ async function fetchFxRates() {
   return rates;
 }
 
-async function searchExa(query) {
-  // Support both EXA_API_KEYS (comma-separated, shared with ais-relay) and EXA_API_KEY
+async function searchExa(query, sites, locationCode) {
   const apiKey = (process.env.EXA_API_KEYS || process.env.EXA_API_KEY || '').split(/[\n,]+/)[0].trim();
   if (!apiKey) throw new Error('EXA_API_KEYS or EXA_API_KEY not set');
+
+  const body = {
+    query,
+    numResults: 5,
+    type: 'auto',
+    // Restrict to known local supermarket/retailer domains per country — prevents EXA
+    // neural search from returning USD-priced global comparison pages (Numbeo, Tridge, etc.)
+    includeDomains: sites,
+    // Bias results toward the target country's web
+    userLocation: locationCode,
+    contents: {
+      summary: {
+        // Explicitly request ISO currency code so regex can reliably match
+        query: 'What is the retail price of this product? State amount and ISO currency code (e.g. GBP 1.50, EUR 2.99, JPY 193).',
+      },
+    },
+  };
 
   const resp = await fetch('https://api.exa.ai/search', {
     method: 'POST',
@@ -62,18 +78,7 @@ async function searchExa(query) {
       'Content-Type': 'application/json',
       'User-Agent': CHROME_UA,
     },
-    body: JSON.stringify({
-      query,
-      // No includeDomains — EXA neural search finds better sources (price comparison
-      // sites, retailer pages, market reports) than hardcoded domain lists
-      numResults: 5,
-      type: 'auto',
-      contents: {
-        summary: {
-          query: 'What is the retail price of this product? Include currency symbol and amount.',
-        },
-      },
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(15_000),
   });
 
@@ -87,21 +92,33 @@ async function searchExa(query) {
 
 // All supported currency codes — keep in sync with grocery-basket.json fxSymbols
 const CCY = 'USD|GBP|EUR|JPY|CNY|INR|AUD|CAD|BRL|MXN|ZAR|TRY|NGN|KRW|SGD|PKR|AED|SAR|QAR|KWD|BHD|OMR|EGP|JOD|LBP|KES|ARS|IDR|PHP';
+
+// Currency symbol → ISO code map for sites that use symbols instead of ISO codes
+const SYMBOL_MAP = { '£': 'GBP', '€': 'EUR', '¥': 'JPY', '₩': 'KRW', '₹': 'INR', '₦': 'NGN', 'R$': 'BRL', 'R ': 'ZAR' };
+
 const PRICE_PATTERNS = [
   new RegExp(`(\\d+(?:\\.\\d{1,3})?)\\s*(${CCY})`, 'i'),
   new RegExp(`(${CCY})\\s*(\\d+(?:\\.\\d{1,3})?)`, 'i'),
 ];
 
 function matchPrice(text, url) {
+  // Try ISO code patterns first
   for (const re of PRICE_PATTERNS) {
     const match = text.match(re);
     if (match) {
-      // Pattern 1: price then currency (match[1]=price, match[2]=currency)
-      // Pattern 2: currency then price (match[1]=currency, match[2]=price)
       const [price, currency] = /^\d/.test(match[1])
         ? [parseFloat(match[1]), match[2].toUpperCase()]
         : [parseFloat(match[2]), match[1].toUpperCase()];
       if (price > 0 && price < 100000) return { price, currency, source: url || '' };
+    }
+  }
+  // Fallback: currency symbols (£, €, ¥, ₹, ₩, ₦, R$)
+  for (const [sym, iso] of Object.entries(SYMBOL_MAP)) {
+    const re = new RegExp(`${sym.replace('$', '\\$')}\\s*(\\d+(?:[.,]\\d{1,3})?)`, 'i');
+    const m = text.match(re);
+    if (m) {
+      const price = parseFloat(m[1].replace(',', '.'));
+      if (price > 0 && price < 100000) return { price, currency: iso, source: url || '' };
     }
   }
   return null;
@@ -112,14 +129,13 @@ function extractPrice(result, expectedCurrency) {
   const summary = result?.summary;
   if (summary && typeof summary === 'string') {
     const hit = matchPrice(summary, url);
-    // Reject if matched currency doesn't match the country we're querying for
     if (hit && hit.currency !== expectedCurrency) {
       console.warn(`    [extractPrice] currency mismatch: got ${hit.currency}, expected ${expectedCurrency} — ${url}`);
       return null;
     }
     if (hit) return hit;
   }
-  // Fallback: title (no bare-number — too many false positives from weights/codes)
+  // Fallback: title
   const fromTitle = matchPrice(result.title || '', url);
   if (fromTitle && fromTitle.currency !== expectedCurrency) return null;
   return fromTitle;
@@ -143,8 +159,9 @@ async function fetchGroceryBasketPrices() {
       let sourceSite = '';
 
       try {
-        const query = `${item.query} ${country.name} supermarket retail price`;
-        const exaResult = await searchExa(query);
+        // Query targets the item directly — country context comes from includeDomains + userLocation
+        const query = `${item.query} price`;
+        const exaResult = await searchExa(query, country.sites, country.code);
 
         if (exaResult?.results?.length) {
           for (const result of exaResult.results) {
@@ -189,7 +206,6 @@ async function fetchGroceryBasketPrices() {
     });
   }
 
-  // Determine cheapest/most expensive
   const withData = countriesResult.filter(c => c.totalUsd > 0);
   const cheapest = withData.length ? withData.reduce((a, b) => a.totalUsd < b.totalUsd ? a : b).code : '';
   const mostExpensive = withData.length ? withData.reduce((a, b) => a.totalUsd > b.totalUsd ? a : b).code : '';

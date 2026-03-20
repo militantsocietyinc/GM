@@ -255,6 +255,14 @@ export class InsightsPanel extends Panel {
     `);
   }
 
+  public async forceBriefRegeneration(): Promise<void> {
+    if (this.isHidden || this.lastClusters.length === 0) return;
+    this.lastBriefUpdate = 0; // bypass cooldown
+    this.cachedBrief = null;
+    await deletePersistentCache(InsightsPanel.BRIEF_CACHE_KEY);
+    void this.updateInsights(this.lastClusters);
+  }
+
   public async updateInsights(clusters: ClusteredEvent[]): Promise<void> {
     if (this.isHidden) return;
 

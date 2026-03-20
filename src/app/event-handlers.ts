@@ -10,6 +10,7 @@ import {
   PizzIntIndicator,
   CIIPanel,
   PredictionPanel,
+  InsightsPanel,
 } from '@/components';
 import {
   buildMapUrl,
@@ -165,6 +166,20 @@ export class EventHandlerManager implements AppModule {
   }
 
   private setupEventListeners(): void {
+    const generateBriefBtn = document.getElementById('generateBriefBtn');
+    if (generateBriefBtn) {
+      generateBriefBtn.addEventListener('click', () => {
+        const insightsPanel = this.ctx.panels['insights'] as InsightsPanel | undefined;
+        if (!insightsPanel) return;
+        generateBriefBtn.classList.add('loading');
+        generateBriefBtn.setAttribute('disabled', 'true');
+        void insightsPanel.forceBriefRegeneration().finally(() => {
+          generateBriefBtn.classList.remove('loading');
+          generateBriefBtn.removeAttribute('disabled');
+        });
+      });
+    }
+
     document.getElementById('searchBtn')?.addEventListener('click', () => {
       this.callbacks.updateSearchIndex();
       this.ctx.searchModal?.open();

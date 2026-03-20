@@ -9,64 +9,64 @@
    ============================================================ */
 :root {
   /* Backgrounds */
-  --bg: #050b14;             /* deep navy */
-  --bg-secondary: #07101f;   /* slightly lighter */
-  --surface: #0a1426;        /* panels/header */
-  --surface-hover: #0d1a30;
-  --surface-active: #0b1c33;
+  --bg: #0D0D0D;             /* VARGR near-black */
+  --bg-secondary: #111111;   /* slightly lighter */
+  --surface: #181818;        /* panels/header */
+  --surface-hover: #1f1f1f;
+  --surface-active: #1a1a1a;
 
   /* Borders */
-  --border: #1a2a44;
-  --border-strong: #2a446e;
-  --border-subtle: #0b172c;
+  --border: #2a2a2a;
+  --border-strong: #3a3a3a;
+  --border-subtle: #161616;
 
   /* Text */
-  --text: #eaf2ff;
-  --text-secondary: #cfe0ff;
-  --text-dim: #9bb2d6;
-  --text-muted: #7f97bf;
-  --text-faint: #5f78a6;
-  --text-ghost: #3f567e;
+  --text: #f0eeff;
+  --text-secondary: #d4cfff;
+  --text-dim: #a099dd;
+  --text-muted: #7f78bb;
+  --text-faint: #5f589a;
+  --text-ghost: #3f3878;
 
   /* Accent (UI highlight) */
-  --accent: #22d3ee;         /* cyan-400 */
-  --accent-strong: #0ea5e9;  /* sky-500 */
-  --accent-dim: #0284c7;     /* sky-600 */
+  --accent: #7F77DD;         /* VARGR purple */
+  --accent-strong: #9992E8;  /* lighter purple */
+  --accent-dim: #6B63CC;     /* darker purple */
 
   /* Brand â€œactiveâ€ color (was green in worldmonitor) */
-  --green: #22d3ee;          /* make â€œactiveâ€ cyan */
-  --green-dim: #0ea5e9;
+    --green: #7F77DD;          /* VARGR purple accent */
+  --green-dim: #6B63CC;
 
   /* Keep legacy aliases working */
   --red: #ff4444;
   --yellow: #ffaa00;
 
   /* Overlays & shadows */
-  --overlay-subtle: rgba(255, 255, 255, 0.03);
-  --overlay-light: rgba(255, 255, 255, 0.05);
-  --overlay-medium: rgba(255, 255, 255, 0.10);
-  --overlay-heavy: rgba(255, 255, 255, 0.18);
-  --shadow-color: rgba(0, 0, 0, 0.55);
+  --overlay-subtle: rgba(127, 119, 221, 0.04);
+  --overlay-light: rgba(127, 119, 221, 0.07);
+  --overlay-medium: rgba(127, 119, 221, 0.12);
+  --overlay-heavy: rgba(127, 119, 221, 0.20);
+  --shadow-color: rgba(0, 0, 0, 0.70);
   --darken-light: rgba(0, 0, 0, 0.18);
   --darken-medium: rgba(0, 0, 0, 0.24);
   --darken-heavy: rgba(0, 0, 0, 0.34);
 
   /* Scrollbar */
-  --scrollbar-thumb: #203454;
-  --scrollbar-thumb-hover: #2b4b79;
+  --scrollbar-thumb: #2a2a2a;
+  --scrollbar-thumb-hover: #3a3a3a;
 
   /* Input */
-  --input-bg: #07101f;
+  --input-bg: #111111;
 
   /* Panels */
-  --panel-bg: #0a1426;
-  --panel-border: #1a2a44;
+  --panel-bg: #181818;
+  --panel-border: #2a2a2a;
 
   /* Map (background/lines only; conflict colors handled elsewhere) */
-  --map-bg: #020a10;
-  --map-grid: #0a253a;
-  --map-country: #081a2a;
-  --map-stroke: #0ea5e9;
+  --map-bg: #080808;
+  --map-grid: #1a1a2a;
+  --map-country: #111115;
+  --map-stroke: #7F77DD;
 
   /* Font stack */
   --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Fira Code', 'DejaVu Sans Mono', 'Liberation Mono', monospace;
@@ -92,8 +92,8 @@
   --semantic-high: #ff8800;
   --semantic-elevated: #ffaa00;
   --semantic-normal: #44aa44;
-  --semantic-low: #22d3ee;
-  --semantic-info: #0ea5e9;
+  --semantic-low: #7F77DD;
+  --semantic-info: #7F77DD;
   --semantic-positive: #44ff88;
 
   /* Threat levels */
@@ -692,6 +692,50 @@ canvas,
 
 .github-link:hover {
   color: var(--text);
+}
+
+/* ── Generate Brief button ── prominent CTA in header ── */
+.generate-brief-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+  margin-right: 10px;
+  white-space: nowrap;
+}
+
+.generate-brief-btn:hover {
+  background: var(--accent-strong);
+  transform: translateY(-1px);
+}
+
+.generate-brief-btn:active {
+  transform: translateY(0);
+  opacity: 0.85;
+}
+
+.generate-brief-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.generate-brief-btn.loading svg {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .search-btn {

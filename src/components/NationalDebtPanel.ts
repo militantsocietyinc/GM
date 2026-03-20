@@ -15,7 +15,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
   GAB: '🇬🇦', GMB: '🇬🇲', GEO: '🇬🇪', DEU: '🇩🇪', GHA: '🇬🇭', GRC: '🇬🇷', GTM: '🇬🇹', GIN: '🇬🇳',
   GNB: '🇬🇼', GUY: '🇬🇾', HTI: '🇭🇹', HND: '🇭🇳', HKG: '🇭🇰', HUN: '🇭🇺', ISL: '🇮🇸', IND: '🇮🇳',
   IDN: '🇮🇩', IRN: '🇮🇷', IRQ: '🇮🇶', IRL: '🇮🇪', ISR: '🇮🇱', ITA: '🇮🇹', JAM: '🇯🇲', JPN: '🇯🇵',
-  JOR: '🇯🇴', KAZ: '🇰🇿', KEN: '🇰🇪', PRK: '🇰🇵', KOR: '🇰🇷', KWT: '🇰🇼', KGZ: '🇰🇬', LAO: '🇱🇦',
+  JOR: '🇯🇴', KAZ: '🇰🇿', KEN: '🇰🇪', KOR: '🇰🇷', KWT: '🇰🇼', KGZ: '🇰🇬', LAO: '🇱🇦',
   LVA: '🇱🇻', LBN: '🇱🇧', LSO: '🇱🇸', LBR: '🇱🇷', LBY: '🇱🇾', LTU: '🇱🇹', LUX: '🇱🇺', MAC: '🇲🇴',
   MDG: '🇲🇬', MWI: '🇲🇼', MYS: '🇲🇾', MDV: '🇲🇻', MLI: '🇲🇱', MLT: '🇲🇹', MRT: '🇲🇷', MUS: '🇲🇺',
   MEX: '🇲🇽', MDA: '🇲🇩', MNG: '🇲🇳', MNE: '🇲🇪', MAR: '🇲🇦', MOZ: '🇲🇿', MMR: '🇲🇲', NAM: '🇳🇦',
@@ -23,7 +23,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
   OMN: '🇴🇲', PAK: '🇵🇰', PAN: '🇵🇦', PNG: '🇵🇬', PRY: '🇵🇾', PER: '🇵🇪', PHL: '🇵🇭', POL: '🇵🇱',
   PRT: '🇵🇹', QAT: '🇶🇦', ROU: '🇷🇴', RUS: '🇷🇺', RWA: '🇷🇼', SAU: '🇸🇦', SEN: '🇸🇳', SRB: '🇷🇸',
   SLE: '🇸🇱', SGP: '🇸🇬', SVK: '🇸🇰', SVN: '🇸🇮', SOM: '🇸🇴', ZAF: '🇿🇦', SSD: '🇸🇸', ESP: '🇪🇸',
-  LKA: '🇱🇰', SDN: '🇸🇩', SUR: '🇸🇷', SWE: '🇸🇪', CHE: '🇨🇭', SYR: '🇸🇾', TWN: '🇹🇼', TJK: '🇹🇯',
+  LKA: '🇱🇰', SDN: '🇸🇩', SUR: '🇸🇷', SWE: '🇸🇪', CHE: '🇨🇭', TWN: '🇹🇼', TJK: '🇹🇯',
   TZA: '🇹🇿', THA: '🇹🇭', TLS: '🇹🇱', TGO: '🇹🇬', TTO: '🇹🇹', TUN: '🇹🇳', TUR: '🇹🇷', TKM: '🇹🇲',
   UGA: '🇺🇬', UKR: '🇺🇦', ARE: '🇦🇪', GBR: '🇬🇧', USA: '🇺🇸', URY: '🇺🇾', UZB: '🇺🇿', VEN: '🇻🇪',
   VNM: '🇻🇳', YEM: '🇾🇪', ZMB: '🇿🇲', ZWE: '🇿🇼',
@@ -46,7 +46,7 @@ const COUNTRY_NAMES: Record<string, string> = {
   GUY: 'Guyana', HTI: 'Haiti', HND: 'Honduras', HKG: 'Hong Kong SAR', HUN: 'Hungary',
   ISL: 'Iceland', IND: 'India', IDN: 'Indonesia', IRN: 'Iran', IRQ: 'Iraq',
   IRL: 'Ireland', ISR: 'Israel', ITA: 'Italy', JAM: 'Jamaica', JPN: 'Japan',
-  JOR: 'Jordan', KAZ: 'Kazakhstan', KEN: 'Kenya', PRK: 'Korea (North)', KOR: 'Korea (South)',
+  JOR: 'Jordan', KAZ: 'Kazakhstan', KEN: 'Kenya', KOR: 'Korea (South)',
   KWT: 'Kuwait', KGZ: 'Kyrgyzstan', LAO: 'Laos', LVA: 'Latvia', LBN: 'Lebanon',
   LSO: 'Lesotho', LBR: 'Liberia', LBY: 'Libya', LTU: 'Lithuania', LUX: 'Luxembourg',
   MAC: 'Macao SAR', MDG: 'Madagascar', MWI: 'Malawi', MYS: 'Malaysia', MDV: 'Maldives',
@@ -59,7 +59,7 @@ const COUNTRY_NAMES: Record<string, string> = {
   ROU: 'Romania', RUS: 'Russia', RWA: 'Rwanda', SAU: 'Saudi Arabia', SEN: 'Senegal',
   SRB: 'Serbia', SLE: 'Sierra Leone', SGP: 'Singapore', SVK: 'Slovakia', SVN: 'Slovenia',
   SOM: 'Somalia', ZAF: 'South Africa', SSD: 'South Sudan', ESP: 'Spain', LKA: 'Sri Lanka',
-  SDN: 'Sudan', SUR: 'Suriname', SWE: 'Sweden', CHE: 'Switzerland', SYR: 'Syria',
+  SDN: 'Sudan', SUR: 'Suriname', SWE: 'Sweden', CHE: 'Switzerland',
   TWN: 'Taiwan', TJK: 'Tajikistan', TZA: 'Tanzania', THA: 'Thailand', TLS: 'Timor-Leste',
   TGO: 'Togo', TTO: 'Trinidad & Tobago', TUN: 'Tunisia', TUR: 'Turkey', TKM: 'Turkmenistan',
   UGA: 'Uganda', UKR: 'Ukraine', ARE: 'United Arab Emirates', GBR: 'United Kingdom',
@@ -118,6 +118,26 @@ export class NationalDebtPanel extends Panel {
       showCount: true,
       infoTooltip: 'Live national debt estimates for 150+ countries. Data anchored at 2024-01-01 and accruing using IMF deficit projections.',
     });
+
+    this.content.addEventListener('click', (e) => {
+      const tab = (e.target as HTMLElement).closest('[data-sort]') as HTMLElement | null;
+      if (tab?.dataset.sort) {
+        this.sortMode = tab.dataset.sort as SortMode;
+        this.applyFilters();
+        this.render();
+        this.restartTicker();
+      }
+    });
+
+    this.content.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.classList.contains('debt-search')) {
+        this.searchQuery = target.value;
+        this.applyFilters();
+        this.render();
+        this.restartTicker();
+      }
+    });
   }
 
   public async refresh(): Promise<void> {
@@ -132,8 +152,8 @@ export class NationalDebtPanel extends Panel {
       if (!this.element?.isConnected) return;
       this.entries = data.entries ?? [];
       this.lastFetch = Date.now();
-      this.setCount(this.entries.length);
       this.applyFilters();
+      this.setCount(this.filteredEntries.length);
       this.render();
       this.startTicker();
     } catch (err) {
@@ -191,7 +211,6 @@ export class NationalDebtPanel extends Panel {
     `;
 
     this.setContent(html);
-    this.attachListeners();
   }
 
   private renderRow(entry: NationalDebtEntry, rank: number): string {
@@ -221,29 +240,6 @@ export class NationalDebtPanel extends Panel {
         <div class="debt-ticker" data-iso3="${escapeHtml(entry.iso3)}">${escapeHtml(debtStr)}</div>
       </div>
     `;
-  }
-
-  private attachListeners(): void {
-    this.content.addEventListener('click', (e) => {
-      const tab = (e.target as HTMLElement).closest('[data-sort]') as HTMLElement | null;
-      if (tab) {
-        this.sortMode = tab.dataset.sort as SortMode;
-        this.applyFilters();
-        this.render();
-        this.restartTicker();
-        return;
-      }
-    });
-
-    this.content.addEventListener('input', (e) => {
-      const target = e.target as HTMLInputElement;
-      if (target.classList.contains('debt-search')) {
-        this.searchQuery = target.value;
-        this.applyFilters();
-        this.render();
-        this.restartTicker();
-      }
-    });
   }
 
   private startTicker(): void {

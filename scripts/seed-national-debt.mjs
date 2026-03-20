@@ -90,7 +90,9 @@ export function computeEntries(debtPctByCountry, gdpByCountry, deficitPctByCount
     const deficitPct2024 = deficitByYear ? Number(deficitByYear['2024']) : NaN;
     let perSecondRate = 0;
     let perDayRate = 0;
-    if (Number.isFinite(deficitPct2024)) {
+    // Only accrue when running a deficit (GGXCNL_NGDP < 0 = net borrower).
+    // Surplus countries (Norway, Kuwait, Singapore, etc.) tick at 0 — not upward.
+    if (Number.isFinite(deficitPct2024) && deficitPct2024 < 0) {
       const deficitAbs = (Math.abs(deficitPct2024) / 100) * gdpUsd;
       perSecondRate = deficitAbs / SECONDS_PER_YEAR;
       perDayRate = deficitAbs / 365.25;

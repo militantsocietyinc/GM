@@ -120,6 +120,8 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
   '/api/trade/v1/get-customs-revenue': 'static',
   '/api/economic/v1/list-world-bank-indicators': 'static',
   '/api/economic/v1/get-energy-capacity': 'static',
+  '/api/economic/v1/list-grocery-basket-prices': 'static',
+  '/api/economic/v1/list-bigmac-prices': 'static',
   '/api/supply-chain/v1/get-critical-minerals': 'daily',
   '/api/military/v1/get-aircraft-details': 'static',
   '/api/military/v1/get-wingbits-status': 'static',
@@ -136,6 +138,7 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
 
   '/api/military/v1/list-military-bases': 'static',
   '/api/economic/v1/get-macro-signals': 'medium',
+  '/api/economic/v1/get-national-debt': 'daily',
   '/api/prediction/v1/list-prediction-markets': 'medium',
   '/api/forecast/v1/get-forecasts': 'medium',
   '/api/supply-chain/v1/get-chokepoint-status': 'medium',
@@ -150,6 +153,13 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
   '/api/infrastructure/v1/list-temporal-anomalies': 'medium',
   '/api/webcam/v1/get-webcam-image': 'no-store',
   '/api/webcam/v1/list-webcams': 'no-store',
+
+  '/api/consumer-prices/v1/get-consumer-price-overview': 'static',
+  '/api/consumer-prices/v1/get-consumer-price-basket-series': 'slow',
+  '/api/consumer-prices/v1/list-consumer-price-categories': 'static',
+  '/api/consumer-prices/v1/list-consumer-price-movers': 'static',
+  '/api/consumer-prices/v1/list-retailer-price-spreads': 'static',
+  '/api/consumer-prices/v1/get-consumer-price-freshness': 'slow',
 };
 
 const PREMIUM_RPC_PATHS = new Set([

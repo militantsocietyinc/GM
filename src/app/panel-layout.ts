@@ -18,6 +18,7 @@ import {
   PredictionPanel,
   MonitorPanel,
   EconomicPanel,
+  ConsumerPricesPanel,
   EnergyComplexPanel,
   GdeltIntelPanel,
   LiveNewsPanel,
@@ -40,6 +41,8 @@ import {
   SupplyChainPanel,
   SanctionsPressurePanel,
   GulfEconomiesPanel,
+  GroceryBasketPanel,
+  BigMacPanel,
   WorldClockPanel,
   AirlineIntelPanel,
   AviationCommandBar,
@@ -579,6 +582,7 @@ export class PanelLayoutManager implements AppModule {
     this.createNewsPanel('ipo', 'panels.ipo');
     this.createNewsPanel('thinktanks', 'panels.thinktanks');
     this.createPanel('economic', () => new EconomicPanel());
+    this.createPanel('consumer-prices', () => new ConsumerPricesPanel());
 
     this.createPanel('trade-policy', () => new TradePolicyPanel());
     this.createPanel('sanctions-pressure', () => new SanctionsPressurePanel());
@@ -775,6 +779,14 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['gulf-economies'] = new GulfEconomiesPanel();
     }
 
+    if (this.shouldCreatePanel('grocery-basket') && !this.ctx.panels['grocery-basket']) {
+      this.ctx.panels['grocery-basket'] = new GroceryBasketPanel();
+    }
+
+    if (this.shouldCreatePanel('bigmac') && !this.ctx.panels['bigmac']) {
+      this.ctx.panels['bigmac'] = new BigMacPanel();
+    }
+
     if (this.shouldCreatePanel('live-news')) {
       this.ctx.panels['live-news'] = new LiveNewsPanel();
     }
@@ -793,6 +805,14 @@ export class PanelLayoutManager implements AppModule {
     this.lazyPanel('tech-readiness', () =>
       import('@/components/TechReadinessPanel').then(m => {
         const p = new m.TechReadinessPanel();
+        void p.refresh();
+        return p;
+      }),
+    );
+
+    this.lazyPanel('national-debt', () =>
+      import('@/components/NationalDebtPanel').then(m => {
+        const p = new m.NationalDebtPanel();
         void p.refresh();
         return p;
       }),

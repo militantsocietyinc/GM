@@ -37,6 +37,14 @@ const BOOTSTRAP_KEYS = {
   customsRevenue:    'trade:customs-revenue:v1',
   sanctionsPressure: 'sanctions:pressure:v1',
   radiationWatch:    'radiation:observations:v1',
+  consumerPricesOverview:   'consumer-prices:overview:ae',
+  consumerPricesCategories: 'consumer-prices:categories:ae:30d',
+  consumerPricesMovers:     'consumer-prices:movers:ae:30d',
+  consumerPricesSpread:     'consumer-prices:retailer-spread:ae:essentials-ae',
+  consumerPricesFreshness:  'consumer-prices:freshness:ae',
+  groceryBasket:     'economic:grocery-basket:v1',
+  bigmac:            'economic:bigmac:v1',
+  nationalDebt:      'economic:national-debt:v1',
 };
 
 const STANDALONE_KEYS = {
@@ -81,14 +89,14 @@ const SEED_META = {
   wildfires:        { key: 'seed-meta:wildfire:fires',          maxStaleMin: 120 },
   outages:          { key: 'seed-meta:infra:outages',           maxStaleMin: 30 },
   climateAnomalies: { key: 'seed-meta:climate:anomalies',       maxStaleMin: 120 },
-  unrestEvents:     { key: 'seed-meta:unrest:events',           maxStaleMin: 45 },
+  unrestEvents:     { key: 'seed-meta:unrest:events',           maxStaleMin: 75 },
   cyberThreats:     { key: 'seed-meta:cyber:threats',           maxStaleMin: 480 },
   cryptoQuotes:     { key: 'seed-meta:market:crypto',           maxStaleMin: 30 },
   etfFlows:         { key: 'seed-meta:market:etf-flows',        maxStaleMin: 60 },
   gulfQuotes:       { key: 'seed-meta:market:gulf-quotes',      maxStaleMin: 30 },
   stablecoinMarkets:{ key: 'seed-meta:market:stablecoins',      maxStaleMin: 60 },
   naturalEvents:    { key: 'seed-meta:natural:events',          maxStaleMin: 360 }, // 2h cron; 3x interval; was 120 (TTL was 60min — panel went dark before health alarmed)
-  flightDelays:     { key: 'seed-meta:aviation:faa',            maxStaleMin: 60 },
+  flightDelays:     { key: 'seed-meta:aviation:faa',            maxStaleMin: 90 }, // CACHE_TTL=7200s; matches notamClosures from same cron
   notamClosures:    { key: 'seed-meta:aviation:notam',          maxStaleMin: 90 },
   predictions:      { key: 'seed-meta:prediction:markets',      maxStaleMin: 90 },
   insights:         { key: 'seed-meta:news:insights',           maxStaleMin: 30 },
@@ -123,7 +131,7 @@ const SEED_META = {
   progressData:     { key: 'seed-meta:economic:worldbank-progress:v1',     maxStaleMin: 10080 },
   renewableEnergy:  { key: 'seed-meta:economic:worldbank-renewable:v1',    maxStaleMin: 10080 },
   intlDelays:       { key: 'seed-meta:aviation:intl',           maxStaleMin: 90 },
-  faaDelays:        { key: 'seed-meta:aviation:faa',            maxStaleMin: 60 },
+  faaDelays:        { key: 'seed-meta:aviation:faa',            maxStaleMin: 90 }, // same key as flightDelays; CACHE_TTL=7200s
   theaterPosture:   { key: 'seed-meta:theater-posture',         maxStaleMin: 60 },
   correlationCards: { key: 'seed-meta:correlation:cards',       maxStaleMin: 15 },
   portwatch:           { key: 'seed-meta:supply_chain:portwatch',            maxStaleMin: 720 },
@@ -135,8 +143,16 @@ const SEED_META = {
   customsRevenue:      { key: 'seed-meta:trade:customs-revenue',              maxStaleMin: 1440 },
   sanctionsPressure:   { key: 'seed-meta:sanctions:pressure',                 maxStaleMin: 720 },
   radiationWatch:      { key: 'seed-meta:radiation:observations',             maxStaleMin: 30 },
+  groceryBasket:       { key: 'seed-meta:economic:grocery-basket',            maxStaleMin: 360 },
+  bigmac:              { key: 'seed-meta:economic:bigmac',                    maxStaleMin: 1440 },
   thermalEscalation:   { key: 'seed-meta:thermal:escalation',                 maxStaleMin: 240 },
+  nationalDebt:        { key: 'seed-meta:economic:national-debt',              maxStaleMin: 10080 }, // 7 days — monthly seed
   tariffTrendsUs:      { key: 'seed-meta:trade:tariffs:v1:840:all:10',        maxStaleMin: 900 },
+  consumerPricesOverview:   { key: 'seed-meta:consumer-prices:overview:ae',     maxStaleMin: 240 },
+  consumerPricesCategories: { key: 'seed-meta:consumer-prices:categories:ae',   maxStaleMin: 240 },
+  consumerPricesMovers:     { key: 'seed-meta:consumer-prices:movers:ae:30d',   maxStaleMin: 240 },
+  consumerPricesSpread:     { key: 'seed-meta:consumer-prices:spread:ae',       maxStaleMin: 720 },
+  consumerPricesFreshness:  { key: 'seed-meta:consumer-prices:freshness:ae',    maxStaleMin: 30  },
 };
 
 // Standalone keys that are populated on-demand by RPC handlers (not seeds).

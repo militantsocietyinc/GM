@@ -24,6 +24,8 @@ import {
   type BisPolicyRate,
   type BisExchangeRate,
   type BisCreditToGdp,
+  type GetNationalDebtResponse,
+  type NationalDebtEntry,
 } from '@/generated/client/worldmonitor/economic/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { getCSSColor } from '@/utils';
@@ -581,6 +583,49 @@ export async function getCountryComparison(
 // ========================================================================
 
 export type { BisPolicyRate, BisExchangeRate, BisCreditToGdp };
+export type { NationalDebtEntry };
+
+// ========================================================================
+// National Debt Clock
+// ========================================================================
+
+// No persistCache: IndexedDB hydration on first call can deadlock in some browsers,
+// causing the panel to hang indefinitely on "Loading debt data from IMF..."
+const nationalDebtBreaker = createCircuitBreaker<GetNationalDebtResponse>({ name: 'National Debt', cacheTtlMs: 6 * 60 * 60 * 1000 });
+const emptyNationalDebtFallback: GetNationalDebtResponse = { entries: [], seededAt: '', unavailable: true };
+
+export async function getNationalDebtData(): Promise<GetNationalDebtResponse> {
+  const hydrated = getHydratedData('nationalDebt') as GetNationalDebtResponse | undefined;
+  if (hydrated?.entries?.length) return hydrated;
+
+  // Race all fetch paths against a hard 20s deadline so the panel never hangs.
+  return Promise.race([
+    _fetchNationalDebt(),
+    new Promise<GetNationalDebtResponse>(resolve =>
+      setTimeout(() => resolve(emptyNationalDebtFallback), 20_000),
+    ),
+  ]);
+}
+
+async function _fetchNationalDebt(): Promise<GetNationalDebtResponse> {
+  try {
+    const resp = await fetch(toApiUrl('/api/bootstrap?keys=nationalDebt'), {
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (resp.ok) {
+      const { data } = (await resp.json()) as { data: { nationalDebt?: GetNationalDebtResponse } };
+      if (data.nationalDebt?.entries?.length) return data.nationalDebt;
+    }
+  } catch { /* fall through to RPC */ }
+
+  try {
+    return await nationalDebtBreaker.execute(async () => {
+      return client.getNationalDebt({}, { signal: AbortSignal.timeout(12_000) });
+    }, emptyNationalDebtFallback);
+  } catch {
+    return emptyNationalDebtFallback;
+  }
+}
 
 export interface BisData {
   policyRates: BisPolicyRate[];

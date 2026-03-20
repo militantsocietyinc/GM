@@ -38,7 +38,7 @@ async function fetchFxRates() {
       }
       const data = await resp.json();
       const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-      rates[currency] = price || FX_FALLBACKS[currency] || null;
+      rates[currency] = price ?? FX_FALLBACKS[currency] ?? null;
     } catch {
       rates[currency] = FX_FALLBACKS[currency] || null;
     }
@@ -100,15 +100,18 @@ function extractPrice(result) {
   // Regex fallback on title/snippet
   const text = `${result.title || ''} ${result.snippet || ''}`;
   const patterns = [
-    /(\d+(?:\.\d{1,3})?)\s*(?:AED|SAR|QAR|KWD|BHD|OMR|EGP|JOD|LBP|USD)/i,
-    /(?:AED|SAR|QAR|KWD|BHD|OMR|EGP|JOD|LBP|USD)\s*(\d+(?:\.\d{1,3})?)/i,
-    /(\d+(?:\.\d{1,3})?)/,
+    { re: /(\d+(?:\.\d{1,3})?)\s*(?:AED|SAR|QAR|KWD|BHD|OMR|EGP|JOD|LBP|USD)/i, label: 'currency-suffix' },
+    { re: /(?:AED|SAR|QAR|KWD|BHD|OMR|EGP|JOD|LBP|USD)\s*(\d+(?:\.\d{1,3})?)/i, label: 'currency-prefix' },
+    { re: /(\d+(?:\.\d{1,3})?)/, label: 'bare-number' },
   ];
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
+  for (const { re, label } of patterns) {
+    const match = text.match(re);
     if (match) {
       const price = parseFloat(match[1]);
       if (price > 0 && price < 100000) {
+        if (label === 'bare-number') {
+          console.warn(`    [extractPrice] bare-number fallback matched ${price} from ${result.url || 'unknown'} — may be inaccurate`);
+        }
         return { price, source: result.url || '' };
       }
     }

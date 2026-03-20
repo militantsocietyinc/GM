@@ -482,6 +482,7 @@ export class StrategicPosturePanel extends Panel {
             <div class="posture-emoji-key-item"><span>🛥️</span><span>${t('components.strategicPosture.units.frigates')}</span></div>
             <div class="posture-emoji-key-item"><span>🦈</span><span>${t('components.strategicPosture.units.submarines')}</span></div>
             <div class="posture-emoji-key-item"><span>🚤</span><span>${t('components.strategicPosture.units.patrol')}</span></div>
+            <div class="posture-emoji-key-item"><span>⚓</span><span>${t('components.strategicPosture.units.auxiliary')}</span></div>
           </div>
         </details>
 

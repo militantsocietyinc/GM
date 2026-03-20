@@ -56,6 +56,13 @@ const BOOTSTRAP_CACHE_KEYS = {
   securityAdvisories: 'intelligence:advisories-bootstrap:v1',
   customsRevenue:    'trade:customs-revenue:v1',
   sanctionsPressure: 'sanctions:pressure:v1',
+  consumerPricesOverview:   'consumer-prices:overview:ae',
+  consumerPricesCategories: 'consumer-prices:categories:ae:30d',
+  consumerPricesMovers:     'consumer-prices:movers:ae:30d',
+  consumerPricesSpread:     'consumer-prices:retailer-spread:ae:essentials-ae',
+  groceryBasket: 'economic:grocery-basket:v1',
+  bigmac:        'economic:bigmac:v1',
+  nationalDebt:      'economic:national-debt:v1',
 };
 
 const SLOW_KEYS = new Set([
@@ -70,6 +77,10 @@ const SLOW_KEYS = new Set([
   'securityAdvisories',
   'customsRevenue',
   'sanctionsPressure',
+  'consumerPricesOverview', 'consumerPricesCategories', 'consumerPricesMovers', 'consumerPricesSpread',
+  'groceryBasket',
+  'bigmac',
+  'nationalDebt',
 ]);
 const FAST_KEYS = new Set([
   'earthquakes', 'outages', 'serviceStatuses', 'macroSignals', 'chokepoints', 'chokepointTransits',

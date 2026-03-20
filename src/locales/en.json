@@ -200,6 +200,8 @@
     "world": "WORLD",
     "tech": "TECH",
     "live": "LIVE",
+    "cached": "CACHED",
+    "unavailable": "UNAVAILABLE",
     "search": "Search",
     "settings": "SETTINGS",
     "sources": "SOURCES",

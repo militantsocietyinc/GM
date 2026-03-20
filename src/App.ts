@@ -149,10 +149,10 @@ export class App {
       statusIndicator.classList.toggle('status-indicator--cached', statusMode === 'cached');
       statusIndicator.classList.toggle('status-indicator--unavailable', statusMode === 'unavailable');
       statusLabel.textContent = statusMode === 'live'
-        ? t('common.live')
+        ? t('header.live')
         : statusMode === 'cached'
-          ? t('common.cached')
-          : t('common.unavailable');
+          ? t('header.cached')
+          : t('header.unavailable');
     }
 
     if (bannerMessage) {
@@ -161,6 +161,12 @@ export class App {
         this.cachedModeBannerEl.className = 'cached-mode-banner';
         this.cachedModeBannerEl.setAttribute('role', 'status');
         this.cachedModeBannerEl.setAttribute('aria-live', 'polite');
+
+        const badge = document.createElement('span');
+        badge.className = 'cached-mode-banner__badge';
+        const text = document.createElement('span');
+        text.className = 'cached-mode-banner__text';
+        this.cachedModeBannerEl.append(badge, text);
 
         const header = this.state.container.querySelector('.header');
         if (header?.parentElement) {
@@ -171,10 +177,10 @@ export class App {
       }
 
       this.cachedModeBannerEl.classList.toggle('cached-mode-banner--unavailable', statusMode === 'unavailable');
-      this.cachedModeBannerEl.innerHTML = `
-        <span class="cached-mode-banner__badge">${statusMode === 'cached' ? t('common.cached') : t('common.unavailable')}</span>
-        <span class="cached-mode-banner__text">${bannerMessage}</span>
-      `;
+      const badge = this.cachedModeBannerEl.querySelector('.cached-mode-banner__badge')!;
+      const text = this.cachedModeBannerEl.querySelector('.cached-mode-banner__text')!;
+      badge.textContent = statusMode === 'cached' ? t('header.cached') : t('header.unavailable');
+      text.textContent = bannerMessage;
       return;
     }
 

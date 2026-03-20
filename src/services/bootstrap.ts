@@ -57,11 +57,11 @@ function getTierCacheKey(tier: 'fast' | 'slow'): string {
   return `${BOOTSTRAP_CACHE_PREFIX}${tier}`;
 }
 
-async function readCachedTier(tier: 'fast' | 'slow'): Promise<{ data: Record<string, unknown>; updatedAt: number } | null> {
+async function readCachedTier(tier: 'fast' | 'slow', allowStale = false): Promise<{ data: Record<string, unknown>; updatedAt: number } | null> {
   try {
     const cached = await getPersistentCache<Record<string, unknown>>(getTierCacheKey(tier));
     if (!cached?.data || Object.keys(cached.data).length === 0) return null;
-    if (Date.now() - cached.updatedAt > BOOTSTRAP_CACHE_MAX_AGE_MS) return null;
+    if (!allowStale && Date.now() - cached.updatedAt > BOOTSTRAP_CACHE_MAX_AGE_MS) return null;
     return { data: cached.data, updatedAt: cached.updatedAt };
   } catch {
     return null;
@@ -78,7 +78,7 @@ function combineHydrationSources(states: BootstrapTierHydrationState[]): Bootstr
 
 async function fetchTier(tier: 'fast' | 'slow', signal: AbortSignal): Promise<BootstrapTierHydrationState> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    const cached = await readCachedTier(tier);
+    const cached = await readCachedTier(tier, true); // age gate skipped: any snapshot beats blank offline
     if (cached) {
       populateCache(cached.data);
       return { source: 'cached', updatedAt: cached.updatedAt };

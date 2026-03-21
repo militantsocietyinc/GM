@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { loadEnvFile, loadSharedConfig, CHROME_UA, runSeed, sleep, readSeedSnapshot } from './_seed-utils.mjs';
+import { loadEnvFile, loadSharedConfig, CHROME_UA, runSeed, sleep, readSeedSnapshot, bulkReadLearnedRoutes, bulkWriteLearnedRoutes, isAllowedRouteHost } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
@@ -142,6 +142,30 @@ async function scrapeFirecrawl(url, expectedCurrency) {
   }
 }
 
+// Fast learned-route replay: direct fetch + matchPrice + same guardrails as EXA/Firecrawl paths.
+// Inline (not in _seed-utils) because it closes over CURRENCY_MIN, ITEM_USD_MAX, matchPrice.
+async function tryDirectFetch(url, expectedCurrency, itemId, fxRate) {
+  try {
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': CHROME_UA },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!resp.ok) return null;
+    const text = await resp.text();
+    const hit = matchPrice(text.slice(0, 10_000), url);
+    if (!hit || hit.currency !== expectedCurrency) return null;
+    const minPrice = CURRENCY_MIN[expectedCurrency] ?? 0;
+    if (hit.price <= minPrice || hit.price >= 100_000) return null;
+    if (fxRate && ITEM_USD_MAX[itemId] && hit.price * fxRate > ITEM_USD_MAX[itemId]) {
+      console.warn(`    [learned bulk] ${itemId}: ${hit.price} ${expectedCurrency} ($${(hit.price * fxRate).toFixed(2)}) > max — skipping`);
+      return null;
+    }
+    return hit.price;
+  } catch {
+    return null;
+  }
+}
+
 // All supported currency codes — keep in sync with grocery-basket.json fxSymbols
 const CCY = 'USD|GBP|EUR|JPY|CNY|INR|AUD|CAD|BRL|MXN|ZAR|TRY|NGN|KRW|SGD|PKR|AED|SAR|QAR|KWD|BHD|OMR|EGP|JOD|LBP|KES|ARS|IDR|PHP';
 
@@ -220,6 +244,16 @@ async function fetchGroceryBasketPrices(prevSnapshot) {
 
   const countriesResult = [];
 
+  // Load all learned routes in one pipeline request before the country loop
+  const routeKeys = config.countries.flatMap(c => config.items.map(i => `${c.code}:${i.id}`));
+  const learnedRoutes = await bulkReadLearnedRoutes('grocery-basket', routeKeys).catch((err) => {
+    console.warn(`  [routes] load failed (non-fatal): ${err.message}`);
+    return new Map();
+  });
+  const routeUpdates = new Map();
+  const routeDeletes = new Set();
+  console.log(`  [routes] loaded ${learnedRoutes.size} learned routes`);
+
   for (const country of config.countries) {
     console.log(`\n  Processing ${country.flag} ${country.name} (${country.currency})...`);
     const fxRate = fxRates[country.currency] || FX_FALLBACKS[country.currency] || null;
@@ -231,49 +265,96 @@ async function fetchGroceryBasketPrices(prevSnapshot) {
       let localPrice = null;
       let sourceSite = '';
 
-      let exaUrls = [];
-      try {
-        const exaResult = await searchExa(`${item.query} price`, country.sites, country.code);
+      // --- Learned route fast path ---
+      const routeKey = `${country.code}:${item.id}`;
+      const learned = learnedRoutes.get(routeKey);
+      const allowedHosts = country.sites.map(s => s.replace(/^www\./, ''));
 
-        if (exaResult?.results?.length) {
-          exaUrls = exaResult.results.map(r => r.url).filter(Boolean);
-          for (const result of exaResult.results) {
-            const extracted = extractPrice(result, country.currency);
-            if (!extracted) continue;
-            // Reject bulk/warehouse sizes by checking USD equivalent against per-item cap
+      if (learned) {
+        if (learned.failsSinceSuccess >= 2 || !isAllowedRouteHost(learned.url, allowedHosts)) {
+          routeDeletes.add(routeKey);
+          console.log(`    [learned✗] ${item.id}: evicting (${learned.failsSinceSuccess >= 2 ? '2 failures' : 'invalid host'})`);
+        } else {
+          localPrice = await tryDirectFetch(learned.url, country.currency, item.id, fxRate);
+          if (localPrice !== null) {
+            sourceSite = learned.url;
+            routeUpdates.set(routeKey, { ...learned, hits: learned.hits + 1, failsSinceSuccess: 0, lastSuccessAt: Date.now() });
+            console.log(`    [learned✓] ${item.id}: ${localPrice} ${country.currency}`);
+          } else {
+            // Firecrawl on learned URL (handles JS-heavy SPAs)
+            await sleep(FIRECRAWL_DELAY_MS);
+            const fc = await scrapeFirecrawl(learned.url, country.currency);
+            const fcSkip = fc && fxRate && ITEM_USD_MAX[item.id] && (fc.price * fxRate) > ITEM_USD_MAX[item.id];
+            if (fc && !fcSkip) {
+              localPrice = fc.price;
+              sourceSite = fc.source;
+              routeUpdates.set(routeKey, { ...learned, hits: learned.hits + 1, failsSinceSuccess: 0, lastSuccessAt: Date.now() });
+              console.log(`    [learned-FC✓] ${item.id}: ${localPrice} ${country.currency}`);
+            } else {
+              const newFails = learned.failsSinceSuccess + 1;
+              if (newFails >= 2) {
+                routeDeletes.add(routeKey);
+                console.log(`    [learned✗→EXA] ${item.id}: 2 failures — evicting, retrying via EXA`);
+              } else {
+                routeUpdates.set(routeKey, { ...learned, failsSinceSuccess: newFails });
+                console.log(`    [learned✗→EXA] ${item.id}: failed (${newFails}/2), retrying via EXA`);
+              }
+            }
+          }
+        }
+      }
+
+      // --- EXA search (only when learned route didn't succeed) ---
+      if (localPrice === null) {
+        let exaUrls = [];
+        try {
+          const exaResult = await searchExa(`${item.query} price`, country.sites, country.code);
+
+          if (exaResult?.results?.length) {
+            exaUrls = exaResult.results.map(r => r.url).filter(Boolean);
+            for (const result of exaResult.results) {
+              const extracted = extractPrice(result, country.currency);
+              if (!extracted) continue;
+              // Reject bulk/warehouse sizes by checking USD equivalent against per-item cap
+              if (fxRate && ITEM_USD_MAX[item.id]) {
+                const usdEquiv = extracted.price * fxRate;
+                if (usdEquiv > ITEM_USD_MAX[item.id]) {
+                  console.warn(`    [bulk] ${item.id}: ${extracted.price} ${country.currency} ($${usdEquiv.toFixed(2)}) > max $${ITEM_USD_MAX[item.id]} — skipping`);
+                  continue;
+                }
+              }
+              localPrice = extracted.price;
+              sourceSite = extracted.source;
+              break;
+            }
+          }
+        } catch (err) {
+          console.warn(`    [${country.code}/${item.id}] EXA error: ${err.message}`);
+        }
+
+        // Firecrawl fallback — renders JS-heavy SPAs (noon.com, coupang, shopee, etc.)
+        if (localPrice === null && exaUrls.length > 0) {
+          for (const url of exaUrls.slice(0, 2)) {
+            const fc = await scrapeFirecrawl(url, country.currency);
+            if (!fc) continue;
+            // Apply same bulk cap to Firecrawl results
             if (fxRate && ITEM_USD_MAX[item.id]) {
-              const usdEquiv = extracted.price * fxRate;
+              const usdEquiv = fc.price * fxRate;
               if (usdEquiv > ITEM_USD_MAX[item.id]) {
-                console.warn(`    [bulk] ${item.id}: ${extracted.price} ${country.currency} ($${usdEquiv.toFixed(2)}) > max $${ITEM_USD_MAX[item.id]} — skipping`);
+                console.warn(`    [FC bulk] ${item.id}: ${fc.price} ${country.currency} ($${usdEquiv.toFixed(2)}) > max — skipping`);
                 continue;
               }
             }
-            localPrice = extracted.price;
-            sourceSite = extracted.source;
+            localPrice = fc.price;
+            sourceSite = fc.source;
+            console.log(`    [FC✓] ${item.id}: ${url.slice(0, 55)}`);
             break;
           }
         }
-      } catch (err) {
-        console.warn(`    [${country.code}/${item.id}] EXA error: ${err.message}`);
-      }
 
-      // Firecrawl fallback — renders JS-heavy SPAs (noon.com, coupang, shopee, etc.)
-      if (localPrice === null && exaUrls.length > 0) {
-        for (const url of exaUrls.slice(0, 2)) {
-          const fc = await scrapeFirecrawl(url, country.currency);
-          if (!fc) continue;
-          // Apply same bulk cap to Firecrawl results
-          if (fxRate && ITEM_USD_MAX[item.id]) {
-            const usdEquiv = fc.price * fxRate;
-            if (usdEquiv > ITEM_USD_MAX[item.id]) {
-              console.warn(`    [FC bulk] ${item.id}: ${fc.price} ${country.currency} ($${usdEquiv.toFixed(2)}) > max — skipping`);
-              continue;
-            }
-          }
-          localPrice = fc.price;
-          sourceSite = fc.source;
-          console.log(`    [FC✓] ${item.id}: ${url.slice(0, 55)}`);
-          break;
+        // Save newly discovered URL as a learned route for future runs
+        if (localPrice !== null && sourceSite && isAllowedRouteHost(sourceSite, allowedHosts)) {
+          routeUpdates.set(routeKey, { url: sourceSite, lastSuccessAt: Date.now(), hits: 1, failsSinceSuccess: 0, currency: country.currency });
         }
       }
 
@@ -306,6 +387,11 @@ async function fetchGroceryBasketPrices(prevSnapshot) {
       items: itemPrices,
     });
   }
+
+  // Persist learned routes for next run (non-fatal)
+  await bulkWriteLearnedRoutes('grocery-basket', routeUpdates, routeDeletes).catch(err =>
+    console.warn(`  [routes] write failed (non-fatal): ${err.message}`)
+  );
 
   // Only rank countries with enough items found — a country with 4/10 items
   // could appear "cheapest" purely due to missing data, not actual prices.

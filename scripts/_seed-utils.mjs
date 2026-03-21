@@ -282,6 +282,68 @@ export function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+// ---------------------------------------------------------------------------
+// Learned Routes — persist successful scrape URLs across seed runs
+// ---------------------------------------------------------------------------
+
+// Validate a URL's hostname against a list of allowed domains (same list used
+// for EXA includeDomains). Prevents stored-SSRF from Redis-persisted URLs.
+export function isAllowedRouteHost(url, allowedHosts) {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    return allowedHosts.some(h => hostname === h || hostname.endsWith('.' + h));
+  } catch {
+    return false;
+  }
+}
+
+// Batch-read all learned routes for a scope via single Upstash pipeline request.
+// Returns Map<key → routeData>. Non-fatal: throws on HTTP error (caller catches).
+export async function bulkReadLearnedRoutes(scope, keys) {
+  if (!keys.length) return new Map();
+  const { url, token } = getRedisCredentials();
+  const pipeline = keys.map(k => ['GET', `seed-routes:${scope}:${k}`]);
+  const resp = await fetch(`${url}/pipeline`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(pipeline),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!resp.ok) throw new Error(`bulkReadLearnedRoutes HTTP ${resp.status}`);
+  const results = await resp.json();
+  const map = new Map();
+  for (let i = 0; i < keys.length; i++) {
+    const raw = results[i]?.result;
+    if (!raw) continue;
+    try { map.set(keys[i], JSON.parse(raw)); }
+    catch { console.warn(`  [routes] malformed JSON for ${keys[i]} — skipping`); }
+  }
+  return map;
+}
+
+// Batch-write route updates and hard-delete evicted routes via single pipeline.
+// Keys in updates always win over deletes (SET/DEL conflict resolution).
+// DELs are sent before SETs to ensure correct ordering.
+export async function bulkWriteLearnedRoutes(scope, updates, deletes = new Set()) {
+  const { url, token } = getRedisCredentials();
+  const ROUTE_TTL = 14 * 24 * 3600; // 14 days
+  const effectiveDeletes = [...deletes].filter(k => !updates.has(k));
+  const pipeline = [];
+  for (const k of effectiveDeletes)
+    pipeline.push(['DEL', `seed-routes:${scope}:${k}`]);
+  for (const [k, v] of updates)
+    pipeline.push(['SET', `seed-routes:${scope}:${k}`, JSON.stringify(v), 'EX', ROUTE_TTL]);
+  if (!pipeline.length) return;
+  const resp = await fetch(`${url}/pipeline`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(pipeline),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!resp.ok) throw new Error(`bulkWriteLearnedRoutes HTTP ${resp.status}`);
+  console.log(`  [routes] written: ${updates.size} updated, ${effectiveDeletes.length} deleted`);
+}
+
 /**
  * Read the current canonical snapshot from Redis before a seed run overwrites it.
  * Used by seed scripts that compute WoW deltas (bigmac, grocery-basket).

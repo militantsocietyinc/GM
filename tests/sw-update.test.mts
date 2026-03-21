@@ -279,6 +279,34 @@ describe('installSwUpdateHandler', () => {
     assert.equal(env.reloadCalls.length, 0, 'no reload — both toasts dismissed');
   });
 
+  // --- visible-transition must NOT reload (P1 regression guard) ---------------
+
+  it('does NOT reload when visibilitychange fires while state is still visible', () => {
+    env.swContainer._controller = {};
+    install(env);
+    env.swContainer.fireControllerChange();
+    // tab stays visible — fire visibilitychange anyway (e.g. focus events on some browsers)
+    env.doc.setVisibilityState('visible');
+    fireVisibility(env);
+    assert.equal(env.reloadCalls.length, 0);
+  });
+
+  it('does NOT reload when tab goes hidden then returns to visible', () => {
+    env.swContainer._controller = {};
+    install(env);
+    env.swContainer.fireControllerChange();
+
+    // go hidden → should reload
+    env.doc.setVisibilityState('hidden');
+    fireVisibility(env);
+    assert.equal(env.reloadCalls.length, 1);
+
+    // just confirming the first hidden fired; now visible would not add a second reload
+    env.doc.setVisibilityState('visible');
+    fireVisibility(env);
+    assert.equal(env.reloadCalls.length, 1, 'no second reload on visible transition');
+  });
+
   // --- listener leak regression -----------------------------------------------
 
   it('removes the previous visibilitychange handler when a newer deploy replaces the toast', () => {

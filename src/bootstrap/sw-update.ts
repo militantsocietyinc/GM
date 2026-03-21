@@ -1,4 +1,5 @@
 interface DocumentLike {
+  readonly visibilityState: string;
   querySelector: (sel: string) => Element | null;
   createElement: (tag: string) => HTMLElement;
   body: { appendChild: (el: Element) => void; contains: (el: Element | null) => boolean };
@@ -62,7 +63,7 @@ export function installSwUpdateHandler(options: SwUpdateHandlerOptions = {}): vo
     let dismissed = false;
 
     const onHidden = (): void => {
-      if (!dismissed && doc.body.contains(toast)) {
+      if (!dismissed && doc.visibilityState === 'hidden' && doc.body.contains(toast)) {
         reload();
       }
     };

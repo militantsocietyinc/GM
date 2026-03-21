@@ -540,16 +540,16 @@ export class SearchManager implements AppModule {
         id: p.icao24,
         title: (p.callsign || p.icao24).trim().toUpperCase(),
         subtitle: p.onGround
-          ? 'On ground'
-          : `FL${Math.round(p.altitudeFt / 100)} · ${Math.round(p.groundSpeedKts)} kts`,
+          ? t('modals.search.flightOnGround')
+          : t('modals.search.flightAirborne', { fl: String(Math.round(p.altitudeFt / 100)), kts: String(Math.round(p.groundSpeedKts)) }),
         data: { kind: 'adsb' as const, lat: p.lat, lon: p.lon, layer: 'flights' as const },
       })),
       ...military.map(f => ({
         id: f.hexCode,
         title: (f.callsign || f.hexCode).trim().toUpperCase(),
         subtitle: f.onGround
-          ? `Military · ${f.aircraftType} · on ground`
-          : `Military · ${f.aircraftType} · FL${Math.round(f.altitude / 100)}`,
+          ? t('modals.search.flightMilitaryOnGround', { type: f.aircraftType })
+          : t('modals.search.flightMilitary', { type: f.aircraftType, fl: String(Math.round(f.altitude / 100)) }),
         data: { kind: 'military' as const, lat: f.lat, lon: f.lon, layer: 'military' as const },
       })),
     ];

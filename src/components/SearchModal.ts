@@ -390,6 +390,9 @@ export class SearchModal {
       { icon: '\u23F1\uFE0F', key: 'commands.tips.time', exampleKey: 'commands.tips.timeExample' },
       { icon: '\u2699\uFE0F', key: 'commands.tips.settings', exampleKey: 'commands.tips.settingsExample' },
     ];
+    if (this.sources.some(s => s.type === 'flight')) {
+      tips.push({ icon: '\u2708\uFE0F', key: 'commands.tips.flight', exampleKey: 'commands.tips.flightExample' });
+    }
 
     const shuffled = shuffle(tips).slice(0, this.isMobile ? 2 : 4);
 

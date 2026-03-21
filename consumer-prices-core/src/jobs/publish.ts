@@ -87,7 +87,12 @@ export async function publishAll() {
   for (const marketCode of markets) {
     const freshnessSnapshot = marketFreshnessSnapshots[marketCode];
     // hasFreshData = at least one retailer scraped within last 2 hours
-    const advanceSeedMeta = freshnessSnapshot != null && freshnessSnapshot.overallFreshnessMin < FRESH_DATA_THRESHOLD_MIN;
+    // NOTE: overallFreshnessMin is an average — using .some() to correctly check "any retailer is fresh"
+    const advanceSeedMeta =
+      freshnessSnapshot != null &&
+      freshnessSnapshot.retailers.some(
+        (r) => r.freshnessMin > 0 && r.freshnessMin < FRESH_DATA_THRESHOLD_MIN,
+      );
     logger.info(`Publishing snapshots for market: ${marketCode} (freshData=${advanceSeedMeta})`);
 
     try {

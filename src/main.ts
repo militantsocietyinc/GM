@@ -427,7 +427,15 @@ if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
 }
 
 if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window) && 'serviceWorker' in navigator) {
+  // Tracks the active onHidden handler so it can be removed when a newer update replaces the toast.
+  let currentSwOnHidden: (() => void) | null = null;
+
   const showSwUpdateToast = (): void => {
+    // Clean up the previous toast's visibilitychange handler before replacing the DOM node.
+    if (currentSwOnHidden) {
+      document.removeEventListener('visibilitychange', currentSwOnHidden);
+      currentSwOnHidden = null;
+    }
     document.querySelector('.update-toast')?.remove();
 
     const toast = document.createElement('div');
@@ -462,11 +470,13 @@ if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window) && 'serviceWo
       } else if (action === 'dismiss') {
         dismissed = true;
         document.removeEventListener('visibilitychange', onHidden);
+        currentSwOnHidden = null;
         toast.classList.remove('visible');
         setTimeout(() => toast.remove(), 300);
       }
     });
 
+    currentSwOnHidden = onHidden;
     document.addEventListener('visibilitychange', onHidden);
     document.body.appendChild(toast);
     requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('visible')));
@@ -475,16 +485,14 @@ if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window) && 'serviceWo
   // Show an update toast when a NEW SW replaces an existing one (fixes stale HTML after deploys).
   // Skip on first visit: skipWaiting+clientsClaim fires controllerchange when the SW
   // claims the page for the first time — no prior version to update from.
-  // If the user dismisses the toast, defer reload until the tab is hidden.
+  // Each subsequent controllerchange (new deploy) re-shows the toast independently,
+  // so dismissing one update never suppresses future ones.
   let hadController = !!navigator.serviceWorker.controller;
-  let updateToastShown = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController) {
       hadController = true;
       return;
     }
-    if (updateToastShown) return;
-    updateToastShown = true;
     showSwUpdateToast();
   });
 

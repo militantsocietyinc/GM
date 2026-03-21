@@ -499,7 +499,7 @@ test('returns local handler error when fetch(Request) uses a consumed body', asy
   }
 });
 
-test('strips browser origin headers when proxying to cloud fallback (cloudFallback enabled)', async () => {
+test('replaces browser origin with worldmonitor.app when proxying to cloud fallback', async () => {
   const remote = await setupRemoteServer();
   const localApi = await setupApiDir({});
 
@@ -519,8 +519,10 @@ test('strips browser origin headers when proxying to cloud fallback (cloudFallba
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.source, 'remote');
-    assert.equal(body.origin, null);
-    assert.equal(remote.origins[0], null);
+    // Browser origin is stripped, but proxyToCloud() injects 'https://worldmonitor.app'
+    // so the cloud API key validator treats the sidecar as a trusted caller (not 401).
+    assert.equal(body.origin, 'https://worldmonitor.app');
+    assert.equal(remote.origins[0], 'https://worldmonitor.app');
   } finally {
     await app.close();
     await localApi.cleanup();

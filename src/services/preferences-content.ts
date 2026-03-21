@@ -212,6 +212,7 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
   html += `<summary>${t('preferences.panels')}</summary>`;
   html += `<div class="wm-pref-group-content">`;
   html += toggleRowHtml('us-badge-anim', t('components.insights.badgeAnimLabel'), t('components.insights.badgeAnimDesc'), settings.badgeAnimation);
+  html += toggleRowHtml('us-sort-news-by-time', t('preferences.sortNewsByTime'), t('preferences.sortNewsByTimeDesc'), settings.sortNewsByTime);
   html += `</div></details>`;
 
   // ── Data & Community group ──
@@ -307,6 +308,8 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
           setAiFlowSetting('headlineMemory', target.checked);
         } else if (target.id === 'us-badge-anim') {
           setAiFlowSetting('badgeAnimation', target.checked);
+        } else if (target.id === 'us-sort-news-by-time') {
+          setAiFlowSetting('sortNewsByTime', target.checked);
         }
       }, { signal });
 

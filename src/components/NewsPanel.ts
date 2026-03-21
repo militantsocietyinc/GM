@@ -5,6 +5,7 @@ import { THREAT_PRIORITY } from '@/services/threat-classifier';
 import { formatTime, getCSSColor } from '@/utils';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { analysisWorker, enrichWithVelocityML, getClusterAssetContext, MAX_DISTANCE_KM, activityTracker, generateSummary, translateText } from '@/services';
+import { isSortNewsByTimeEnabled } from '@/services/ai-flow-settings';
 import { getSourcePropagandaRisk, getSourceTier, getSourceType } from '@/config/feeds';
 import { SITE_VARIANT } from '@/config';
 import { t, getCurrentLanguage } from '@/services/i18n';
@@ -346,15 +347,20 @@ export class NewsPanel extends Panel {
   }
 
   private renderFlat(items: NewsItem[]): void {
-    this.setCount(items.length);
-    this.currentHeadlines = items
+    // Sort by timestamp if user preference is enabled
+    const sortedItems = isSortNewsByTimeEnabled()
+      ? [...items].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime())
+      : items;
+
+    this.setCount(sortedItems.length);
+    this.currentHeadlines = sortedItems
       .slice(0, 5)
       .map(item => item.title)
       .filter((title): title is string => typeof title === 'string' && title.trim().length > 0);
 
     this.updateHeadlineSignature();
 
-    const html = items
+    const html = sortedItems
       .map(
         (item) => `
       <div class="item ${item.isAlert ? 'alert' : ''}" ${item.monitorColor ? `style="border-inline-start-color: ${escapeHtml(item.monitorColor)}"` : ''}>
@@ -377,13 +383,20 @@ export class NewsPanel extends Panel {
   }
 
   private renderClusters(clusters: ClusteredEvent[]): void {
-    // Sort by threat priority, then by time within same level
-    const sorted = [...clusters].sort((a, b) => {
-      const pa = THREAT_PRIORITY[a.threat?.level ?? 'info'];
-      const pb = THREAT_PRIORITY[b.threat?.level ?? 'info'];
-      if (pb !== pa) return pb - pa;
-      return b.lastUpdated.getTime() - a.lastUpdated.getTime();
-    });
+    let sorted: ClusteredEvent[];
+
+    if (isSortNewsByTimeEnabled()) {
+      // Sort purely by timestamp (newest first) when user prefers chronological order
+      sorted = [...clusters].sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime());
+    } else {
+      // Default: sort by threat priority, then by time within same level
+      sorted = [...clusters].sort((a, b) => {
+        const pa = THREAT_PRIORITY[a.threat?.level ?? 'info'];
+        const pb = THREAT_PRIORITY[b.threat?.level ?? 'info'];
+        if (pb !== pa) return pb - pa;
+        return b.lastUpdated.getTime() - a.lastUpdated.getTime();
+      });
+    }
 
     const totalItems = sorted.reduce((sum, c) => sum + c.sourceCount, 0);
     this.setCount(totalItems);

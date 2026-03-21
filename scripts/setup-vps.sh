@@ -9,7 +9,7 @@
 #   2. Docker インストール (未インストールの場合)
 #   3. ufw ファイアウォール設定
 #   4. worldmonitor.service を systemd に登録
-#   5. cron ジョブ設定 (シード 30分 / Discord 通知 60分 / ヘルスチェック 2分)
+#   5. cron ジョブ設定 (シード 30分 / ヘルスチェック 2分)
 #
 # 前提条件:
 #   - このスクリプトは /home/user/worldmonitor から実行することを想定
@@ -82,6 +82,7 @@ ufw allow 80/tcp    comment 'HTTP (for TLS/Cloudflare)'
 ufw allow 443/tcp   comment 'HTTPS'
 ufw --force enable
 log "ufw enabled (allowed: 22, 80, 443, 3000)"
+warn "Docker published ports can bypass ufw rules. Mirror ingress rules in Hetzner Cloud Firewalls and use SSH for routine management."
 
 # Docker が ufw をバイパスする問題の対策
 DOCKER_DAEMON=/etc/docker/daemon.json
@@ -109,13 +110,16 @@ fi
 # ─── 5. cron ジョブ ──────────────────────────────────────────────────────────
 log "=== cron ジョブ ==="
 
+if ! command -v cron >/dev/null 2>&1; then
+  apt-get install -y -qq cron
+fi
+systemctl enable --now cron
+
 # ログディレクトリ作成
 LOG_DIR=/var/log
 touch "$LOG_DIR/worldmonitor-seed.log" \
-      "$LOG_DIR/worldmonitor-discord.log" \
       "$LOG_DIR/worldmonitor-health.log"
 chown "$APP_USER" "$LOG_DIR/worldmonitor-seed.log" \
-                  "$LOG_DIR/worldmonitor-discord.log" \
                   "$LOG_DIR/worldmonitor-health.log"
 
 # ユーザーの crontab を設定
@@ -128,14 +132,11 @@ cat >> "$CRON_TMP" <<EOF
 # World Monitor — シードデータ更新 (30分ごと)
 */30 * * * * cd ${REPO_DIR} && ./scripts/run-seeders.sh >> /var/log/worldmonitor-seed.log 2>&1
 
-# World Monitor — Discord 通知 (60分ごと)
-0 * * * * cd ${REPO_DIR} && node scripts/discord-notify.mjs >> /var/log/worldmonitor-discord.log 2>&1
-
 # World Monitor — ヘルスチェック (2分ごと)
 */2 * * * * ${REPO_DIR}/scripts/health-check.sh >> /var/log/worldmonitor-health.log 2>&1
 
 # World Monitor — ログローテーション (週1回)
-0 3 * * 0 truncate -s 0 /var/log/worldmonitor-seed.log /var/log/worldmonitor-discord.log /var/log/worldmonitor-health.log
+0 3 * * 0 truncate -s 0 /var/log/worldmonitor-seed.log /var/log/worldmonitor-health.log
 EOF
 
 crontab -u "$APP_USER" "$CRON_TMP"
@@ -153,5 +154,6 @@ log "  crontab:  $(crontab -u "$APP_USER" -l 2>/dev/null | grep -c worldmonitor)
 log ""
 log "次のステップ:"
 log "  1. docker-compose.override.yml に API キーを設定"
-log "  2. docker compose up -d --build  でスタック起動"
-log "  3. ./scripts/run-seeders.sh      で初回シード実行"
+log "  2. systemctl start worldmonitor   でスタック起動"
+log "  3. ./scripts/run-seeders.sh       で初回シード実行"
+log "  4. Hetzner Backups / Snapshots を有効化"

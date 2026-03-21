@@ -31,6 +31,7 @@
 ## 2. P0 — ARM64 対応 (ビルド互換性)
 
 ### 問題
+
 CAX21 は ARM64 CPU。Docker イメージを x86_64 でビルドすると実行不可。
 
 ### 対応
@@ -71,6 +72,7 @@ services:
 ```
 
 **③ ベースイメージは既存のまま OK**
+
 - `node:22-alpine` → マルチアーキテクチャ対応済み ✅
 - `redis:7-alpine` → マルチアーキテクチャ対応済み ✅
 
@@ -79,10 +81,12 @@ services:
 ## 3. P0 — グレースフルシャットダウン
 
 ### 問題
+
 `local-api-server.mjs` に SIGTERM ハンドラがない。
 `docker compose restart` や更新デプロイ時に、処理中のリクエストが強制切断される。
 
 ### 対応
+
 `src-tauri/sidecar/local-api-server.mjs` の末尾付近に追加：
 
 ```javascript
@@ -113,10 +117,12 @@ process.on('SIGINT',  () => shutdown('SIGINT'));
 ## 4. P0 — Redis パーシスタンス
 
 ### 問題
+
 現状: `redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru`
 RDB/AOF が無効のため、コンテナ再起動で全キャッシュが失われる。
 
 ### 対応
+
 `docker-compose.yml` の redis サービスを修正：
 
 ```yaml
@@ -148,9 +154,11 @@ redis:
 ## 5. P0 — Docker ログローテーション
 
 ### 問題
+
 Docker のデフォルトでは json-file ドライバがログを無制限に蓄積する。長期運用でディスクフルになる。
 
 ### 対応
+
 `docker-compose.yml` の各サービスに追加：
 
 ```yaml
@@ -186,6 +194,7 @@ services:
 ## 6. P0 — systemd によるサービス自動起動
 
 ### 問題
+
 VPS 再起動後に `docker compose up -d` を手動実行しない限りサービスが起動しない。
 
 ### 対応
@@ -209,9 +218,10 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/home/user/worldmonitor
-ExecStart=/usr/bin/docker compose up -d --build
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecReload=/usr/bin/docker compose up -d --build --remove-orphans
 ExecStop=/usr/bin/docker compose down
-TimeoutStartSec=300
+TimeoutStartSec=180
 
 [Install]
 WantedBy=multi-user.target
@@ -228,6 +238,7 @@ sudo systemctl start worldmonitor
 ## 7. P1 — Discord 定期通知 (Gemini 要約)
 
 ### 概要
+
 Redis に蓄積されたリアルタイムデータを Gemini で要約し、Discord に定期投稿する。
 通知間隔は環境変数で可変。
 
@@ -328,6 +339,13 @@ services:
       DISCORD_NOTIFY_LANGUAGE: "${DISCORD_NOTIFY_LANGUAGE:-ja}"
 ```
 
+### 実行方式
+
+Discord 通知は 24/7 運用では 1 つの経路だけに統一する。
+
+- 推奨: コンテナ内 `supervisord` で `discord-notify --daemon` を常駐
+- 非推奨: ホスト cron とコンテナ常駐を同時に有効化すること
+
 ### cron 設定 (ホスト側で実行する場合)
 
 ```cron
@@ -344,25 +362,27 @@ services:
 command=node /app/scripts/discord-notify.mjs --daemon
 directory=/app
 autostart=true
-autorestart=true
+autorestart=unexpected
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 ```
 
-> **推奨:** cron 方式（ホスト側）の方がシンプルで障害切り分けが楽。
+> **推奨:** CAX21 の 24/7 運用ではコンテナ常駐方式を採用し、ホスト cron と二重化しない。
 
 ---
 
 ## 8. P1 — メモリ制限と Swap 設定
 
 ### 問題
+
 Swap がないとメモリ不足時に OOM Killer が発動し、サービスが突然終了する。
 
 ### 対応
 
 **① VPS に Swap を追加 (2GB)**
+
 ```bash
 sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
@@ -396,9 +416,11 @@ services:
 ## 9. P1 — シードスクリプトのリトライ機構
 
 ### 問題
+
 `run-seeders.sh` はシードに失敗しても再試行しない。外部 API の一時エラーでデータが長時間陳腐化する。
 
 ### 対応
+
 `scripts/run-seeders.sh` のループを以下に置き換え：
 
 ```sh
@@ -433,6 +455,7 @@ run_with_retry() {
 ## 10. P1 — ファイアウォール設定 (ufw)
 
 ### 対応
+
 ```bash
 sudo apt install -y ufw
 sudo ufw default deny incoming
@@ -445,10 +468,13 @@ sudo ufw enable
 ```
 
 Docker が ufw をバイパスする問題への対策:
+
 ```json
 // /etc/docker/daemon.json
 { "iptables": true, "userland-proxy": false }
 ```
+
+> Docker 公開ポートの最終防御は UFW だけに依存しない。Hetzner Cloud Firewalls 側にも同じ許可ポートを設定し、通常運用は SSH で行う。
 
 ---
 
@@ -462,11 +488,8 @@ crontab -e
 # シードデータ更新 (30分ごと)
 */30 * * * * cd /home/user/worldmonitor && ./scripts/run-seeders.sh >> /var/log/worldmonitor-seed.log 2>&1
 
-# Discord 通知 (60分ごと — DISCORD_NOTIFY_INTERVAL_MINUTES に合わせて調整)
-0 * * * * cd /home/user/worldmonitor && node scripts/discord-notify.mjs >> /var/log/worldmonitor-discord.log 2>&1
-
 # ログローテーション (週1回)
-0 3 * * 0 truncate -s 0 /var/log/worldmonitor-seed.log /var/log/worldmonitor-discord.log
+0 3 * * 0 truncate -s 0 /var/log/worldmonitor-seed.log
 ```
 
 ---
@@ -474,9 +497,11 @@ crontab -e
 ## 12. P2 — 構造化ログの追加
 
 ### 問題
+
 `local-api-server.mjs` のログは平文 `console.log`。エラー集計や障害トリアージが困難。
 
 ### 対応
+
 ```javascript
 const logger = {
   log:   (msg, meta = {}) => console.log(JSON.stringify({ level: 'info',  ts: new Date().toISOString(), msg, ...meta })),
@@ -491,7 +516,7 @@ const logger = {
 
 ## 13. P2 — ヘルスチェック監視の自動化
 
-`/api/health` が DEGRADED になっても誰も気づかない問題への対応。
+`/api/health` が DEGRADED になっても誰も気づかない問題への対応。アラートは状態変化時と一定クールダウン経過時のみに絞る。
 
 **オプション A: Cron + メール**
 
@@ -510,6 +535,7 @@ fi
 ```
 
 **オプション B: UptimeRobot (無料プラン)**
+
 - `http://your-vps-ip:3000/api/health` を HTTP キーワードモニターとして登録
 - キーワード: `HEALTHY` または `WARNING` で OK 判定
 
@@ -529,15 +555,41 @@ chmod 600 secrets/*
 
 ---
 
-## 15. P3 — nginx リバースプロキシ + TLS
+## 15. P2 — コンソール運用フロー
+
+Hetzner の VNC コンソールは緊急用途に限定し、日常運用は SSH と `systemd` / `docker compose` を使う。
+
+```bash
+ssh root@your-server
+systemctl status worldmonitor
+journalctl -u worldmonitor -f
+docker compose ps
+docker compose logs -f worldmonitor
+systemctl reload worldmonitor
+```
+
+インフラ操作は `hcloud` CLI を併用すると管理しやすい。
+
+```bash
+hcloud server list
+hcloud server poweroff <server-name>
+hcloud server poweron <server-name>
+hcloud server create-image <server-name> --type snapshot --description "pre-deploy"
+```
+
+---
+
+## 16. P3 — nginx リバースプロキシ + TLS
 
 **Cloudflare 推奨 (最も簡単):**
+
 1. ドメインを Cloudflare に向ける
 2. Cloudflare Proxy (オレンジ雲) を有効化
 3. SSL/TLS モードを "Full (strict)" に設定
 4. CAX21 の公開ポートは 80/443 のみ開放
 
 **Certbot 直接:**
+
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
@@ -545,7 +597,7 @@ sudo certbot --nginx -d your-domain.com
 
 ---
 
-## 16. 実装ロードマップ
+## 17. 実装ロードマップ
 
 ```
 Week 1 (P0) — 本番投入前
@@ -564,11 +616,13 @@ Week 2 (P1) — 安定運用 + Discord 通知
 │   └── Discord Webhook Embed 投稿
 ├── シードリトライロジック追加
 ├── ufw ファイアウォール設定
-└── cron 設定 (シード 30分 / Discord 通知 可変)
+├── cron 設定 (シード 30分 / ヘルスチェック 2分)
+└── Discord 通知経路をコンテナ常駐に統一
 
 Month 1 (P2)
 ├── 構造化ログ (JSON)
 ├── ヘルスチェック監視スクリプト
+├── コンソール運用フロー整備
 └── Docker Secrets 有効化
 
 Month 2+ (P3)
@@ -577,7 +631,7 @@ Month 2+ (P3)
 
 ---
 
-## 17. 変更ファイル一覧
+## 18. 変更ファイル一覧
 
 | ファイル | 変更内容 | 優先度 |
 |---------|---------|--------|
@@ -587,11 +641,11 @@ Month 2+ (P3)
 | `scripts/run-seeders.sh` | リトライロジック (指数バックオフ) | P1 |
 | `docker/supervisord.conf` | discord-notify デーモン追加 (デーモンモード採用時) | P1 |
 | `/etc/systemd/system/worldmonitor.service` | **新規作成** (自動起動) | P0 |
-| `scripts/health-check.sh` | **新規作成** (ヘルス監視) | P2 |
+| `scripts/health-check.sh` | **新規作成** (ヘルス監視、重複アラート抑制) | P2 |
 
 ---
 
-## 18. 現状評価サマリー
+## 19. 現状評価サマリー
 
 | 項目 | 現状 | リスク | 対応後 |
 |------|------|--------|--------|
@@ -603,8 +657,8 @@ Month 2+ (P3)
 | Swap | ❌ なし | 高 (OOM Kill) | ✅ 2GB Swap 追加 |
 | メモリ制限 | ❌ なし | 中 (暴走で全滅) | ✅ per-service 制限 |
 | シードリトライ | ❌ なし | 中 (データ陳腐化) | ✅ 指数バックオフ |
-| ファイアウォール | ❌ なし | 高 (ポート開放) | ✅ ufw 設定 |
+| ファイアウォール | ❌ なし | 高 (ポート開放) | ✅ ufw + Hetzner Firewall |
 | cron シード | ❌ なし | 高 (手動更新のみ) | ✅ 30分周期 cron |
-| **Discord 通知** | ❌ なし | — (新機能) | ✅ Gemini 要約 + Webhook |
-| ヘルス監視 | ⚠️ 受動的 | 中 (障害に気づかない) | ✅ 2分周期チェック |
+| **Discord 通知** | ❌ なし | — (新機能) | ✅ Gemini 要約 + Webhook 常駐 |
+| ヘルス監視 | ⚠️ 受動的 | 中 (障害に気づかない) | ✅ 2分周期チェック + 抑制 |
 | TLS/HTTPS | ❌ なし | 低 (HTTP のみ) | ✅ Cloudflare Proxy |

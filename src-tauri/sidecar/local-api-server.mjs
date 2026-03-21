@@ -1602,30 +1602,31 @@ if (isMainModule()) {
 
   // ── Graceful Shutdown ──────────────────────────────────────────────────────
   let isShuttingDown = false;
+  let forceExitTimer = null;
 
   async function shutdown(signal) {
     if (isShuttingDown) return;
     isShuttingDown = true;
     logger.log(`[local-api] ${signal} received — graceful shutdown`);
+    forceExitTimer = setTimeout(() => {
+      process.stderr.write('[local-api] forced exit after 30s timeout\n');
+      process.exit(1);
+    }, 30_000);
+    forceExitTimer.unref();
     try {
       await app.close();
       logger.log('[local-api] HTTP server closed');
     } catch (err) {
       logger.error('[local-api] error during shutdown', err.message);
+    } finally {
+      if (forceExitTimer) {
+        clearTimeout(forceExitTimer);
+        forceExitTimer = null;
+      }
     }
     process.exit(0);
   }
 
-  // Force-exit safety net: if graceful close stalls for 30s, terminate anyway
-  function forceExit(signal) {
-    shutdown(signal).catch(() => {}).finally(() => {
-      setTimeout(() => {
-        process.stderr.write('[local-api] forced exit after 30s timeout\n');
-        process.exit(1);
-      }, 30_000).unref();
-    });
-  }
-
-  process.on('SIGTERM', () => forceExit('SIGTERM'));
-  process.on('SIGINT',  () => forceExit('SIGINT'));
+  process.on('SIGTERM', () => { shutdown('SIGTERM').catch(() => {}); });
+  process.on('SIGINT',  () => { shutdown('SIGINT').catch(() => {}); });
 }

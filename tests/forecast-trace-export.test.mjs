@@ -16,6 +16,8 @@ import {
   projectSituationClusters,
   refreshPublishedNarratives,
   selectPublishedForecastPool,
+  extractNewsClusterItems,
+  extractCriticalNewsSignals,
 } from '../scripts/seed-forecasts.mjs';
 
 import {
@@ -2399,6 +2401,145 @@ describe('cross-theater gate', () => {
       ],
     });
     assert.equal(effects.length, 0, 'Cuba → Iran via generic civil-protection actor should be blocked');
+  });
+});
+
+describe('critical news signal extraction', () => {
+  it('extracts urgent route, LNG, sanctions, and thermal signals from structured news and intelligence', () => {
+    const clusterItems = extractNewsClusterItems(
+      {
+        generatedAt: '2026-03-22T12:00:00.000Z',
+        topStories: [
+          {
+            primaryTitle: 'Iran threatens closure of the Strait of Hormuz after tanker strike',
+            primaryLink: 'https://example.com/hormuz',
+            threatLevel: 'critical',
+            sourceCount: 5,
+            isAlert: true,
+            pubDate: '2026-03-22T11:45:00.000Z',
+          },
+          {
+            primaryTitle: 'Attack reported near Ras Laffan LNG export terminal in Qatar',
+            primaryLink: 'https://example.com/ras-laffan',
+            threatLevel: 'critical',
+            sourceCount: 4,
+            isAlert: true,
+            pubDate: '2026-03-22T11:40:00.000Z',
+          },
+        ],
+      },
+      {
+        categories: {
+          geopolitics: {
+            items: [
+              { title: 'US issues fresh sanctions on Iran shipping network', isAlert: true, link: 'https://example.com/sanctions', pubDate: '2026-03-22T11:35:00.000Z' },
+            ],
+          },
+        },
+      },
+    );
+    assert.equal(clusterItems.length, 3);
+
+    const signals = extractCriticalNewsSignals({
+      newsInsights: {
+        generatedAt: '2026-03-22T12:00:00.000Z',
+        topStories: [
+          {
+            primaryTitle: 'Iran threatens closure of the Strait of Hormuz after tanker strike',
+            primaryLink: 'https://example.com/hormuz',
+            threatLevel: 'critical',
+            sourceCount: 5,
+            isAlert: true,
+            pubDate: '2026-03-22T11:45:00.000Z',
+          },
+          {
+            primaryTitle: 'Attack reported near Ras Laffan LNG export terminal in Qatar',
+            primaryLink: 'https://example.com/ras-laffan',
+            threatLevel: 'critical',
+            sourceCount: 4,
+            isAlert: true,
+            pubDate: '2026-03-22T11:40:00.000Z',
+          },
+        ],
+      },
+      newsDigest: {
+        categories: {
+          geopolitics: {
+            items: [
+              { title: 'US issues fresh sanctions on Iran shipping network', isAlert: true, link: 'https://example.com/sanctions', pubDate: '2026-03-22T11:35:00.000Z' },
+            ],
+          },
+        },
+      },
+      iranEvents: {
+        events: [
+          {
+            id: 'ie-1',
+            title: 'Missile strike reported near Ras Laffan LNG terminal',
+            category: 'airstrike',
+            severity: 'critical',
+            locationName: 'qatar',
+          },
+        ],
+      },
+      sanctionsPressure: {
+        countries: [
+          { countryCode: 'IR', countryName: 'Iran', entryCount: 12, newEntryCount: 3, vesselCount: 4, aircraftCount: 0 },
+        ],
+        entries: [
+          { id: 'sp-1', name: 'Iran tanker network', countryCodes: ['IR'], countryNames: ['Iran'], programs: ['IRAN'], isNew: true, note: 'New sanctions target oil tanker exports' },
+        ],
+      },
+      thermalEscalation: {
+        clusters: [
+          {
+            id: 'th-1',
+            countryCode: 'QA',
+            countryName: 'Qatar',
+            regionLabel: 'Qatar',
+            observationCount: 9,
+            totalFrp: 180,
+            persistenceHours: 14,
+            status: 'THERMAL_STATUS_SPIKE',
+            context: 'THERMAL_CONTEXT_CONFLICT_ADJACENT',
+            confidence: 'THERMAL_CONFIDENCE_HIGH',
+            strategicRelevance: 'THERMAL_RELEVANCE_HIGH',
+          },
+        ],
+      },
+    });
+
+    const types = new Set(signals.map((signal) => signal.type));
+    const sourceTypes = new Set(signals.map((signal) => signal.sourceType));
+
+    assert.ok(types.has('shipping_cost_shock'));
+    assert.ok(types.has('energy_supply_shock'));
+    assert.ok(types.has('gas_supply_stress'));
+    assert.ok(types.has('sovereign_stress'));
+    assert.ok(types.has('infrastructure_capacity_loss'));
+    assert.ok(sourceTypes.has('critical_news'));
+    assert.ok(sourceTypes.has('iran_events'));
+    assert.ok(sourceTypes.has('sanctions_pressure'));
+    assert.ok(sourceTypes.has('thermal_escalation'));
+  });
+
+  it('does not promote generic political headlines into critical world signals', () => {
+    const signals = extractCriticalNewsSignals({
+      newsInsights: {
+        generatedAt: '2026-03-22T12:00:00.000Z',
+        topStories: [
+          {
+            primaryTitle: 'Cabinet coalition talks continue ahead of reform vote',
+            primaryLink: 'https://example.com/politics',
+            threatLevel: 'moderate',
+            sourceCount: 3,
+            isAlert: false,
+            pubDate: '2026-03-22T11:45:00.000Z',
+          },
+        ],
+      },
+    });
+    assert.equal(signals.length, 0);
   });
 });
 

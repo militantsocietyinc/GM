@@ -412,6 +412,8 @@ async function readInputKeys() {
     'intelligence:gpsjam:v2',
     'news:insights:v1',
     'news:digest:v1:full:en',
+    'sanctions:pressure:v1',
+    'thermal:escalation:v1',
     MARKET_INPUT_KEYS.stocks,
     MARKET_INPUT_KEYS.commodities,
     MARKET_INPUT_KEYS.sectors,
@@ -438,36 +440,41 @@ async function readInputKeys() {
   const parse = (i) => {
     try { return results[i]?.result ? JSON.parse(results[i].result) : null; } catch { return null; }
   };
+  const parsedByKey = Object.fromEntries(keys.map((key, index) => [key, parse(index)]));
   const fredSeries = Object.fromEntries(
-    FRED_MARKET_SERIES.map((seriesId, offset) => [seriesId, parse(25 + offset)]).filter(([, value]) => value),
+    FRED_MARKET_SERIES
+      .map((seriesId) => [seriesId, parsedByKey[FRED_MARKET_INPUT_KEYS[seriesId]]])
+      .filter(([, value]) => value),
   );
 
   return {
-    ciiScores: parse(0),
-    temporalAnomalies: parse(1),
-    theaterPosture: parse(2),
-    militaryForecastInputs: parse(3),
-    predictionMarkets: parse(4),
-    chokepoints: normalizeChokepoints(parse(5)),
-    iranEvents: parse(6),
-    ucdpEvents: parse(7),
-    unrestEvents: parse(8),
-    outages: parse(9),
-    cyberThreats: parse(10),
-    gpsJamming: normalizeGpsJamming(parse(11)),
-    newsInsights: parse(12),
-    newsDigest: parse(13),
-    marketQuotes: parse(14),
-    commodityQuotes: parse(15),
-    sectorSummary: parse(16),
-    gulfQuotes: parse(17),
-    etfFlows: parse(18),
-    cryptoQuotes: parse(19),
-    stablecoinMarkets: parse(20),
-    bisExchangeRates: parse(21),
-    bisPolicyRates: parse(22),
-    shippingRates: parse(23),
-    correlationCards: parse(24),
+    ciiScores: parsedByKey['risk:scores:sebuf:stale:v1'],
+    temporalAnomalies: parsedByKey['temporal:anomalies:v1'],
+    theaterPosture: parsedByKey['theater_posture:sebuf:stale:v1'],
+    militaryForecastInputs: parsedByKey['military:forecast-inputs:stale:v1'],
+    predictionMarkets: parsedByKey['prediction:markets-bootstrap:v1'],
+    chokepoints: normalizeChokepoints(parsedByKey['supply_chain:chokepoints:v4']),
+    iranEvents: parsedByKey['conflict:iran-events:v1'],
+    ucdpEvents: parsedByKey['conflict:ucdp-events:v1'],
+    unrestEvents: parsedByKey['unrest:events:v1'],
+    outages: parsedByKey['infra:outages:v1'],
+    cyberThreats: parsedByKey['cyber:threats-bootstrap:v2'],
+    gpsJamming: normalizeGpsJamming(parsedByKey['intelligence:gpsjam:v2']),
+    newsInsights: parsedByKey['news:insights:v1'],
+    newsDigest: parsedByKey['news:digest:v1:full:en'],
+    sanctionsPressure: parsedByKey['sanctions:pressure:v1'],
+    thermalEscalation: parsedByKey['thermal:escalation:v1'],
+    marketQuotes: parsedByKey[MARKET_INPUT_KEYS.stocks],
+    commodityQuotes: parsedByKey[MARKET_INPUT_KEYS.commodities],
+    sectorSummary: parsedByKey[MARKET_INPUT_KEYS.sectors],
+    gulfQuotes: parsedByKey[MARKET_INPUT_KEYS.gulfQuotes],
+    etfFlows: parsedByKey[MARKET_INPUT_KEYS.etfFlows],
+    cryptoQuotes: parsedByKey[MARKET_INPUT_KEYS.crypto],
+    stablecoinMarkets: parsedByKey[MARKET_INPUT_KEYS.stablecoins],
+    bisExchangeRates: parsedByKey[MARKET_INPUT_KEYS.bisExchange],
+    bisPolicyRates: parsedByKey[MARKET_INPUT_KEYS.bisPolicy],
+    shippingRates: parsedByKey[MARKET_INPUT_KEYS.shippingRates],
+    correlationCards: parsedByKey[MARKET_INPUT_KEYS.correlationCards],
     fredSeries,
   };
 }
@@ -1667,6 +1674,313 @@ function extractAllHeadlines(newsInsights, newsDigest) {
     }
   }
   return headlines;
+}
+
+const CRITICAL_NEWS_ROUTE_RE = /\b(hormuz|strait of hormuz|bab el[- ]mandeb|suez|red sea|black sea|baltic sea|kerch|shipping lane|shipping route|trade corridor|canal|port|terminal)\b/i;
+const CRITICAL_NEWS_BLOCKAGE_RE = /\b(block(?:ade|ed|ing)?|clos(?:e|ed|ure|ing)|shut(?:ting)?|halt(?:ed|ing)?|suspend(?:ed|ing)?|interrupt(?:ed|ion)?|rerout(?:e|ed|ing)?|seiz(?:e|ed|ure)|interdict(?:ed|ion)?|mine(?:d|s)?)\b/i;
+const CRITICAL_NEWS_ATTACK_RE = /\b(attack(?:ed|s)?|strike|struck|drone|missile|rocket|blast|explosion|fire|burn(?:ing)?|hit|damage(?:d)?|sabotage)\b/i;
+const CRITICAL_NEWS_ENERGY_RE = /\b(oil|crude|gas|lng|liquefied natural gas|refiner(?:y|ies)|pipeline|terminal|export terminal|petrochemical|storage tank|tank farm|fuel depot|processing plant|tanker)\b/i;
+const CRITICAL_NEWS_LNG_RE = /\b(lng|liquefied natural gas|ras laffan|north field|south pars|gas field|gas export|gas terminal)\b/i;
+const CRITICAL_NEWS_REFINERY_RE = /\b(refiner(?:y|ies)|petrochemical|fuel depot|oil terminal|storage tank|tank farm|processing plant)\b/i;
+const CRITICAL_NEWS_SANCTIONS_RE = /\b(sanction|embargo|export control|blacklist|freeze(?:d)? assets|price cap|trade ban|shipping ban)\b/i;
+const CRITICAL_NEWS_ULTIMATUM_RE = /\b(ultimatum|deadline|final warning|48-hour|72-hour|must reopen|must withdraw|or face)\b/i;
+const CRITICAL_NEWS_POWER_RE = /\b(power station|power plant|grid|substation|electricity|blackout)\b/i;
+const CRITICAL_NEWS_SOURCE_TYPES = new Set(['critical_news', 'iran_events', 'sanctions_pressure', 'thermal_escalation']);
+const CRITICAL_NEWS_GEO_HINTS = [
+  { pattern: /\b(hormuz|strait of hormuz|persian gulf|gulf of oman|qatar|doha|ras laffan|south pars|north field|asaluyeh|bahrain|kuwait|uae|abu dhabi|dubai|fujairah|oman|saudi|riyadh|iraq|iran|israel|gaza|lebanon|syria|yemen)\b/i, region: 'Middle East', macroRegion: 'MENA' },
+  { pattern: /\b(red sea|bab el[- ]mandeb|suez)\b/i, region: 'Red Sea', macroRegion: 'MENA' },
+  { pattern: /\b(black sea|kerch|sevastopol)\b/i, region: 'Black Sea', macroRegion: 'EUROPE' },
+  { pattern: /\b(baltic sea|baltic)\b/i, region: 'Baltic Sea', macroRegion: 'EUROPE' },
+  { pattern: /\b(taiwan|south china sea|china|japan|korea|philippines)\b/i, region: 'South China Sea', macroRegion: 'EAST_ASIA' },
+  { pattern: /\b(united states|u\.s\.|washington|new york)\b/i, region: 'United States', macroRegion: 'AMERICAS' },
+];
+
+function normalizeCriticalThreatLevel(value, text = '') {
+  const lower = String(value || '').toLowerCase();
+  if (lower.includes('critical')) return 'critical';
+  if (lower.includes('high')) return 'high';
+  if (lower.includes('elevated')) return 'elevated';
+  if (lower.includes('moderate')) return 'moderate';
+  if (/\b(killed|dead|casualties|massive|catastrophic)\b/i.test(text)) return 'critical';
+  if (CRITICAL_NEWS_ATTACK_RE.test(text) || CRITICAL_NEWS_BLOCKAGE_RE.test(text) || CRITICAL_NEWS_SANCTIONS_RE.test(text)) return 'high';
+  return 'moderate';
+}
+
+function getCriticalThreatWeight(level) {
+  switch (level) {
+    case 'critical': return 0.32;
+    case 'high': return 0.24;
+    case 'elevated': return 0.16;
+    default: return 0.08;
+  }
+}
+
+function inferCriticalSignalGeo(text, fallbackRegion = '') {
+  for (const hint of CRITICAL_NEWS_GEO_HINTS) {
+    if (hint.pattern.test(text)) return { region: hint.region, macroRegion: hint.macroRegion };
+  }
+  const region = fallbackRegion || '';
+  return { region, macroRegion: getMacroRegion([region]) || '' };
+}
+
+function extractNewsClusterItems(newsInsights, newsDigest) {
+  const items = [];
+  const seen = new Set();
+  const pushItem = (item) => {
+    const title = String(item?.title || item?.primaryTitle || '').trim();
+    if (!title || seen.has(title)) return;
+    seen.add(title);
+    items.push({
+      title,
+      summary: String(item?.summary || item?.description || '').trim(),
+      pubDate: item?.pubDate || item?.publishedAt || item?.date || newsInsights?.generatedAt || '',
+      sourceCount: Number(item?.sourceCount || 1),
+      isAlert: Boolean(item?.isAlert),
+      threatLevel: normalizeCriticalThreatLevel(item?.threatLevel, title),
+      sourceKey: item?.primaryLink || item?.link || title,
+    });
+  };
+
+  for (const story of newsInsights?.topStories || []) pushItem(story);
+  for (const bucket of Object.values(newsDigest?.categories || {})) {
+    for (const item of bucket?.items || []) pushItem(item);
+  }
+
+  return items;
+}
+
+function buildCriticalSignalSupport(item, details = []) {
+  return [
+    item?.title || '',
+    item?.sourceCount > 1 ? `${item.sourceCount} corroborating source(s)` : '',
+    ...details,
+  ].filter(Boolean).slice(0, 3);
+}
+
+function pushCriticalSignal(signals, type, sourceType, label, patch = {}) {
+  signals.push(buildWorldSignal(type, sourceType, label, patch));
+}
+
+function addCriticalSignalsFromTextItem(signals, item, sourceType = 'critical_news', fallbackRegion = '') {
+  const text = `${item?.title || ''} ${item?.summary || ''}`.trim();
+  if (!text) return;
+
+  const threatLevel = normalizeCriticalThreatLevel(item?.threatLevel, text);
+  const threatWeight = getCriticalThreatWeight(threatLevel);
+  const corroborationBoost = Math.min(0.12, Math.max(0, (Number(item?.sourceCount || 1) - 1) * 0.03));
+  const alertBoost = item?.isAlert ? 0.06 : 0;
+  const hasRoute = CRITICAL_NEWS_ROUTE_RE.test(text);
+  const hasBlockage = CRITICAL_NEWS_BLOCKAGE_RE.test(text);
+  const hasAttack = CRITICAL_NEWS_ATTACK_RE.test(text);
+  const hasEnergy = CRITICAL_NEWS_ENERGY_RE.test(text);
+  const hasLng = CRITICAL_NEWS_LNG_RE.test(text);
+  const hasRefinery = CRITICAL_NEWS_REFINERY_RE.test(text);
+  const hasSanctions = CRITICAL_NEWS_SANCTIONS_RE.test(text);
+  const hasUltimatum = CRITICAL_NEWS_ULTIMATUM_RE.test(text);
+  const hasPower = CRITICAL_NEWS_POWER_RE.test(text);
+  const { region, macroRegion } = inferCriticalSignalGeo(text, fallbackRegion);
+  const baseStrength = clampUnitInterval(0.34 + threatWeight + corroborationBoost + alertBoost);
+  const baseConfidence = clampUnitInterval(0.52 + (threatWeight * 0.9) + corroborationBoost + (item?.isAlert ? 0.04 : 0));
+
+  if (hasRoute && (hasBlockage || hasAttack || hasUltimatum)) {
+    pushCriticalSignal(signals, 'shipping_cost_shock', sourceType, `${region || 'Critical route'} disruption pressure`, {
+      sourceKey: `${sourceType}:${region || 'global'}:route_disruption`,
+      region,
+      macroRegion,
+      strength: baseStrength + 0.1,
+      confidence: baseConfidence,
+      domains: ['supply_chain', 'market'],
+      supportingEvidence: buildCriticalSignalSupport(item, ['Route disruption / closure terms are active']),
+    });
+    if (hasEnergy || /\b(hormuz|tanker|crude|oil|gulf)\b/i.test(text)) {
+      pushCriticalSignal(signals, 'energy_supply_shock', sourceType, `${region || 'Critical route'} energy transit pressure`, {
+        sourceKey: `${sourceType}:${region || 'global'}:route_energy`,
+        region,
+        macroRegion,
+        strength: baseStrength + 0.12,
+        confidence: baseConfidence + 0.02,
+        domains: ['market', 'supply_chain'],
+        supportingEvidence: buildCriticalSignalSupport(item, ['Energy transit exposure is directly referenced']),
+      });
+    }
+  }
+
+  if (hasAttack && hasEnergy) {
+    pushCriticalSignal(signals, 'energy_supply_shock', sourceType, `${region || 'Critical asset'} energy infrastructure stress`, {
+      sourceKey: `${sourceType}:${region || 'global'}:energy_asset`,
+      region,
+      macroRegion,
+      strength: baseStrength + 0.14,
+      confidence: baseConfidence + 0.04,
+      domains: ['market', 'infrastructure'],
+      supportingEvidence: buildCriticalSignalSupport(item, ['Energy facility / export infrastructure is under direct threat']),
+    });
+    if (hasLng) {
+      pushCriticalSignal(signals, 'gas_supply_stress', sourceType, `${region || 'Critical asset'} LNG and gas export stress`, {
+        sourceKey: `${sourceType}:${region || 'global'}:lng_export`,
+        region,
+        macroRegion,
+        strength: baseStrength + 0.16,
+        confidence: baseConfidence + 0.06,
+        domains: ['market', 'supply_chain'],
+        supportingEvidence: buildCriticalSignalSupport(item, ['Gas / LNG export capacity is directly implicated']),
+      });
+    }
+    if (hasRefinery) {
+      pushCriticalSignal(signals, 'commodity_repricing', sourceType, `${region || 'Critical asset'} refined-product repricing risk`, {
+        sourceKey: `${sourceType}:${region || 'global'}:refinery_damage`,
+        region,
+        macroRegion,
+        strength: baseStrength + 0.08,
+        confidence: baseConfidence,
+        domains: ['market'],
+        supportingEvidence: buildCriticalSignalSupport(item, ['Refinery / storage / petrochemical damage is referenced']),
+      });
+    }
+  }
+
+  if (hasSanctions) {
+    pushCriticalSignal(signals, 'sovereign_stress', sourceType, `${region || 'Targeted region'} sanctions pressure is intensifying`, {
+      sourceKey: `${sourceType}:${region || 'global'}:sanctions_pressure`,
+      region,
+      macroRegion,
+      strength: baseStrength,
+      confidence: baseConfidence,
+      domains: ['market', 'political'],
+      supportingEvidence: buildCriticalSignalSupport(item, ['Sanctions / export-control pressure is directly referenced']),
+    });
+    if (hasEnergy) {
+      pushCriticalSignal(signals, 'commodity_repricing', sourceType, `${region || 'Targeted region'} sanctions are feeding commodity repricing`, {
+        sourceKey: `${sourceType}:${region || 'global'}:sanctions_commodity`,
+        region,
+        macroRegion,
+        strength: baseStrength + 0.08,
+        confidence: baseConfidence - 0.02,
+        domains: ['market'],
+        supportingEvidence: buildCriticalSignalSupport(item, ['Energy / commodity sanctions are directly implicated']),
+      });
+    }
+  }
+
+  if (hasUltimatum && (hasRoute || hasEnergy || hasSanctions)) {
+    pushCriticalSignal(signals, 'sovereign_stress', sourceType, `${region || 'Flashpoint'} deadline pressure is escalating`, {
+      sourceKey: `${sourceType}:${region || 'global'}:ultimatum`,
+      region,
+      macroRegion,
+      strength: baseStrength,
+      confidence: baseConfidence - 0.04,
+      domains: ['market', 'political', 'conflict'],
+      supportingEvidence: buildCriticalSignalSupport(item, ['Deadline / ultimatum language indicates an acute state change']),
+    });
+  }
+
+  if (hasPower && (hasAttack || threatLevel === 'critical')) {
+    pushCriticalSignal(signals, 'infrastructure_capacity_loss', sourceType, `${region || 'Critical grid'} infrastructure capacity is under pressure`, {
+      sourceKey: `${sourceType}:${region || 'global'}:power_infra`,
+      region,
+      macroRegion,
+      strength: baseStrength,
+      confidence: baseConfidence - 0.02,
+      domains: ['infrastructure', 'market'],
+      supportingEvidence: buildCriticalSignalSupport(item, ['Grid / power infrastructure damage is referenced']),
+    });
+  }
+}
+
+function extractCriticalNewsSignals(inputs) {
+  const signals = [];
+
+  for (const item of extractNewsClusterItems(inputs?.newsInsights, inputs?.newsDigest)) {
+    addCriticalSignalsFromTextItem(signals, item, 'critical_news');
+  }
+
+  const iranEvents = Array.isArray(inputs?.iranEvents) ? inputs.iranEvents : inputs?.iranEvents?.events || [];
+  for (const event of iranEvents.slice(0, 40)) {
+    if (!['high', 'critical'].includes(normalizeCriticalThreatLevel(event?.severity, event?.title))) continue;
+    addCriticalSignalsFromTextItem(signals, {
+      title: event?.title || '',
+      summary: `${event?.category || ''} ${event?.locationName || ''}`.trim(),
+      threatLevel: event?.severity || 'high',
+      sourceCount: 1,
+      isAlert: String(event?.severity || '').toLowerCase() === 'critical',
+    }, 'iran_events', inferCriticalSignalGeo(String(event?.locationName || '')).region || 'Middle East');
+  }
+
+  const sanctionsCountries = Array.isArray(inputs?.sanctionsPressure?.countries) ? inputs.sanctionsPressure.countries : [];
+  for (const country of sanctionsCountries.slice(0, 10)) {
+    if (Number(country?.newEntryCount || 0) <= 0 && Number(country?.entryCount || 0) < 8) continue;
+    const region = country?.countryName || '';
+    const macroRegion = getMacroRegion([region]) || '';
+    pushCriticalSignal(signals, 'sovereign_stress', 'sanctions_pressure', `${region} sanctions pressure is rising`, {
+      sourceKey: `sanctions_pressure:${country?.countryCode || region}:sovereign`,
+      region,
+      macroRegion,
+      strength: normalizeSignalStrength(Math.max(Number(country?.newEntryCount || 0) * 0.18, Number(country?.entryCount || 0) * 0.05), 0.15, 1),
+      confidence: clampUnitInterval(0.62 + Math.min(0.14, Number(country?.newEntryCount || 0) * 0.04)),
+      domains: ['market', 'political'],
+      supportingEvidence: [
+        `${country?.entryCount || 0} listed entries`,
+        `${country?.newEntryCount || 0} new designations`,
+      ],
+    });
+    if (Number(country?.vesselCount || 0) > 0) {
+      pushCriticalSignal(signals, 'shipping_cost_shock', 'sanctions_pressure', `${region} sanctions are tightening shipping pressure`, {
+        sourceKey: `sanctions_pressure:${country?.countryCode || region}:shipping`,
+        region,
+        macroRegion,
+        strength: normalizeSignalStrength(Number(country?.vesselCount || 0), 1, 6),
+        confidence: 0.7,
+        domains: ['market', 'supply_chain'],
+        supportingEvidence: [`${country?.vesselCount || 0} vessel-linked designations`],
+      });
+    }
+  }
+
+  const sanctionsEntries = Array.isArray(inputs?.sanctionsPressure?.entries) ? inputs.sanctionsPressure.entries : [];
+  for (const entry of sanctionsEntries.slice(0, 12)) {
+    if (!entry?.isNew) continue;
+    addCriticalSignalsFromTextItem(signals, {
+      title: entry?.name || '',
+      summary: `${(entry?.programs || []).join(' ')} ${entry?.note || ''}`.trim(),
+      threatLevel: 'high',
+      sourceCount: 1,
+      isAlert: false,
+    }, 'sanctions_pressure', entry?.countryNames?.[0] || entry?.countryCodes?.[0] || '');
+  }
+
+  const thermalClusters = Array.isArray(inputs?.thermalEscalation?.clusters) ? inputs.thermalEscalation.clusters : [];
+  for (const cluster of thermalClusters.slice(0, 12)) {
+    const highRelevance = cluster?.strategicRelevance === 'THERMAL_RELEVANCE_HIGH';
+    const acuteStatus = cluster?.status === 'THERMAL_STATUS_SPIKE' || cluster?.status === 'THERMAL_STATUS_PERSISTENT';
+    if (!highRelevance || !acuteStatus || cluster?.context !== 'THERMAL_CONTEXT_CONFLICT_ADJACENT') continue;
+    const region = cluster?.countryName || cluster?.regionLabel || '';
+    const macroRegion = getMacroRegion([region]) || getMacroRegion(['Middle East']) || '';
+    pushCriticalSignal(signals, 'infrastructure_capacity_loss', 'thermal_escalation', `${region || 'Conflict-adjacent'} thermal escalation is threatening infrastructure`, {
+      sourceKey: `thermal_escalation:${cluster?.id || region}:infrastructure`,
+      region,
+      macroRegion,
+      strength: normalizeSignalStrength(Math.max(Number(cluster?.totalFrp || 0), Number(cluster?.observationCount || 0) * 15), 60, 220),
+      confidence: cluster?.confidence === 'THERMAL_CONFIDENCE_HIGH' ? 0.72 : 0.62,
+      domains: ['infrastructure', 'conflict'],
+      supportingEvidence: [
+        `${cluster?.status || 'thermal escalation'} in ${region || cluster?.regionLabel || 'tracked area'}`,
+        `${cluster?.observationCount || 0} observations with total FRP ${cluster?.totalFrp || 0}`,
+      ],
+    });
+    if (/\b(qatar|iran|iraq|kuwait|saudi|united arab emirates|uae)\b/i.test(region)) {
+      pushCriticalSignal(signals, 'energy_supply_shock', 'thermal_escalation', `${region || 'Conflict-adjacent'} thermal escalation is threatening energy throughput`, {
+        sourceKey: `thermal_escalation:${cluster?.id || region}:energy`,
+        region,
+        macroRegion,
+        strength: normalizeSignalStrength(Math.max(Number(cluster?.totalFrp || 0), Number(cluster?.persistenceHours || 0) * 10), 80, 260),
+        confidence: cluster?.confidence === 'THERMAL_CONFIDENCE_HIGH' ? 0.7 : 0.6,
+        domains: ['market', 'infrastructure'],
+        supportingEvidence: [`${region} is both conflict-adjacent and energy-sensitive`],
+      });
+    }
+  }
+
+  return signals;
 }
 
 function attachNewsContext(predictions, newsInsights, newsDigest) {
@@ -6392,6 +6706,7 @@ function summarizeWorldSignals(signals = []) {
 
 function buildWorldSignals(inputs, predictions = [], _situationClusters = []) {
   const signals = [];
+  const criticalNewsSignals = extractCriticalNewsSignals(inputs);
   const chokepoints = inputs?.chokepoints?.routes || inputs?.chokepoints?.chokepoints || [];
   const shippingIndices = extractShippingIndices(inputs?.shippingRates);
   const commodityQuotes = extractQuoteItems(inputs?.commodityQuotes);
@@ -6406,6 +6721,8 @@ function buildWorldSignals(inputs, predictions = [], _situationClusters = []) {
   const correlationCards = extractCorrelationCards(inputs?.correlationCards);
   const fredSeries = extractFredSeriesMap(inputs?.fredSeries);
   const energyQuotes = getEnergyQuoteMap(commodityQuotes, gulfQuotes);
+
+  signals.push(...criticalNewsSignals);
 
   for (const cp of chokepoints) {
     const region = resolveChokepointMarketRegion(cp) || cp.region || cp.name || '';
@@ -6872,10 +7189,15 @@ function buildWorldSignals(inputs, predictions = [], _situationClusters = []) {
     dedupedSignals.push(signal);
   }
 
+  const criticalSignals = dedupedSignals
+    .filter((signal) => CRITICAL_NEWS_SOURCE_TYPES.has(signal.sourceType))
+    .sort((a, b) => (b.strength + b.confidence) - (a.strength + a.confidence) || a.label.localeCompare(b.label));
   const signalTypeCounts = summarizeTypeCounts(dedupedSignals.map((item) => item.type));
   return {
     summary: summarizeWorldSignals(dedupedSignals),
     typeCounts: signalTypeCounts,
+    criticalSignalCount: criticalSignals.length,
+    criticalSignals: criticalSignals.slice(0, 16),
     signals: dedupedSignals
       .sort((a, b) => (b.strength + b.confidence) - (a.strength + a.confidence) || a.label.localeCompare(b.label))
       .slice(0, 80),
@@ -7250,6 +7572,7 @@ function summarizeWorldStateSurface(worldState) {
     stateUnitCount: worldState.stateUnits?.length || 0,
     familyCount: worldState.situationFamilies?.length || 0,
     worldSignalCount: worldState.worldSignals?.signals?.length || 0,
+    criticalSignalCount: worldState.worldSignals?.criticalSignalCount || 0,
     marketBucketCount: worldState.marketState?.buckets?.length || 0,
     transmissionEdgeCount: worldState.marketTransmission?.edges?.length || 0,
     marketConsequenceCount: worldState.simulationState?.marketConsequences?.items?.length || 0,
@@ -9639,4 +9962,6 @@ export {
   loadCountryCodes,
   getSearchTermsForRegion,
   extractAllHeadlines,
+  extractNewsClusterItems,
+  extractCriticalNewsSignals,
 };

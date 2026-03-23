@@ -1,8 +1,24 @@
 import { toApiUrl } from '@/services/runtime';
-import type { MarketImplicationsData, MarketImplicationCard } from '@/components/MarketImplicationsPanel';
 import { getHydratedData } from '@/services/bootstrap';
 
-export type { MarketImplicationsData, MarketImplicationCard };
+export interface MarketImplicationCard {
+  ticker: string;
+  name: string;
+  direction: string;
+  timeframe: string;
+  confidence: string;
+  title: string;
+  narrative: string;
+  riskCaveat: string;
+  driver: string;
+}
+
+export interface MarketImplicationsData {
+  cards: MarketImplicationCard[];
+  degraded: boolean;
+  emptyReason: string;
+  generatedAt: string;
+}
 
 let cachedData: MarketImplicationsData | null = null;
 let cachedAt = 0;

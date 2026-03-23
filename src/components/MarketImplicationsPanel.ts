@@ -2,25 +2,7 @@ import { Panel } from './Panel';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 import { describeFreshness } from '@/services/persistent-cache';
-
-export interface MarketImplicationCard {
-  ticker: string;
-  name: string;
-  direction: string;
-  timeframe: string;
-  confidence: string;
-  title: string;
-  narrative: string;
-  riskCaveat: string;
-  driver: string;
-}
-
-export interface MarketImplicationsData {
-  cards: MarketImplicationCard[];
-  degraded: boolean;
-  emptyReason: string;
-  generatedAt: string;
-}
+import type { MarketImplicationCard, MarketImplicationsData } from '@/services/market-implications';
 
 const DISCLAIMER = 'AI-generated trade signals for informational purposes only. Not investment advice. Always do your own research.';
 

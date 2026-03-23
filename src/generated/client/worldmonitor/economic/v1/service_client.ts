@@ -751,7 +751,7 @@ export class EconomicServiceClient {
     return await resp.json() as GetBlsSeriesResponse;
   }
 
-    private async handleError(resp: Response): Promise<never> {
+  private async handleError(resp: Response): Promise<never> {
     const body = await resp.text();
     if (resp.status === 400) {
       try {

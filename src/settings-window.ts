@@ -43,7 +43,7 @@ export function initSettingsWindow(): void {
 
   function render(): void {
     const panelEntries = Object.entries(panelSettings).filter(
-      ([key]) => key !== 'runtime-config' || isDesktopApp
+      ([key]) => (key !== 'runtime-config' || isDesktopApp) && (!key.startsWith('cw-') || isProUser())
     );
     const panelHtml = panelEntries
       .map(

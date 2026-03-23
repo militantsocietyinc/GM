@@ -150,7 +150,7 @@ const SEED_META = {
   customsRevenue:      { key: 'seed-meta:trade:customs-revenue',              maxStaleMin: 1440 },
   comtradeFlows:       { key: 'seed-meta:trade:comtrade-flows',               maxStaleMin: 2880 }, // 24h cron; 2880min = 48h = 2x interval
   blsSeries:           { key: 'seed-meta:economic:bls-series',                maxStaleMin: 2880 }, // daily seed; 2880min = 48h = 2x interval
-  sanctionsPressure:   { key: 'seed-meta:sanctions:pressure',                 maxStaleMin: 1440 }, // 12h cron; 1440min = 24h = 2x interval
+  sanctionsPressure:   { key: 'seed-meta:sanctions:pressure',                 maxStaleMin: 720 },
   sanctionsEntities:   { key: 'seed-meta:sanctions:entities',                 maxStaleMin: 1440 }, // 12h cron; 1440min = 24h = 2x interval
   radiationWatch:      { key: 'seed-meta:radiation:observations',             maxStaleMin: 30 },
   groceryBasket:       { key: 'seed-meta:economic:grocery-basket',            maxStaleMin: 10080 }, // weekly seed; 10080 = 7 days

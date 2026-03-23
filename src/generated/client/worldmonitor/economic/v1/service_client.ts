@@ -363,6 +363,20 @@ export interface BlsObservation {
   value: string;
 }
 
+export interface GetCrudeInventoriesRequest {
+}
+
+export interface GetCrudeInventoriesResponse {
+  weeks: CrudeInventoryWeek[];
+  latestPeriod: string;
+}
+
+export interface CrudeInventoryWeek {
+  period: string;
+  stocksMb: number;
+  weeklyChangeMb: number;
+}
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -749,6 +763,29 @@ export class EconomicServiceClient {
     }
 
     return await resp.json() as GetBlsSeriesResponse;
+  }
+
+  async getCrudeInventories(req: GetCrudeInventoriesRequest, options?: EconomicServiceCallOptions): Promise<GetCrudeInventoriesResponse> {
+    let path = "/api/economic/v1/get-crude-inventories";
+    const url = this.baseURL + path;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as GetCrudeInventoriesResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

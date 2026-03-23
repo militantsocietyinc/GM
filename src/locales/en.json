@@ -968,6 +968,7 @@
       "colFytd": "FY YTD",
       "strategicFlows": "Strategic Flows",
       "noComtradeData": "No strategic flow data available",
+      "comtradeUnavailable": "UN Comtrade data temporarily unavailable",
       "sourceComtrade": "UN Comtrade",
       "anomalyBadge": "Anomaly",
       "colReporter": "Country",

@@ -79,12 +79,12 @@ export class TradePolicyPanel extends Panel {
     const hasRevenue = this.revenueData && this.revenueData.months?.length > 0;
     const hasComtrade = this.comtradeData && this.comtradeData.flows?.length > 0;
 
-    if (!wtoAvailable && !hasRevenue) {
+    if (!wtoAvailable && !hasRevenue && !hasComtrade) {
       this.setContent(`<div class="economic-empty">${t('components.tradePolicy.apiKeyMissing')}</div>`);
       return;
     }
 
-    if (!wtoAvailable && this.activeTab !== 'revenue') {
+    if (!wtoAvailable && this.activeTab !== 'revenue' && this.activeTab !== 'comtrade') {
       this.activeTab = 'revenue';
     }
 
@@ -129,7 +129,7 @@ export class TradePolicyPanel extends Panel {
       : this.activeTab === 'comtrade' ? this.comtradeData
       : this.revenueData;
     const unavailableBanner = !activeHasData && activeData?.upstreamUnavailable
-      ? `<div class="economic-warning">${this.activeTab === 'revenue' ? t('components.tradePolicy.treasuryUnavailable') : t('components.tradePolicy.upstreamUnavailable')}</div>`
+      ? `<div class="economic-warning">${this.activeTab === 'revenue' ? t('components.tradePolicy.treasuryUnavailable') : this.activeTab === 'comtrade' ? t('components.tradePolicy.comtradeUnavailable') : t('components.tradePolicy.upstreamUnavailable')}</div>`
       : '';
 
     let contentHtml = '';
@@ -456,10 +456,18 @@ export class TradePolicyPanel extends Panel {
       return `<div class="economic-empty">${t('components.tradePolicy.noComtradeData')}</div>`;
     }
 
-    // Show world-total rows only (partnerCode "000"), deduplicated to latest year per reporter+commodity
+    // Show world-total rows only (partnerCode "000"), deduplicated to latest year per reporter+commodity.
+    // Two-step dedup: (1) within same (reporter, cmd, year) keep max tradeValueUsd (exports vs imports);
+    // (2) then keep latest year per (reporter, cmd).
     const worldTotals = flows.filter(f => f.partnerCode === '000');
-    const latest = new Map<string, typeof flows[0]>();
+    const byYearDominant = new Map<string, typeof flows[0]>();
     for (const f of worldTotals) {
+      const key = `${f.reporterCode}:${f.cmdCode}:${f.year}`;
+      const existing = byYearDominant.get(key);
+      if (!existing || f.tradeValueUsd > existing.tradeValueUsd) byYearDominant.set(key, f);
+    }
+    const latest = new Map<string, typeof flows[0]>();
+    for (const f of byYearDominant.values()) {
       const key = `${f.reporterCode}:${f.cmdCode}`;
       const existing = latest.get(key);
       if (!existing || f.year > existing.year) latest.set(key, f);

@@ -270,6 +270,229 @@ score = weighted combination with mean reversion
 
 ---
 
+## Seed Script Plan: `seed-fear-greed.mjs`
+
+Following the gold standard pattern: Railway cron → fetch external APIs → atomic publish to Redis → server handler reads from Redis.
+
+### Redis Keys
+
+```
+market:fear-greed:v1              # Composite index + all category scores (PRIMARY)
+seed-meta:market:fear-greed       # Metadata (fetchedAt, recordCount, sourceVersion)
+seed-lock:market:fear-greed       # Concurrency lock
+```
+
+**TTL**: 21600s (6h) — same as macro-signals, survives Yahoo outages
+**Cron**: Every 6h (`0 0,6,12,18 * * *`)
+**sourceVersion**: `yahoo-fred-cnn-aaii`
+
+### Data Fetches — Exact Endpoints
+
+#### Group 1: Yahoo Finance (sequential, 150ms gaps)
+
+Already proven pattern in `seed-economy.mjs`. Uses `query1.finance.yahoo.com/v8/finance/chart`.
+
+| # | Symbol | Data Needed | Category | Notes |
+|---|--------|------------|----------|-------|
+| 1 | `^GSPC` (SPX) | 1y daily closes | Trend, Momentum | Compute 20/50/200 DMA, ROC |
+| 2 | `^VIX` | Current + 1y | Volatility | Already have via FRED but need real-time |
+| 3 | `^VIX9D` | Current close | Volatility | 9-day VIX for term structure |
+| 4 | `^VIX3M` | Current close | Volatility | 3-month VIX for term structure |
+| 5 | `GLD` | 1y daily closes | Cross-Asset | Gold proxy, compute 30d return |
+| 6 | `TLT` | 1y daily closes | Cross-Asset | Bonds proxy, compute 30d return |
+| 7 | `SPY` | 1y daily closes | Cross-Asset, Breadth | Equity benchmark |
+| 8 | `DX-Y.NYB` | 1y daily closes | Cross-Asset | USD Dollar Index |
+| 9 | `HYG` | 1y daily closes | Credit | HY bond ETF (proxy for spreads trend) |
+| 10 | `LQD` | 1y daily closes | Credit | IG bond ETF (proxy for spreads trend) |
+| 11 | `XLK` | 1y daily closes | Momentum | Tech sector |
+| 12 | `XLF` | 1y daily closes | Momentum | Financial sector |
+| 13 | `XLE` | 1y daily closes | Momentum | Energy sector |
+| 14 | `XLV` | 1y daily closes | Momentum | Healthcare sector |
+| 15 | `XLI` | 1y daily closes | Momentum | Industrials sector |
+| 16 | `XLU` | 1y daily closes | Momentum | Utilities (defensive) |
+
+**Total Yahoo calls**: 16 × 150ms gap = ~2.4s sequential
+**Fallback**: Finnhub candle API (`stock/candle`) for each symbol
+
+#### Group 2: FRED Series (already seeded, just READ from Redis)
+
+These are already being seeded by `seed-economy.mjs`. The fear-greed seed script reads them from Redis rather than re-fetching.
+
+| Series | Category | Redis Key |
+|--------|----------|-----------|
+| `VIXCLS` | Volatility | `economic:fred:v1:VIXCLS:0` |
+| `BAMLH0A0HYM2` | Credit (HY) | `economic:fred:v1:BAMLH0A0HYM2:0` |
+| `DGS10` | Macro | `economic:fred:v1:DGS10:0` |
+| `FEDFUNDS` | Macro | `economic:fred:v1:FEDFUNDS:0` |
+| `T10Y2Y` | Macro | `economic:fred:v1:T10Y2Y:0` |
+| `M2SL` | Liquidity | `economic:fred:v1:M2SL:0` |
+| `WALCL` | Liquidity | `economic:fred:v1:WALCL:0` |
+| `UNRATE` | Macro | `economic:fred:v1:UNRATE:0` |
+
+**No API calls needed** — pure Redis reads via pipeline.
+
+#### Group 3: New FRED Series (add to `seed-economy.mjs` FRED_SERIES array)
+
+| Series | Name | Category | Why |
+|--------|------|----------|-----|
+| `BAMLC0A0CM` | ICE BofA US IG OAS | Credit | IG spread for credit scoring |
+| `SOFR` | Secured Overnight Financing Rate | Liquidity | Short-term funding conditions |
+
+**Action**: Add these 2 to the existing `FRED_SERIES` array in `seed-economy.mjs`. They'll be seeded automatically with the same 26h TTL.
+
+#### Group 4: CNN Fear & Greed Index (NEW endpoint)
+
+```javascript
+// CNN's undocumented API — widely used by data projects
+const url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+const resp = await fetch(url, {
+  headers: { 'User-Agent': CHROME_UA },
+  signal: AbortSignal.timeout(8000),
+});
+// Returns: { fear_and_greed: { score: 16, rating: "extreme fear", ... }, ... }
+```
+
+**Extracts**: `score` (0-100), `rating` (string), `previous_close`, `1_week_ago`, `1_month_ago`, `1_year_ago`
+**Category**: Sentiment
+**Reliability**: Good — CNN has maintained this endpoint for years
+**Fallback**: Use crypto F&G from Alternative.me as proxy
+
+#### Group 5: AAII Sentiment Survey (NEW endpoint)
+
+```javascript
+// AAII publishes weekly survey data
+// Option A: RSS/XML feed
+const url = 'https://www.aaii.com/sentimentsurvey';
+// Parse HTML for current bull/bear/neutral percentages
+
+// Option B: Use the AAII API (free, no key required)
+const url = 'https://www.aaii.com/files/surveys/sentiment.xls';
+// Excel file with historical data — parse last row
+```
+
+**Extracts**: `bullish%`, `bearish%`, `neutral%`, `bullBearSpread`
+**Category**: Sentiment
+**Reliability**: Medium — may need HTML scraping, XLS breaks sometimes
+**Fallback**: Weight CNN F&G more heavily if AAII unavailable
+
+#### Group 6: Market Breadth — % Stocks Above 200 DMA (NEW)
+
+```javascript
+// Option A: Yahoo Finance screener (undocumented but stable)
+// Query S&P 500 stocks, filter by 200-day MA relationship
+// Complex — requires fetching all 500 stocks
+
+// Option B: Use Barchart market breadth data
+const url = 'https://www.barchart.com/stocks/market-breadth';
+// Scrape: Advance/Decline ratio, % above 200 DMA, new highs/lows
+
+// Option C: Pre-computed via sector ETFs (APPROXIMATE)
+// Fetch RSP (equal-weight S&P) vs SPY ratio as breadth proxy
+// If RSP/SPY rising → broad participation (healthy breadth)
+```
+
+**Best approach**: Option C (RSP vs SPY) as proxy — no scraping, just add `RSP` to Yahoo calls.
+**Supplement**: Add `^ADL` (NYSE Advance/Decline Line) from Yahoo if available.
+
+**Category**: Breadth
+**Fallback**: Use SPX % from 200 DMA as single-input breadth score
+
+#### Group 7: Put/Call Ratio (NEW)
+
+```javascript
+// CBOE total equity put/call ratio
+// Option A: Yahoo Finance
+const url = 'https://query1.finance.yahoo.com/v8/finance/chart/^PCALL?range=3mo&interval=1d';
+// May not work — Yahoo sometimes blocks index symbols
+
+// Option B: Proxy from CBOE website
+const url = 'https://www.cboe.com/us/options/market_statistics/daily/';
+// HTML scrape: total P/C ratio, equity P/C ratio, index P/C ratio
+
+// Option C: FRED series (if available)
+// CBOE doesn't publish to FRED, but check CBOEPCR (discontinued)
+```
+
+**Best approach**: Try Yahoo `^PCALL` first, fallback to hardcoded "neutral" (0.85)
+**Category**: Positioning
+**Reliability**: Low-Medium — this is the hardest free source to get
+
+#### Group 8: Crypto Fear & Greed (already in macro-signals)
+
+```javascript
+// Already fetched in seed-economy.mjs fetchMacroSignals()
+// Just READ from Redis: economic:macro-signals:v1
+// Extract: signals.fearGreed.value (0-100)
+```
+
+**Category**: Sentiment (supplement to CNN F&G)
+**No additional API calls needed**
+
+### Computed Metrics (in seed script, no external calls)
+
+| Metric | Inputs | Formula | Category |
+|--------|--------|---------|----------|
+| SPX 20/50/200 DMA | ^GSPC closes | `smaCalc(prices, period)` | Trend |
+| SPX ROC 20d | ^GSPC closes | `rateOfChange(prices, 20)` | Momentum |
+| VIX Term Structure | ^VIX, ^VIX9D, ^VIX3M | `VIX/VIX3M` ratio (<1 = contango) | Volatility |
+| Sector RSI (14d) | XLK/XLF/XLE/XLV/XLI/XLU | Standard RSI formula | Momentum |
+| Cross-asset 30d returns | GLD, TLT, SPY, DXY | `rateOfChange(prices, 30)` | Cross-Asset |
+| M2 YoY change | M2SL observations | `(latest - 12mo_ago) / 12mo_ago` | Liquidity |
+| Fed BS MoM change | WALCL observations | `(latest - 4wk_ago) / 4wk_ago` | Liquidity |
+| HY spread trend | BAMLH0A0HYM2 | `30d change direction` | Credit |
+| RSP/SPY ratio | RSP, SPY | `RSP_return_30d - SPY_return_30d` | Breadth |
+
+### Total External API Calls Per Seed Run
+
+| Source | Calls | Rate Limited? | Auth |
+|--------|-------|--------------|------|
+| Yahoo Finance | 17 (16 symbols + RSP) | 150ms gaps | None |
+| CNN dataviz | 1 | No | None |
+| AAII | 1 | No | None |
+| Redis reads | ~10 (FRED series pipeline) | No | Bearer token |
+| **Total** | **~29** | — | — |
+
+**Estimated runtime**: ~5s (Yahoo sequential) + ~2s (CNN/AAII parallel) + ~1s (Redis) = **~8s per run**
+
+### Output Schema (stored in Redis)
+
+```json
+{
+  "timestamp": "2024-03-20T12:00:00Z",
+  "composite": {
+    "score": 38.7,
+    "label": "Fear",
+    "previous": 41.2
+  },
+  "categories": {
+    "sentiment": { "score": 19, "weight": 0.10, "contribution": 1.9, "inputs": { "cnnFearGreed": 16, "cnnLabel": "Extreme Fear", "aaiBull": 30.4, "aaiBear": 52.0 } },
+    "volatility": { "score": 47, "weight": 0.10, "contribution": 4.7, "inputs": { "vix": 26.78, "vixChange": 11.31, "vix9d": 28.1, "vix3m": 24.5, "termStructure": "backwardation" } },
+    "positioning": { "score": 34, "weight": 0.15, "contribution": 5.1, "inputs": { "putCallRatio": 1.01, "putCallAvg": 0.87 } },
+    "trend": { "score": 52, "weight": 0.10, "contribution": 5.2, "inputs": { "spxPrice": 5667, "sma20": 5580, "sma50": 5520, "sma200": 5200, "aboveMaCount": 3 } },
+    "breadth": { "score": 40, "weight": 0.10, "contribution": 4.0, "inputs": { "pctAbove200d": 43.93, "rspSpyRatio": -2.1 } },
+    "momentum": { "score": 13, "weight": 0.10, "contribution": 1.3, "inputs": { "spxRoc20d": -3.2, "sectorRsiAvg": 38, "leadersVsLaggards": -12.5 } },
+    "liquidity": { "score": 26, "weight": 0.15, "contribution": 3.9, "inputs": { "m2Yoy": 1.2, "fedBsMom": -0.8, "sofr": 5.31 } },
+    "credit": { "score": 68, "weight": 0.10, "contribution": 6.8, "inputs": { "hySpread": 3.27, "igSpread": 1.15, "hyTrend30d": "narrowing" } },
+    "macro": { "score": 44, "weight": 0.05, "contribution": 2.2, "inputs": { "fedRate": 3.625, "t10y2y": 0.15, "unrate": 4.1 } },
+    "crossAsset": { "score": 72, "weight": 0.05, "contribution": 3.6, "inputs": { "goldReturn30d": 4.2, "tltReturn30d": 1.8, "spyReturn30d": -2.1, "dxyChange30d": -1.5 } }
+  },
+  "headerMetrics": {
+    "cnnFearGreed": { "value": 16, "label": "Extreme Fear" },
+    "aaiBear": { "value": 52, "context": "6-wk high" },
+    "aaiBull": { "value": 30.4, "context": "Below avg" },
+    "putCall": { "value": 1.01, "context": "vs 0.87 yr avg" },
+    "vix": { "value": 26.78, "context": "+11.31%" },
+    "hySpread": { "value": 3.27, "context": "vs LT avg" },
+    "pctAbove200d": { "value": 43.93, "context": "Down from 68.5%" },
+    "yield10y": { "value": 4.25 },
+    "fedRate": { "value": "3.50-3.75%" }
+  },
+  "unavailable": false
+}
+```
+
+---
+
 ## Quick-Win MVP
 
 Build an initial version using **only data we already have + easy computations**:
@@ -283,4 +506,4 @@ Build an initial version using **only data we already have + easy computations**
 7. **Momentum** — Sector ETF returns (already have)
 8. **Cross-Asset** — Compute from existing Yahoo price feeds
 
-This gives us **8 of 10 categories** immediately. Breadth and Positioning need new data sources.
+This gives us **8 of 10 categories** immediately. Breadth and Positioning need new data sources but can use proxies (RSP/SPY ratio, hardcoded P/C neutral).

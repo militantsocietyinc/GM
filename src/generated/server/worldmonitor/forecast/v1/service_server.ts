@@ -121,6 +121,19 @@ export interface ForecastBranchRound {
   probabilityShift: number;
 }
 
+export interface GetSimulationPackageRequest {
+  runId: string;
+}
+
+export interface GetSimulationPackageResponse {
+  found: boolean;
+  runId: string;
+  pkgKey: string;
+  schemaVersion: string;
+  theaterCount: number;
+  generatedAt: number;
+}
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -163,19 +176,6 @@ export interface RouteDescriptor {
   method: string;
   path: string;
   handler: (req: Request) => Promise<Response>;
-}
-
-export interface GetSimulationPackageRequest {
-  runId: string;
-}
-
-export interface GetSimulationPackageResponse {
-  found: boolean;
-  runId: string;
-  pkgKey: string;
-  schemaVersion: string;
-  theaterCount: number;
-  generatedAt: number;
 }
 
 export interface ForecastServiceHandler {
@@ -247,17 +247,31 @@ export function createForecastServiceRoutes(
           const body: GetSimulationPackageRequest = {
             runId: params.get("runId") ?? "",
           };
+          if (options?.validateRequest) {
+            const bodyViolations = options.validateRequest("getSimulationPackage", body);
+            if (bodyViolations) {
+              throw new ValidationError(bodyViolations);
+            }
+          }
+
           const ctx: ServerContext = {
             request: req,
             pathParams,
             headers: Object.fromEntries(req.headers.entries()),
           };
+
           const result = await handler.getSimulationPackage(ctx, body);
           return new Response(JSON.stringify(result as GetSimulationPackageResponse), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
           if (options?.onError) {
             return options.onError(err, req);
           }

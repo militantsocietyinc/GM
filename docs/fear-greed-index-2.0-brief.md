@@ -117,7 +117,7 @@ Uses `query1.finance.yahoo.com/v8/finance/chart` — no API key, User-Agent head
 
 **Notes:**
 - `^MMTH` = % above **200-day** MA (not `^MMTW` which is 20-day)
-- `C:ISSU` = NYSE advance/decline/unchanged data
+- `C:ISSU` = NYSE advance/decline/unchanged data. **Unvalidated via `/v8/finance/chart` endpoint** — must confirm it returns advance/decline figures before relying on it. If unavailable, Breadth drops `ad_score` and reweights: `breadth_score * 0.57 + rsp_score * 0.43`
 - Fallback: Finnhub candle API for ETF symbols; breadth symbols Yahoo-only
 
 ---
@@ -126,9 +126,17 @@ Uses `query1.finance.yahoo.com/v8/finance/chart` — no API key, User-Agent head
 
 ### 1. Sentiment (10%)
 ```
-inputs: CNN_FG, AAII_Bull, AAII_Bear
+inputs: CNN_FG, AAII_Bull, AAII_Bear  (AAII is LOW reliability — blocks bots)
+
+// Normal path (AAII available):
 score = (CNN_FG * 0.4) + (AAII_Bull_Percentile * 0.3) + ((100 - AAII_Bear_Percentile) * 0.3)
+
+// Degraded path (AAII unavailable — store aaiBull/aaiBear as null, not 0):
+score = CNN_FG  // 100% weight on CNN F&G; crypto F&G from Redis as secondary signal if CNN also fails
+// aaiBull and aaiBear fields: null (not 0 — zero skews score toward Extreme Fear)
 ```
+
+**Reliability notes:** CNN F&G is MEDIUM reliability. If both CNN and AAII fail, use `cryptoFearGreed` from Redis (already seeded via macro-signals) as a proxy — it is directionally correlated. Mark `unavailable: true` only if all three sentiment sources are absent.
 
 ### 2. Volatility (10%)
 ```
@@ -231,12 +239,16 @@ Follows the existing pattern: Railway cron → fetch external APIs → compute s
 
 ```
 market:fear-greed:v1              # Composite index + all category scores
+market:fear-greed:history:v1      # Sorted set — daily snapshots for sparklines (score UNIX score, member ISO date string)
 seed-meta:market:fear-greed       # Metadata (fetchedAt, recordCount, sourceVersion)
 seed-lock:market:fear-greed       # Concurrency lock
 ```
 
-**TTL**: 21600s (6h)
+**TTL**: 64800s (18h) — 3× the 6h cron interval. Required to survive 2 missed cron cycles (Railway downtime, deploy gaps). `runSeed()` extends this same TTL on both fetch-failure and empty-data paths.
 **Cron**: `0 0,6,12,18 * * *` (every 6h)
+**health.js `maxStaleMin`**: 720 (12h) — 2× interval. One missed cycle never fires a spurious WARN; the 20min self-heal from `runSeed()` retry covers transient failures.
+
+**`composite.previous` requires a pre-write Redis GET.** Before calling `runSeed()`, read `market:fear-greed:v1` from Redis, extract `composite.score`, pass it into `publishTransform` as `previous`. `runSeed()` then overwrites the key atomically. Do NOT compute `previous` after the write — the key is already overwritten.
 
 ### API Call Budget
 
@@ -251,6 +263,8 @@ seed-lock:market:fear-greed       # Concurrency lock
 
 **Estimated runtime**: ~3s (Yahoo sequential) + ~2s (CBOE/CNN/AAII parallel) + ~1s (Redis) = **~6s per run**
 
+**Timeouts**: Set `AbortSignal.timeout(8000)` on AAII scrape (frequently stalls). AAII failure must not block the entire seed run — wrap in `try/catch`, log warn, continue with degraded Sentiment scoring.
+
 ### Output Schema (stored in Redis)
 
 ```json
@@ -262,7 +276,8 @@ seed-lock:market:fear-greed       # Concurrency lock
     "previous": 41.2
   },
   "categories": {
-    "sentiment": { "score": 19, "weight": 0.10, "contribution": 1.9, "inputs": { "cnnFearGreed": 16, "cnnLabel": "Extreme Fear", "aaiBull": 30.4, "aaiBear": 52.0 } },
+    "sentiment": { "score": 19, "weight": 0.10, "contribution": 1.9, "inputs": { "cnnFearGreed": 16, "cnnLabel": "Extreme Fear", "aaiBull": 30.4, "aaiBear": 52.0 }, "degraded": false },
+    // degraded: true when AAII unavailable; aaiBull/aaiBear: null (not 0) when AAII fetch fails
     "volatility": { "score": 47, "weight": 0.10, "contribution": 4.7, "inputs": { "vix": 26.78, "vixChange": 11.31, "vix9d": 28.1, "vix3m": 24.5, "termStructure": "backwardation" } },
     "positioning": { "score": 34, "weight": 0.15, "contribution": 5.1, "inputs": { "putCallRatio": 1.01, "putCallAvg": 0.87, "skew": 135 } },
     "trend": { "score": 52, "weight": 0.10, "contribution": 5.2, "inputs": { "spxPrice": 5667, "sma20": 5580, "sma50": 5520, "sma200": 5200, "aboveMaCount": 3 } },
@@ -295,29 +310,40 @@ seed-lock:market:fear-greed       # Concurrency lock
 ### Phase 1: Data Layer
 
 1. Add `BAMLC0A0CM` and `SOFR` to `seed-economy.mjs` FRED_SERIES array
-2. Create `seed-fear-greed.mjs` with all fetch groups + scoring logic
-3. Wire up Redis keys and cron schedule
+   - Note: SOFR is weekly cadence from FRED, not daily — Liquidity formula is stable between releases
+2. Validate `C:ISSU` symbol returns advance/decline data via Yahoo `/v8/finance/chart` — confirm before building Breadth formula around it
+3. Create `seed-fear-greed.mjs`:
+   - TTL: **64800s** (18h = 3× interval)
+   - AAII fetch: `AbortSignal.timeout(8000)`, wrapped in `try/catch` — failure uses degraded Sentiment scoring
+   - Pre-write step: GET `market:fear-greed:v1` from Redis, extract `composite.score` as `previous`, pass via `publishTransform`
+   - `runSeed()` calls `process.exit(0)` — all extra key writes (e.g. history key) must use the `extraKeys` option, NOT code after the `runSeed()` call
+4. Register with **bootstrap 4-file checklist**:
+   - `cache-keys.ts` — add `market:fear-greed:v1`
+   - `api/bootstrap.js` — register the key
+   - `health.js` — classify as `BOOTSTRAP_KEYS` (seeded, CRIT if empty); set `maxStaleMin: 720` (12h = 2× interval)
+   - `gateway.ts` — wire `GetFearGreedIndex` RPC
 
 ### Phase 2: Proto + RPC
 
-4. New proto: `proto/worldmonitor/market/v1/fear_greed.proto`
+5. New proto: `proto/worldmonitor/market/v1/fear_greed.proto`
    - `GetFearGreedIndex` RPC
    - Messages for composite score, category scores, and header metrics
-5. New handler: `server/worldmonitor/market/v1/get-fear-greed-index.ts`
+6. New handler: `server/worldmonitor/market/v1/get-fear-greed-index.ts`
    - Reads computed data from Redis, returns structured response
 
 ### Phase 3: Frontend Panel
 
-6. New component: `src/components/FearGreedPanel.ts`
+7. New component: `src/components/FearGreedPanel.ts`
    - Gauge — semicircular 0–100 dial with color gradient (red→yellow→green)
    - Header grid — 9 key metrics with contextual annotations
    - Category breakdown — expandable cards per category (score, weight, contribution, bar)
-7. Register in finance variant panel config
+   - Handle `degraded: true` on Sentiment card (show "AAII unavailable" note)
+8. Register in finance variant panel config
 
 ### Phase 4: Polish
 
-8. Historical tracking — store daily snapshots for trend sparklines
-9. Alerts on threshold crossings (e.g. score drops below 20)
+9. Historical sparklines — append daily snapshot to `market:fear-greed:history:v1` (sorted set, score = UNIX timestamp, member = ISO date + composite score JSON). Write via `extraKeys` in Phase 1 seeder. TTL: 90 days (7776000s). Frontend reads this key for trend sparkline.
+10. Alerts on threshold crossings (e.g. score drops below 20)
 
 ---
 

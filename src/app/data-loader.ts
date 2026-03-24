@@ -7,6 +7,7 @@ import type { TimeRange } from '@/components';
 import {
   FEEDS,
   INTEL_SOURCES,
+  SECTORS,
   COMMODITIES,
   MARKET_SYMBOLS,
   SITE_VARIANT,
@@ -1255,12 +1256,17 @@ export class DataLoaderManager implements AppModule {
       // Sector heatmap: always attempt loading regardless of market rate-limit status
       const hydratedSectors = getHydratedData('sectors') as GetSectorSummaryResponse | undefined;
       const heatmapPanel = this.ctx.panels['heatmap'] as HeatmapPanel | undefined;
+      const sectorNameMap = new Map(SECTORS.map((s) => [s.symbol, s.name]));
+      const toHeatmapItem = (s: { symbol: string; name: string; change: number }) => ({
+        name: sectorNameMap.get(s.symbol) ?? s.name,
+        change: s.change,
+      });
       if (hydratedSectors?.sectors?.length) {
-        heatmapPanel?.renderHeatmap(hydratedSectors.sectors.map((s) => ({ name: s.name, change: s.change })));
+        heatmapPanel?.renderHeatmap(hydratedSectors.sectors.map(toHeatmapItem));
       } else {
         const sectorsResp = await fetchSectors();
         if (sectorsResp.sectors.length > 0) {
-          heatmapPanel?.renderHeatmap(sectorsResp.sectors.map((s) => ({ name: s.name, change: s.change })));
+          heatmapPanel?.renderHeatmap(sectorsResp.sectors.map(toHeatmapItem));
         } else if (stocksResult.skipped) {
           this.ctx.panels['heatmap']?.showConfigError(finnhubConfigMsg);
         }

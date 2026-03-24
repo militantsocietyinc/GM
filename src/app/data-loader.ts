@@ -1258,6 +1258,7 @@ export class DataLoaderManager implements AppModule {
       const heatmapPanel = this.ctx.panels['heatmap'] as HeatmapPanel | undefined;
       const sectorNameMap = new Map(SECTORS.map((s) => [s.symbol, s.name]));
       const toHeatmapItem = (s: { symbol: string; name: string; change: number }) => ({
+        symbol: s.symbol,
         name: sectorNameMap.get(s.symbol) ?? s.name,
         change: s.change,
       });

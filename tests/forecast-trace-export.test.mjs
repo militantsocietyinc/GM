@@ -45,6 +45,7 @@ import {
   IMPACT_VARIABLE_REGISTRY,
   MARKET_BUCKET_ALLOWED_CHANNELS,
   scoreImpactExpansionQuality,
+  buildImpactExpansionDebugPayload,
 } from '../scripts/seed-forecasts.mjs';
 
 import {
@@ -5263,5 +5264,76 @@ describe('phase 2 scoring recalibration + prompt excellence', () => {
     assert.equal(result.commodityRate, 0, 'no commodity keys → commodityRate 0');
     assert.equal(result.chainCoverage, 0, 'no second_order → chainCoverage 0');
     assert.ok(result.composite < 0.4, `composite should be low (got ${result.composite})`);
+  });
+
+  it('T-conv-1: buildImpactExpansionDebugPayload — converged=true when composite >= 0.80', () => {
+    const candidatePackets = [{ candidateIndex: 0 }, { candidateIndex: 1 }];
+    const mapped = [
+      { order: 'direct', hypothesisKey: 'hormuz_crude_disruption', commodity: 'crude_oil', geography: 'Persian Gulf', affectedAssets: ['USO'], candidateStateId: 'state-A', candidateIndex: 0, validationStatus: 'mapped' },
+      { order: 'second_order', hypothesisKey: 'crude_inflation_pass_through', commodity: 'crude_oil', geography: 'United States', affectedAssets: ['TIP'], candidateStateId: 'state-A', candidateIndex: 0, validationStatus: 'mapped' },
+      { order: 'direct', hypothesisKey: 'baltic_shipping_cost_spike', commodity: 'LNG', geography: 'Baltic Sea', affectedAssets: ['HMM'], candidateStateId: 'state-B', candidateIndex: 1, validationStatus: 'mapped' },
+      { order: 'second_order', hypothesisKey: 'lng_inflation_europe', commodity: 'LNG', geography: 'Northern Europe', affectedAssets: ['TTF'], candidateStateId: 'state-B', candidateIndex: 1, validationStatus: 'mapped' },
+    ];
+    const validation = { hypotheses: mapped, mapped, validated: mapped, orderCounts: {}, rejectionReasonCounts: {}, analogTagCounts: {} };
+    const data = {
+      impactExpansionBundle: { candidatePackets },
+      impactExpansionCandidates: candidatePackets,
+      deepPathEvaluation: { validation, selectedPaths: [], rejectedPaths: [] },
+      refinementResult: { iterationCount: 0, committed: false },
+    };
+
+    const payload = buildImpactExpansionDebugPayload(data, null, 'run-conv-test');
+
+    assert.ok(payload?.convergence, 'convergence object present');
+    assert.ok(payload.convergence.converged === true, `converged should be true (composite=${payload.convergence.finalComposite})`);
+    assert.equal(payload.convergence.critiqueIterations, 0, 'no critique iterations when quality good');
+    assert.equal(payload.convergence.refinementCommitted, false);
+    assert.ok(typeof payload.convergence.finalComposite === 'number');
+    assert.ok(payload.convergence.finalComposite >= 0.80, `finalComposite should be >= 0.80 (got ${payload.convergence.finalComposite})`);
+  });
+
+  it('T-conv-2: buildImpactExpansionDebugPayload — converged=false when composite < 0.80, critiqueIterations=1', () => {
+    const candidatePackets = [{ candidateIndex: 0 }, { candidateIndex: 1 }];
+    const mapped = [
+      { order: 'direct', hypothesisKey: 'route_disruption', commodity: '', geography: '', affectedAssets: [], candidateStateId: 'state-A', candidateIndex: 0, validationStatus: 'mapped' },
+    ];
+    const validation = { hypotheses: mapped, mapped, validated: mapped, orderCounts: {}, rejectionReasonCounts: {}, analogTagCounts: {} };
+    const data = {
+      impactExpansionBundle: { candidatePackets },
+      impactExpansionCandidates: candidatePackets,
+      deepPathEvaluation: { validation, selectedPaths: [], rejectedPaths: [] },
+      refinementResult: { iterationCount: 1, committed: false },
+    };
+
+    const payload = buildImpactExpansionDebugPayload(data, null, 'run-conv-test-2');
+
+    assert.ok(payload?.convergence, 'convergence object present');
+    assert.ok(payload.convergence.converged === false, `converged should be false (composite=${payload.convergence.finalComposite})`);
+    assert.equal(payload.convergence.critiqueIterations, 1, 'critiqueIterations should reflect refinementResult');
+    assert.equal(payload.convergence.refinementCommitted, false);
+    assert.ok(payload.convergence.finalComposite < 0.80, `finalComposite should be < 0.80 (got ${payload.convergence.finalComposite})`);
+  });
+
+  it('T-conv-3: buildImpactExpansionDebugPayload — perCandidateMappedCount groups correctly by candidateStateId', () => {
+    const candidatePackets = [{ candidateIndex: 0 }, { candidateIndex: 1 }, { candidateIndex: 2 }];
+    const mapped = [
+      { order: 'direct', hypothesisKey: 'h1', commodity: 'crude_oil', geography: 'Middle East', affectedAssets: ['USO'], candidateStateId: 'state-A', candidateIndex: 0, validationStatus: 'mapped' },
+      { order: 'second_order', hypothesisKey: 'h2', commodity: 'crude_oil', geography: 'United States', affectedAssets: [], candidateStateId: 'state-A', candidateIndex: 0, validationStatus: 'mapped' },
+      { order: 'direct', hypothesisKey: 'h3', commodity: 'LNG', geography: 'Baltic Sea', affectedAssets: ['HMM'], candidateStateId: 'state-B', candidateIndex: 1, validationStatus: 'mapped' },
+    ];
+    const validation = { hypotheses: mapped, mapped, validated: mapped, orderCounts: {}, rejectionReasonCounts: {}, analogTagCounts: {} };
+    const data = {
+      impactExpansionBundle: { candidatePackets },
+      impactExpansionCandidates: candidatePackets,
+      deepPathEvaluation: { validation, selectedPaths: [], rejectedPaths: [] },
+      refinementResult: { iterationCount: 0, committed: false },
+    };
+
+    const payload = buildImpactExpansionDebugPayload(data, null, 'run-conv-test-3');
+    const counts = payload.convergence.perCandidateMappedCount;
+
+    assert.equal(counts['state-A'], 2, 'state-A has 2 mapped hypotheses');
+    assert.equal(counts['state-B'], 1, 'state-B has 1 mapped hypothesis');
+    assert.ok(!counts['state-C'], 'state-C not present (0 mapped)');
   });
 });

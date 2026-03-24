@@ -4417,6 +4417,21 @@ function buildImpactExpansionDebugPayload(data = {}, worldState = null, runId = 
   const candidates = data?.impactExpansionCandidates || bundle?.candidatePackets || [];
   if (!bundle && (!Array.isArray(candidates) || candidates.length === 0)) return null;
   const rawValidation = data?.deepPathEvaluation?.validation || null;
+
+  const refinementResult = data?.refinementResult || { iterationCount: 0, committed: false };
+  const perCandidateMappedCount = {};
+  for (const h of (rawValidation?.mapped || [])) {
+    const id = h.candidateStateId || 'unknown';
+    perCandidateMappedCount[id] = (perCandidateMappedCount[id] || 0) + 1;
+  }
+  const qualityScore = scoreImpactExpansionQuality(rawValidation || {}, candidates);
+  const convergence = {
+    converged: qualityScore.composite >= 0.80,
+    finalComposite: qualityScore.composite,
+    critiqueIterations: refinementResult.iterationCount,
+    refinementCommitted: refinementResult.committed,
+    perCandidateMappedCount,
+  };
   const hypothesisValidation = rawValidation ? {
     totalHypotheses: (rawValidation.hypotheses || []).length,
     validatedCount: (rawValidation.validated || []).length,
@@ -4462,6 +4477,7 @@ function buildImpactExpansionDebugPayload(data = {}, worldState = null, runId = 
     candidatePackets: candidates,
     impactExpansionSummary: worldState?.impactExpansion || null,
     hypothesisValidation,
+    convergence,
     // gateDetails records the active thresholds at time of execution for self-documenting artifacts.
     gateDetails: {
       secondOrderMappedFloor: 0.58,
@@ -14028,12 +14044,20 @@ async function processDeepForecastTask(task = {}) {
     replacedFastRun: evaluation.status === 'completed',
   };
 
+  // Run refinement before artifact assembly so the result is recorded in the R2 debug payload.
+  const refinementResult = await runImpactExpansionPromptRefinement({
+    candidatePackets: snapshot.impactExpansionCandidates || [],
+    validation: evaluation.validation || {},
+    priorWorldState,
+  });
+
   const dataForWrite = {
     ...snapshot,
     priorWorldState,
     priorWorldStates: priorWorldState ? [priorWorldState] : [],
     impactExpansionBundle: evaluation.impactExpansionBundle || null,
     deepPathEvaluation: evaluation,
+    refinementResult: refinementResult || { iterationCount: 0, committed: false },
   };
 
   if (evaluation.status === 'completed') {
@@ -14057,11 +14081,6 @@ async function processDeepForecastTask(task = {}) {
         completedAt: deepForecast.completedAt,
       },
     }, { runId: snapshot.runId });
-    await runImpactExpansionPromptRefinement({
-      candidatePackets: snapshot.impactExpansionCandidates || [],
-      validation: evaluation.validation || {},
-      priorWorldState,
-    });
     return { status: 'completed', deepForecast };
   }
 
@@ -14083,12 +14102,6 @@ async function processDeepForecastTask(task = {}) {
       completedAt: deepForecast.completedAt,
     },
   }, { runId: snapshot.runId });
-  // Non-blocking: self-improve prompt based on quality of this run's hypotheses
-  await runImpactExpansionPromptRefinement({
-    candidatePackets: snapshot.impactExpansionCandidates || [],
-    validation: evaluation.validation || {},
-    priorWorldState,
-  });
   return { status: deepForecast.status, deepForecast };
 }
 
@@ -14282,7 +14295,7 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
 
     // Rate-limit: skip if last attempt was < 30 min ago
     const lastAttemptRaw = await redisGet(url, token, PROMPT_LAST_ATTEMPT_KEY);
-    if (lastAttemptRaw && Date.now() - Number(lastAttemptRaw) < PROMPT_MIN_REFINEMENT_INTERVAL_MS) return;
+    if (lastAttemptRaw && Date.now() - Number(lastAttemptRaw) < PROMPT_MIN_REFINEMENT_INTERVAL_MS) return { iterationCount: 0, committed: false };
 
     const currentScore = scoreImpactExpansionQuality(validation, candidatePackets);
     const baselineRaw = await redisGet(url, token, PROMPT_BASELINE_KEY);
@@ -14306,7 +14319,7 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
         }, 30 * 24 * 3600);
         console.log(`  [PromptRefinement] Baseline updated: ${currentScore.composite.toFixed(3)}`);
       }
-      return;
+      return { iterationCount: 0, committed: false };
     }
 
     // Below target — attempt refinement
@@ -14315,13 +14328,13 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
     const currentLearnedSection = (await redisGet(url, token, PROMPT_LEARNED_KEY)) || '';
     const mapped = validation?.mapped || [];
 
-    console.log(`  [PromptRefinement] Quality ${currentScore.composite.toFixed(3)} below 0.80 — running critique (diversity=${currentScore.diversityScore.toFixed(2)})`);
+    console.log(`  [PromptRefinement] Quality ${currentScore.composite.toFixed(3)} below 0.80 — running critique (comDiversity=${currentScore.directCommodityDiversity.toFixed(2)})`);
     const critiqueResult = await callForecastLLM(
       buildImpactPromptCritiqueSystemPrompt(),
       buildImpactPromptCritiqueUserPrompt(currentScore, mapped, candidatePackets),
       { stage: 'prompt_critique', maxTokens: 700, temperature: 0.5 },
     );
-    if (!critiqueResult) return;
+    if (!critiqueResult) return { iterationCount: 1, committed: false };
 
     let critique;
     try {
@@ -14335,12 +14348,12 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
     } catch (e) {
       console.warn(`  [PromptRefinement] Could not parse critique JSON: ${e.message}`);
       console.warn(`  [PromptRefinement] Raw response (first 400 chars): ${critiqueResult.text?.slice(0, 400)}`);
-      return;
+      return { iterationCount: 1, committed: false };
     }
 
     if (!critique?.proposed_addition || (critique.confidence || 0) < 0.5) {
       console.warn('  [PromptRefinement] Critique confidence too low — skipping');
-      return;
+      return { iterationCount: 1, committed: false };
     }
 
     // Build candidate new learned section (trim if too long)
@@ -14362,7 +14375,8 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
     const testScore = scoreImpactExpansionQuality(testValidation, candidatePackets);
 
     const currentBaseline = baseline?.qualityScore ?? currentScore.composite;
-    if (testScore.composite > currentBaseline) {
+    const didCommit = testScore.composite > currentBaseline;
+    if (didCommit) {
       await redisSet(url, token, PROMPT_LEARNED_KEY, candidateSection, 30 * 24 * 3600);
       await redisSet(url, token, PROMPT_BASELINE_KEY, {
         qualityScore: testScore.composite,
@@ -14375,8 +14389,10 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
     } else {
       console.log(`  [PromptRefinement] Reverted: test ${testScore.composite.toFixed(3)} <= baseline ${currentBaseline.toFixed(3)}`);
     }
+    return { iterationCount: 1, committed: didCommit };
   } catch (err) {
     console.warn(`  [PromptRefinement] Error: ${err.message}`);
+    return { iterationCount: 0, committed: false };
   }
 }
 
@@ -14863,6 +14879,7 @@ export {
   processNextDeepForecastTask,
   runDeepForecastWorker,
   scoreImpactExpansionQuality,
+  buildImpactExpansionDebugPayload,
   runImpactExpansionPromptRefinement,
   __setForecastLlmCallOverrideForTests,
 };

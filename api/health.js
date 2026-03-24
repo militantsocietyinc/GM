@@ -433,7 +433,7 @@ export default async function handler(req) {
 
   if (httpStatus === 503) {
     const critKeys = Object.entries(checks)
-      .filter(([, c]) => c.status === 'CRIT' || c.status === 'EMPTY')
+      .filter(([, c]) => c.status === 'CRIT')
       .map(([k, c]) => `${k}:${c.status}${c.seedAgeMin != null ? `(${c.seedAgeMin}min)` : ''}`);
     console.log('[health] %s crits=[%s]', overall, critKeys.join(', '));
     // Persist last failure snapshot to Redis (TTL 24h) for post-mortem inspection.

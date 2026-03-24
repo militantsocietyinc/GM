@@ -116,6 +116,7 @@ Uses `query1.finance.yahoo.com/v8/finance/chart` — no API key, User-Agent head
 | 19 | `XLV` | Momentum | Healthcare sector |
 
 **Notes:**
+
 - `^MMTH` = % above **200-day** MA (not `^MMTW` which is 20-day)
 - `C:ISSU` = NYSE advance/decline/unchanged data. **Unvalidated via `/v8/finance/chart` endpoint** — must confirm it returns advance/decline figures before relying on it. If unavailable, Breadth drops `ad_score` and reweights: `breadth_score * 0.57 + rsp_score * 0.43`
 - Fallback: Finnhub candle API for ETF symbols; breadth symbols Yahoo-only
@@ -125,6 +126,7 @@ Uses `query1.finance.yahoo.com/v8/finance/chart` — no API key, User-Agent head
 ## Scoring Formulas
 
 ### 1. Sentiment (10%)
+
 ```
 inputs: CNN_FG, AAII_Bull, AAII_Bear  (AAII is LOW reliability — blocks bots)
 
@@ -139,6 +141,7 @@ score = CNN_FG  // 100% weight on CNN F&G; crypto F&G from Redis as secondary si
 **Reliability notes:** CNN F&G is MEDIUM reliability. If both CNN and AAII fail, use `cryptoFearGreed` from Redis (already seeded via macro-signals) as a proxy — it is directionally correlated. Mark `unavailable: true` only if all three sentiment sources are absent.
 
 ### 2. Volatility (10%)
+
 ```
 inputs: VIX, VIX_Term_Structure
 vix_score = clamp(100 - ((VIX - 12) / 28) * 100, 0, 100)  // VIX 12=100, VIX 40=0
@@ -147,6 +150,7 @@ score = vix_score * 0.7 + term_score * 0.3
 ```
 
 ### 3. Positioning (15%)
+
 ```
 inputs: Put_Call_Ratio, Options_Skew
 pc_score = clamp(100 - ((PC_Ratio - 0.7) / 0.6) * 100, 0, 100)  // 0.7=greed, 1.3=fear
@@ -155,6 +159,7 @@ score = pc_score * 0.6 + skew_score * 0.4
 ```
 
 ### 4. Trend (10%)
+
 ```
 inputs: SPX_Price, SMA20, SMA50, SMA200
 above_count = count(price > SMA20, price > SMA50, price > SMA200)
@@ -163,6 +168,7 @@ score = (above_count / 3) * 50 + clamp(distance_200 * 500 + 50, 0, 100) * 0.5
 ```
 
 ### 5. Breadth (10%)
+
 ```
 inputs: Pct_Above_200DMA, Advance_Decline, RSP_SPY_Divergence
 breadth_score = Pct_Above_200DMA  // already 0-100
@@ -172,6 +178,7 @@ score = breadth_score * 0.4 + ad_score * 0.3 + rsp_score * 0.3
 ```
 
 ### 6. Momentum (10%)
+
 ```
 inputs: Sector_RSI_Spread, SPX_ROC_20d
 rsi_score = clamp((avg_sector_rsi - 30) / 40 * 100, 0, 100)
@@ -180,6 +187,7 @@ score = rsi_score * 0.5 + roc_score * 0.5
 ```
 
 ### 7. Liquidity (15%)
+
 ```
 inputs: M2_YoY_Change, Fed_Balance_Sheet_Change, SOFR_Rate
 m2_score = clamp(M2_YoY * 10 + 50, 0, 100)
@@ -189,6 +197,7 @@ score = m2_score * 0.4 + fed_score * 0.3 + sofr_score * 0.3
 ```
 
 ### 8. Credit (10%)
+
 ```
 inputs: HY_Spread, IG_Spread, HY_Spread_Change_30d
 hy_score = clamp(100 - ((HY_Spread - 3.0) / 5.0) * 100, 0, 100)
@@ -198,6 +207,7 @@ score = hy_score * 0.4 + ig_score * 0.3 + trend_score * 0.3
 ```
 
 ### 9. Macro (5%)
+
 ```
 inputs: Fed_Rate, Yield_Curve_10Y2Y, Unemployment_Trend
 rate_score = clamp(100 - Fed_Rate * 15, 0, 100)
@@ -207,6 +217,7 @@ score = rate_score * 0.3 + curve_score * 0.4 + unemp_score * 0.3
 ```
 
 ### 10. Cross-Asset (5%)
+
 ```
 inputs: Gold_vs_SPY_30d, TLT_vs_SPY_30d, DXY_30d_Change
 gold_signal = Gold_30d > SPY_30d ? fear : greed

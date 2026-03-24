@@ -33,6 +33,14 @@ const SEVERITY_LABEL: Record<string, string> = {
   CROSS_SOURCE_SIGNAL_SEVERITY_LOW: 'LOW',
 };
 
+// Filled badge styles: bg + border + text per severity
+const SEVERITY_BADGE_STYLE: Record<string, string> = {
+  CROSS_SOURCE_SIGNAL_SEVERITY_CRITICAL: 'background:var(--semantic-critical);color:#fff;border:1px solid var(--semantic-critical)',
+  CROSS_SOURCE_SIGNAL_SEVERITY_HIGH: 'background:rgba(255,140,140,0.15);color:#ff8c8c;border:1px solid rgba(255,140,140,0.4)',
+  CROSS_SOURCE_SIGNAL_SEVERITY_MEDIUM: 'background:rgba(245,197,66,0.08);color:var(--yellow);border:1px solid rgba(245,197,66,0.35)',
+  CROSS_SOURCE_SIGNAL_SEVERITY_LOW: 'background:transparent;color:var(--text-dim);border:1px solid var(--border)',
+};
+
 const TYPE_LABEL: Record<string, string> = {
   CROSS_SOURCE_SIGNAL_TYPE_COMPOSITE_ESCALATION: 'COMPOSITE',
   CROSS_SOURCE_SIGNAL_TYPE_THERMAL_SPIKE: 'THERMAL',
@@ -56,6 +64,23 @@ const TYPE_LABEL: Record<string, string> = {
   CROSS_SOURCE_SIGNAL_TYPE_MEDIA_TONE_DETERIORATION: 'MEDIA',
   CROSS_SOURCE_SIGNAL_TYPE_RISK_SCORE_SPIKE: 'RISK',
 };
+
+// Category icon prefix for type badges
+const TYPE_ICON: Record<string, string> = {
+  CROSS_SOURCE_SIGNAL_TYPE_COMPOSITE_ESCALATION: '⚡',
+  CROSS_SOURCE_SIGNAL_TYPE_THERMAL_SPIKE: '🔴',
+  CROSS_SOURCE_SIGNAL_TYPE_EARTHQUAKE_SIGNIFICANT: '🔴',
+  CROSS_SOURCE_SIGNAL_TYPE_RADIATION_ANOMALY: '🔴',
+  CROSS_SOURCE_SIGNAL_TYPE_WILDFIRE_ESCALATION: '🔴',
+  CROSS_SOURCE_SIGNAL_TYPE_GPS_JAMMING: '📡',
+  CROSS_SOURCE_SIGNAL_TYPE_CYBER_ESCALATION: '📡',
+  CROSS_SOURCE_SIGNAL_TYPE_MILITARY_FLIGHT_SURGE: '✈️',
+  CROSS_SOURCE_SIGNAL_TYPE_VIX_SPIKE: '📊',
+  CROSS_SOURCE_SIGNAL_TYPE_COMMODITY_SHOCK: '📊',
+  CROSS_SOURCE_SIGNAL_TYPE_MARKET_STRESS: '📊',
+  CROSS_SOURCE_SIGNAL_TYPE_RISK_SCORE_SPIKE: '📊',
+};
+const TYPE_ICON_DEFAULT = '⚠️';
 
 export class CrossSourceSignalsPanel extends Panel {
   private signals: CrossSourceSignal[] = [];
@@ -92,26 +117,37 @@ export class CrossSourceSignalsPanel extends Panel {
   private renderSignal(sig: CrossSourceSignal, index: number): string {
     const isComposite = sig.type === 'CROSS_SOURCE_SIGNAL_TYPE_COMPOSITE_ESCALATION';
     const sevColor = SEVERITY_COLOR[sig.severity] ?? 'var(--text-dim)';
+    const sevBadgeStyle = SEVERITY_BADGE_STYLE[sig.severity] ?? SEVERITY_BADGE_STYLE.CROSS_SOURCE_SIGNAL_SEVERITY_LOW;
     const typeLabel = TYPE_LABEL[sig.type] ?? sig.type.replace('CROSS_SOURCE_SIGNAL_TYPE_', '');
+    const typeIcon = TYPE_ICON[sig.type] ?? TYPE_ICON_DEFAULT;
     const age = this.ageSuffix(sig.detectedAt);
-    const compositeBorder = isComposite ? `border-left:3px solid ${sevColor};padding-left:11px;` : '';
+
+    const cardStyle = isComposite
+      ? 'box-shadow:0 0 0 1px rgba(255,80,80,0.3),0 2px 8px rgba(255,80,80,0.08);border-color:rgba(255,80,80,0.25)'
+      : 'border:1px solid var(--border)';
 
     const contributors = isComposite && sig.contributingTypes.length > 0
-      ? `<div style="margin-top:4px;font-size:10px;color:var(--text-dim);letter-spacing:0.06em">${escapeHtml(sig.contributingTypes.slice(0, 5).join(' · '))}</div>`
+      ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${
+          sig.contributingTypes.slice(0, 5).map(t =>
+            `<span style="font-size:9px;font-family:var(--font-mono);padding:1px 5px;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;border-radius:2px">${escapeHtml(t)}</span>`
+          ).join('')
+        }</div>`
       : '';
 
     return `
-      <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--border);background:rgba(255,255,255,0.02);${compositeBorder}">
-        <div style="font-size:13px;font-weight:700;color:var(--text-dim);min-width:20px;text-align:right;flex-shrink:0">${index + 1}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-            <span style="font-size:10px;padding:2px 5px;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.08em">${escapeHtml(typeLabel)}</span>
-            <span style="font-size:10px;padding:2px 5px;border:1px solid ${sevColor};color:${sevColor};font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.08em">${escapeHtml(SEVERITY_LABEL[sig.severity] ?? '')}</span>
-            <span style="font-size:11px;color:var(--text-dim)">${escapeHtml(sig.theater)}</span>
-            <span style="font-size:10px;color:var(--text-dim);margin-left:auto">${escapeHtml(age)}</span>
+      <div style="display:flex;align-items:stretch;${cardStyle};background:rgba(255,255,255,0.02);overflow:hidden">
+        <div style="width:4px;flex-shrink:0;background:${sevColor}"></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--text-dim);min-width:18px;text-align:right;flex-shrink:0;font-family:var(--font-mono);padding-top:1px">${index + 1}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px">
+              <span style="font-size:10px;padding:2px 6px;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.06em;display:inline-flex;align-items:center;gap:4px"><span>${typeIcon}</span>${escapeHtml(typeLabel)}</span>
+              <span style="font-size:10px;padding:2px 6px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;${sevBadgeStyle}">${escapeHtml(SEVERITY_LABEL[sig.severity] ?? '')}</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.06);border-radius:3px;padding:2px 7px;font-size:10px;color:rgba(232,234,237,0.65);font-family:var(--font-mono);letter-spacing:0.04em;white-space:nowrap">${escapeHtml(sig.theater)}<span style="opacity:0.4"> · </span>${escapeHtml(age)}</span>
+            </div>
+            <div style="font-size:12px;line-height:1.5;color:var(--text)">${escapeHtml(sig.summary)}</div>
+            ${contributors}
           </div>
-          <div style="font-size:12px;line-height:1.5;color:var(--text)">${escapeHtml(sig.summary)}</div>
-          ${contributors}
         </div>
       </div>
     `;
@@ -128,16 +164,17 @@ export class CrossSourceSignalsPanel extends Panel {
       : '';
 
     const compositeNote = this.compositeCount > 0
-      ? `<div style="font-size:12px;color:var(--semantic-critical);padding:6px 8px;border:1px solid rgba(var(--semantic-critical-rgb,255,80,80),0.3);background:rgba(var(--semantic-critical-rgb,255,80,80),0.06);margin-bottom:8px">${this.compositeCount} composite escalation zone${this.compositeCount > 1 ? 's' : ''} detected</div>`
+      ? `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--semantic-critical);padding:7px 10px;border:1px solid rgba(255,80,80,0.3);background:rgba(255,80,80,0.06);margin-bottom:8px"><div style="width:7px;height:7px;border-radius:50%;background:var(--semantic-critical);flex-shrink:0;animation:css-pulse-dot 2s ease-in-out infinite"></div>${this.compositeCount} composite escalation zone${this.compositeCount > 1 ? 's' : ''} detected</div>`
       : '';
 
     const signalRows = this.signals.map((s, i) => this.renderSignal(s, i)).join('');
 
     this.setContent(`
+      <style>@keyframes css-pulse-dot{0%,100%{opacity:1}50%{opacity:.15}}</style>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${compositeNote}
         ${signalRows}
-        ${evalTime ? `<div style="font-size:10px;color:var(--text-dim);padding-top:8px;border-top:1px solid var(--border);text-align:center">${escapeHtml(evalTime)}</div>` : ''}
+        ${evalTime ? `<div style="font-size:10px;color:var(--text-dim);padding-top:8px;border-top:1px solid var(--border);text-align:center;font-family:var(--font-mono)">${escapeHtml(evalTime)}</div>` : ''}
       </div>
     `);
   }

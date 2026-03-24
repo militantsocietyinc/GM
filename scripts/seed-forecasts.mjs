@@ -298,6 +298,36 @@ const MARKET_BUCKET_ALLOWED_CHANNELS = {
   crypto_stablecoins: ['fx_stress', 'risk_off_rotation', 'liquidity_withdrawal', 'sovereign_stress'],
   defense: ['defense_repricing', 'security_escalation'],
 };
+// Flat set of all valid signal types across all market buckets.
+// Used to detect and remap free-form LLM-generated channel strings.
+const IMPACT_SIGNAL_CHANNELS = new Set(Object.values(MARKET_BUCKET_ALLOWED_CHANNELS).flat());
+
+// Maps a free-form LLM marketImpact string to the nearest valid signal channel.
+// Called only when hypothesis.channel is not already a known IMPACT_SIGNAL_CHANNELS member.
+function resolveImpactChannel(marketImpact = '') {
+  const m = String(marketImpact || '').toLowerCase();
+  if (IMPACT_SIGNAL_CHANNELS.has(m)) return m;
+  if (/ship|freight|route.disrupt|transit.disrupt/.test(m)) return 'shipping_cost_shock';
+  if (/lng|gas.supply|gas.price/.test(m)) return 'gas_supply_stress';
+  if (/crude|oil.supply|oil.price|petroleum/.test(m)) return 'energy_supply_shock';
+  if (/energy|fuel/.test(m)) return 'energy_supply_shock';
+  if (/inflat|price.spike|cost.push/.test(m)) return 'inflation_impulse';
+  if (/shortage|supply.chain/.test(m)) return 'commodity_repricing';
+  if (/commodity|repric/.test(m)) return 'commodity_repricing';
+  if (/sovereign|default|debt.distress/.test(m)) return 'sovereign_stress';
+  if (/fx|currency|exchange.rate/.test(m)) return 'fx_stress';
+  if (/risk.off|flight.to.quality|safe.haven/.test(m)) return 'risk_off_rotation';
+  if (/credit.spread|yield|bond.yield/.test(m)) return 'yield_curve_stress';
+  if (/security|conflict|escalat|military/.test(m)) return 'security_escalation';
+  if (/defense|arms|weapon/.test(m)) return 'defense_repricing';
+  if (/volatil/.test(m)) return 'volatility_shock';
+  if (/policy.rate|interest.rate|central.bank/.test(m)) return 'policy_rate_pressure';
+  if (/liquidit/.test(m)) return 'liquidity_withdrawal';
+  if (/cyber|hack/.test(m)) return 'cyber_cost_repricing';
+  if (/infrastruct|capacity/.test(m)) return 'infrastructure_capacity_loss';
+  return 'commodity_repricing'; // broadest valid fallback
+}
+
 // Adjacent-path gating intentionally stays aligned with direct gating for most buckets for now.
 // The one explicit exception is sovereign risk, where yield-curve and safe-haven confirmation
 // are treated as direct-only signals until we have enough live evidence to broaden the adjacent set.
@@ -4434,13 +4464,13 @@ function buildImpactExpansionDebugPayload(data = {}, worldState = null, runId = 
     perCandidateMappedCount[id] = (perCandidateMappedCount[id] || 0) + 1;
   }
   const qualityScore = scoreImpactExpansionQuality(rawValidation || {}, candidates);
-  // critiqueIterations is predicted from quality score (fire-and-forget refinement runs after
-  // the artifact write and its result is unavailable synchronously). 0 = quality already met,
-  // 1 = critique will fire on this run.
+  // predictedCritiqueIterations is derived from quality score (fire-and-forget refinement runs
+  // after the artifact write; actual count is unavailable synchronously). 0 = quality already
+  // met so critique will not fire, 1 = critique is expected to fire on this run.
   const convergence = {
     converged: qualityScore.composite >= 0.80,
     finalComposite: qualityScore.composite,
-    critiqueIterations: qualityScore.composite < 0.80 ? 1 : 0,
+    predictedCritiqueIterations: qualityScore.composite < 0.80 ? 1 : 0,
     perCandidateMappedCount,
   };
   const hypothesisValidation = rawValidation ? {
@@ -10425,7 +10455,8 @@ function mapImpactHypothesesToWorldSignals(validation = null) {
     const candidate = hypothesis.candidate || {};
     const evidenceTextByKey = new Map((candidate.evidenceTable || []).map((entry) => [entry.key, entry.text]));
     const signalLabel = hypothesis.description || hypothesis.summary || `${candidate.candidateStateLabel || 'State'} -> ${hypothesis.geography || hypothesis.marketImpact || 'market'}`;
-    const signalChannel = hypothesis.channel || hypothesis.marketImpact || 'commodity_repricing';
+    const rawChannel = hypothesis.channel || hypothesis.marketImpact || '';
+    const signalChannel = IMPACT_SIGNAL_CHANNELS.has(rawChannel) ? rawChannel : resolveImpactChannel(rawChannel);
     mappedSignals.push(buildWorldSignal(
       signalChannel,
       IMPACT_EXPANSION_SOURCE_TYPE,
@@ -12967,12 +12998,7 @@ function validateCaseNarratives(items, predictions) {
 }
 
 function sanitizeForPrompt(text) {
-  return (text || '')
-    .replace(/[\n\r]/g, ' ')
-    .replace(/[<>{}\x00-\x1f]/g, '')
-    .replace(/\b(ignore|override|disregard|you must|new rule|from now on)\b[^.;]*/gi, '')
-    .slice(0, 200)
-    .trim();
+  return (text || '').replace(/[\n\r]/g, ' ').replace(/[<>{}\x00-\x1f]/g, '').slice(0, 200).trim();
 }
 
 // Sanitizes LLM-returned text before writing to Redis as a prompt section.

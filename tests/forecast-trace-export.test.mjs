@@ -5289,12 +5289,12 @@ describe('phase 2 scoring recalibration + prompt excellence', () => {
 
     assert.ok(payload?.convergence, 'convergence object present');
     assert.ok(payload.convergence.converged === true, `converged should be true (composite=${payload.convergence.finalComposite})`);
-    assert.equal(payload.convergence.critiqueIterations, 0, 'no critique iterations when quality good');
+    assert.equal(payload.convergence.predictedCritiqueIterations, 0, 'no predicted critique iterations when quality good');
     assert.ok(typeof payload.convergence.finalComposite === 'number');
     assert.ok(payload.convergence.finalComposite >= 0.80, `finalComposite should be >= 0.80 (got ${payload.convergence.finalComposite})`);
   });
 
-  it('T-conv-2: buildImpactExpansionDebugPayload — converged=false when composite < 0.80, critiqueIterations=1 (predicted)', () => {
+  it('T-conv-2: buildImpactExpansionDebugPayload — converged=false when composite < 0.80, predictedCritiqueIterations=1', () => {
     const candidatePackets = [{ candidateIndex: 0 }, { candidateIndex: 1 }];
     const mapped = [
       { order: 'direct', hypothesisKey: 'route_disruption', commodity: '', geography: '', affectedAssets: [], candidateStateId: 'state-A', candidateIndex: 0, validationStatus: 'mapped' },
@@ -5304,8 +5304,8 @@ describe('phase 2 scoring recalibration + prompt excellence', () => {
 
     assert.ok(payload?.convergence, 'convergence object present');
     assert.ok(payload.convergence.converged === false, `converged should be false (composite=${payload.convergence.finalComposite})`);
-    // critiqueIterations is predicted from quality score (refinement is fire-and-forget)
-    assert.equal(payload.convergence.critiqueIterations, 1, 'critiqueIterations=1 predicted when composite < 0.80');
+    // predictedCritiqueIterations is derived from quality score (refinement is fire-and-forget)
+    assert.equal(payload.convergence.predictedCritiqueIterations, 1, 'predictedCritiqueIterations=1 when composite < 0.80');
     assert.ok(payload.convergence.finalComposite < 0.80, `finalComposite should be < 0.80 (got ${payload.convergence.finalComposite})`);
   });
 

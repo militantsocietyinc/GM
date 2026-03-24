@@ -21,6 +21,7 @@ tags: [code-review, agent-native, deep-forecast]
 ## Proposed Solutions
 
 ### Option A: Export key constants + helper functions (Recommended)
+
 ```javascript
 // Export the key names
 export { PROMPT_LEARNED_KEY, PROMPT_BASELINE_KEY, PROMPT_LAST_ATTEMPT_KEY }
@@ -37,6 +38,7 @@ export async function clearImpactPromptLearnedSection(url, token) {
 Effort: Small | Risk: Low
 
 ### Option B: Export key constants only
+
 - Let callers use their own Redis client with the exported key names
 - Effort: Tiny | Risk: Low
 

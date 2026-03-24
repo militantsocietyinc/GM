@@ -31,6 +31,7 @@ const preExtractedNewsItems = (newsInsights || newsDigest)
 Effort: Small | Risk: Low
 
 ### Option B: Memoize `extractNewsClusterItems` with a WeakMap key
+
 - Key on `[newsInsights, newsDigest]` pair
 - Effort: Medium | Risk: Low (WeakMap needs stable object references)
 

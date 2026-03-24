@@ -21,6 +21,7 @@ tags: [code-review, performance, deep-forecast]
 ## Proposed Solutions
 
 ### Option A: Hoist extraction into `selectImpactExpansionCandidates` (Recommended)
+
 ```javascript
 const preExtractedNewsItems = (newsInsights || newsDigest)
   ? extractNewsClusterItems(newsInsights, newsDigest)

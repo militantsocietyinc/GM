@@ -22,6 +22,7 @@ tags: [code-review, security, race-condition, redis]
 ## Proposed Solutions
 
 ### Option A: SET the rate-limit key BEFORE the LLM call (Recommended)
+
 ```javascript
 // Set immediately before LLM call to prevent TOCTOU
 await redisSet(url, token, PROMPT_LAST_ATTEMPT_KEY, String(Date.now()), 3600);
@@ -31,11 +32,13 @@ If the process crashes mid-call, the rate-limit still fires (good). If both work
 Effort: Small | Risk: Low
 
 ### Option B: Add SET NX EX to Upstash REST wrapper
+
 - Build `redisSetNx(url, token, key, value, ttl)` using Upstash REST pipeline
 - Use atomic check-and-set: only the first writer succeeds
 - Effort: Medium | Risk: Low
 
 ### Option C: Process-level mutex
+
 - Use an in-memory `Set<string>` of in-flight refinement keys
 - Only works if both invocations are in the same process (they are, for fire-and-forget)
 - Effort: Small | Risk: Medium (only works single-process)

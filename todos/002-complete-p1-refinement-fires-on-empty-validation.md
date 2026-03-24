@@ -21,6 +21,7 @@ In `processDeepForecastTask`, the non-completed branch (status != 'completed') c
 ## Proposed Solutions
 
 ### Option A: Guard with mapped count check (Recommended)
+
 ```javascript
 if (evaluation.validation?.mapped?.length > 0) {
   runImpactExpansionPromptRefinement(candidatePackets, evaluation.validation)
@@ -30,6 +31,7 @@ if (evaluation.validation?.mapped?.length > 0) {
 Effort: Small | Risk: Low
 
 ### Option B: Always pass to refinement but guard inside the function
+
 - Add early exit in `runImpactExpansionPromptRefinement` when `validation.mapped?.length === 0`
 - Effort: Small | Risk: Low (duplicates the guard logic)
 

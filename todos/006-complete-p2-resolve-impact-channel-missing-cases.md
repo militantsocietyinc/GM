@@ -21,6 +21,7 @@ tags: [code-review, deep-forecast, signal-routing]
 ## Proposed Solutions
 
 ### Option A: Add explicit branches (Recommended)
+
 ```javascript
 if (/safe.haven|safe haven bid/.test(m)) return 'safe_haven_bid';
 if (/crude.spread|brent.wti|grade.spread/.test(m)) return 'global_crude_spread_stress';
@@ -28,6 +29,7 @@ if (/crude.spread|brent.wti|grade.spread/.test(m)) return 'global_crude_spread_s
 Effort: Small | Risk: Low
 
 ### Option B: Build a lookup table from MARKET_BUCKET_ALLOWED_CHANNELS
+
 - Generate a flat `channelKeywords → channel` map from the registry
 - More maintainable, self-updating
 - Effort: Medium | Risk: Low

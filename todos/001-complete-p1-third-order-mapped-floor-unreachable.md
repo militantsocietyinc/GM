@@ -21,16 +21,19 @@ tags: [code-review, deep-forecast, scoring-math, architecture]
 ## Proposed Solutions
 
 ### Option A: Lower the mapped floor (Recommended)
+
 - Change `mapped: 0.74` to `mapped: 0.70`
 - `0.72 >= 0.70` — now reachable at high-quality third_order hypotheses
 - Effort: Small | Risk: Low
 
 ### Option B: Raise the multiplier
+
 - Change `multiplier: 0.72` to `multiplier: 0.80`
 - Max validationScore becomes 0.80, clears 0.74 floor
 - Effort: Small | Risk: Medium (changes scoring distribution)
 
 ### Option C: Explicitly disable third_order (document as intentional)
+
 - Set `mapped: 2.0` to make it permanently unreachable with a comment explaining why
 - Preserves current behavior intentionally
 - Effort: Small | Risk: Low

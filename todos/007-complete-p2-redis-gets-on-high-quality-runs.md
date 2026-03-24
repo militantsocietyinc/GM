@@ -22,6 +22,7 @@ tags: [code-review, performance, redis]
 ## Proposed Solutions
 
 ### Option A: Set `PROMPT_LAST_ATTEMPT_KEY` in `quality_met` path (Recommended)
+
 ```javascript
 // In quality_met path, set rate-limit so next 30 min skip entirely
 await redisSet(url, token, PROMPT_LAST_ATTEMPT_KEY, String(Date.now()), 3600);
@@ -30,6 +31,7 @@ return { iterationCount: 0, committed: false, exitReason: 'quality_met' };
 Effort: Tiny | Risk: Low
 
 ### Option B: Check rate-limit FIRST, before all other Redis reads
+
 - Move `lastAttemptRaw` check to be the very first operation
 - On rate-limited: return immediately (0 Redis reads instead of 3)
 - Effort: Small | Risk: Low

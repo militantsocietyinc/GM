@@ -22,16 +22,19 @@ tags: [code-review, security, prompt-injection, llm-self-improvement]
 ## Proposed Solutions
 
 ### Option A: Replace block-list with positive allowlist (Recommended)
+
 - Allow only: alphanumeric, spaces, common punctuation (`.,:;!?-()[]`), `→` chain arrow
 - Strip all other characters before Redis write
 - Effort: Small | Risk: Low (may strip valid content, but learned section is guidance not code)
 
 ### Option B: Structural format validation
+
 - Require `proposed_addition` to match a chain-pattern format (`[State] → [Channel] → [Asset]`)
 - Reject entire addition if format check fails
 - Effort: Medium | Risk: Medium
 
 ### Option C: Content-length and line-count heuristic
+
 - Reject if any single line exceeds 200 chars (injection needs space to write instructions)
 - Reject if content matches `https?://` (no URLs in learned guidance)
 - Effort: Small | Risk: Low (defense in depth)

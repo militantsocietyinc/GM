@@ -25,6 +25,7 @@ When `currentLearnedSection + '\n\n' + sanitizedAddition` exceeds `PROMPT_LEARNE
 ## Proposed Solutions
 
 ### Option A: Keep tail (most recent content) on overflow (Recommended)
+
 ```javascript
 if (candidateSection.length > PROMPT_LEARNED_MAX_CHARS) {
   candidateSection = candidateSection.slice(-PROMPT_LEARNED_MAX_CHARS);
@@ -33,6 +34,7 @@ if (candidateSection.length > PROMPT_LEARNED_MAX_CHARS) {
 Keeps the most recent 1600 chars (appended content is at the end). Effort: Tiny | Risk: Low
 
 ### Option B: Keep head (oldest content) on overflow
+
 - Drop new addition if combined exceeds limit
 - Preserves stability at cost of never updating
 - Effort: Tiny | Risk: Low

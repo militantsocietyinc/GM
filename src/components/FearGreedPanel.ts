@@ -48,8 +48,49 @@ function scoreColor(score: number): string {
 }
 
 function fmt(v: number | null | undefined, digits = 2): string {
-  if (v == null || v === 0) return 'N/A';
+  if (v == null) return 'N/A';
   return v.toFixed(digits);
+}
+
+function mapSeedPayload(raw: Record<string, unknown>): FearGreedData | null {
+  const comp = raw.composite as Record<string, unknown> | undefined;
+  if (!comp?.score) return null;
+  const cats = (raw.categories ?? {}) as Record<string, Record<string, unknown>>;
+  const hdr = (raw.headerMetrics ?? {}) as Record<string, Record<string, unknown> | null>;
+  const mapCat = (c: Record<string, unknown> | undefined): CategoryData | undefined => c ? {
+    score: Number(c.score ?? 50),
+    weight: Number(c.weight ?? 0),
+    contribution: Number(c.contribution ?? 0),
+    degraded: Boolean(c.degraded),
+    inputsJson: JSON.stringify(c.inputs ?? {}),
+  } : undefined;
+  return {
+    compositeScore: Number(comp.score),
+    compositeLabel: String(comp.label ?? ''),
+    previousScore: Number(comp.previous ?? 0),
+    seededAt: String(raw.timestamp ?? ''),
+    sentiment: mapCat(cats.sentiment),
+    volatility: mapCat(cats.volatility),
+    positioning: mapCat(cats.positioning),
+    trend: mapCat(cats.trend),
+    breadth: mapCat(cats.breadth),
+    momentum: mapCat(cats.momentum),
+    liquidity: mapCat(cats.liquidity),
+    credit: mapCat(cats.credit),
+    macro: mapCat(cats.macro),
+    crossAsset: mapCat(cats.crossAsset),
+    vix: Number(hdr?.vix?.value ?? 0),
+    hySpread: Number(hdr?.hySpread?.value ?? 0),
+    yield10y: Number(hdr?.yield10y?.value ?? 0),
+    putCallRatio: Number(hdr?.putCall?.value ?? 0),
+    pctAbove200d: Number(hdr?.pctAbove200d?.value ?? 0),
+    cnnFearGreed: Number(hdr?.cnnFearGreed?.value ?? 0),
+    cnnLabel: String(hdr?.cnnFearGreed?.label ?? ''),
+    aaiiBull: Number(hdr?.aaiBull?.value ?? 0),
+    aaiiBear: Number(hdr?.aaiBear?.value ?? 0),
+    fedRate: String(hdr?.fedRate?.value ?? ''),
+    unavailable: false,
+  };
 }
 
 const CAT_NAMES = ['sentiment','volatility','positioning','trend','breadth','momentum','liquidity','credit','macro','crossAsset'] as const;
@@ -77,13 +118,16 @@ export class FearGreedPanel extends Panel {
   }
 
   public async fetchData(): Promise<boolean> {
-    const hydrated = getHydratedData('fearGreedIndex') as FearGreedData | undefined;
-    if (hydrated && !hydrated.unavailable && hydrated.compositeScore > 0) {
-      this.data = hydrated;
-      this.loading = false;
-      this.error = null;
-      this.renderPanel();
-      return true;
+    const hydrated = getHydratedData('fearGreedIndex') as Record<string, unknown> | undefined;
+    if (hydrated && !hydrated.unavailable) {
+      const mapped = mapSeedPayload(hydrated);
+      if (mapped && mapped.compositeScore > 0) {
+        this.data = mapped;
+        this.loading = false;
+        this.error = null;
+        this.renderPanel();
+        return true;
+      }
     }
 
     try {
@@ -160,10 +204,10 @@ export class FearGreedPanel extends Panel {
       </div>`;
 
     const hdr = [
-      hdrMetric('VIX', fmt(d.vix, 2)),
-      hdrMetric('HY Spread', d.hySpread ? `${fmt(d.hySpread, 2)}%` : 'N/A'),
-      hdrMetric('10Y Yield', d.yield10y ? `${fmt(d.yield10y, 2)}%` : 'N/A'),
-      hdrMetric('P/C Ratio', fmt(d.putCallRatio, 2)),
+      hdrMetric('VIX', d.vix > 0 ? fmt(d.vix, 2) : 'N/A'),
+      hdrMetric('HY Spread', d.hySpread > 0 ? `${fmt(d.hySpread, 2)}%` : 'N/A'),
+      hdrMetric('10Y Yield', d.yield10y > 0 ? `${fmt(d.yield10y, 2)}%` : 'N/A'),
+      hdrMetric('P/C Ratio', d.putCallRatio > 0 ? fmt(d.putCallRatio, 2) : 'N/A'),
       hdrMetric('% > 200d', d.pctAbove200d ? `${fmt(d.pctAbove200d, 1)}%` : 'N/A'),
       hdrMetric('CNN F&G', d.cnnFearGreed ? `${Math.round(d.cnnFearGreed)}` : 'N/A'),
       hdrMetric('AAII Bull', d.aaiiBull ? `${fmt(d.aaiiBull, 1)}%` : 'N/A'),

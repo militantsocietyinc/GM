@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 
-import { loadEnvFile, CHROME_UA, runSeed, readSeedSnapshot, writeExtraKeyWithMeta, sleep } from './_seed-utils.mjs';
+import { loadEnvFile, CHROME_UA, runSeed, readSeedSnapshot, sleep } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
 const FEAR_GREED_KEY = 'market:fear-greed:v1';
-const HISTORY_KEY = 'market:fear-greed:history:v1';
 const FEAR_GREED_TTL = 64800; // 18h = 3x 6h interval
-const HISTORY_TTL = 7776000; // 90 days
 
 const FRED_PREFIX = 'economic:fred:v1';
 
-// --- Yahoo Finance fetching (19 symbols, 150ms gaps) ---
+// --- Yahoo Finance fetching (16 symbols, 150ms gaps) ---
 const YAHOO_SYMBOLS = ['^GSPC','^VIX','^VIX9D','^VIX3M','^SKEW','^MMTH','C:ISSU','GLD','TLT','SPY','RSP','DX-Y.NYB','XLK','XLF','XLE','XLV'];
 
 async function fetchYahooSymbol(symbol) {
@@ -365,6 +363,7 @@ async function fetchAll() {
 
   const fedRate = fredLatest(fedObs);
   const fedRateStr = fedRate != null ? `${fedRate.toFixed(2)}%` : null;
+  const hySpreadVal = fredLatest(hyObs);
 
   const payload = {
     timestamp: new Date().toISOString(),
@@ -387,17 +386,13 @@ async function fetchAll() {
       aaiBull:  aaii ? { value: Math.round(aaii.bull), context: `${aaii.bull.toFixed(1)}%` } : null,
       putCall:  cboe.totalPc != null ? { value: cboe.totalPc } : null,
       vix:      vixLive != null ? { value: vixLive } : null,
-      hySpread: fredLatest(hyObs) != null ? { value: fredLatest(hyObs) } : null,
+      hySpread: hySpreadVal != null ? { value: hySpreadVal } : null,
       pctAbove200d: mmthPrice != null ? { value: mmthPrice } : null,
       yield10y: fredLatest(dgs10Obs) != null ? { value: fredLatest(dgs10Obs) } : null,
       fedRate:  fedRateStr ? { value: fedRateStr } : null,
     },
     unavailable: false,
   };
-
-  const today = new Date().toISOString().slice(0,10);
-  const historyEntry = JSON.stringify({ date: today, score: compositeScore, label: compositeLabel });
-  await writeExtraKeyWithMeta(HISTORY_KEY, { entries: [historyEntry] }, HISTORY_TTL, 1).catch(() => {});
 
   return payload;
 }

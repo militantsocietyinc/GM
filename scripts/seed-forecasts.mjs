@@ -316,6 +316,8 @@ function resolveImpactChannel(marketImpact = '') {
   if (/commodity|repric/.test(m)) return 'commodity_repricing';
   if (/sovereign|default|debt.distress/.test(m)) return 'sovereign_stress';
   if (/fx|currency|exchange.rate/.test(m)) return 'fx_stress';
+  if (/safe.haven.bid|safe haven bid/.test(m)) return 'safe_haven_bid';
+  if (/crude.spread|brent.wti|grade.spread|wti.spread/.test(m)) return 'global_crude_spread_stress';
   if (/risk.off|flight.to.quality|safe.haven/.test(m)) return 'risk_off_rotation';
   if (/credit.spread|yield|bond.yield/.test(m)) return 'yield_curve_stress';
   if (/security|conflict|escalat|military/.test(m)) return 'security_escalation';
@@ -3313,9 +3315,9 @@ function extractImpactCommodityKey(texts = []) {
  * and source count. Minimum score to include: 2. Returns sanitized strings.
  * Pure function — no I/O, no side effects.
  */
-function filterNewsHeadlinesByState(stateUnit, newsInsights, newsDigest, limit = 3) {
-  if (!newsInsights && !newsDigest) return [];
-  const items = extractNewsClusterItems(newsInsights, newsDigest);
+function filterNewsHeadlinesByState(stateUnit, newsInsights, newsDigest, limit = 3, preExtractedItems = null) {
+  if (!newsInsights && !newsDigest && !preExtractedItems) return [];
+  const items = preExtractedItems || extractNewsClusterItems(newsInsights, newsDigest);
   if (!items.length) return [];
 
   const commodityKey = stateUnit.commodityKey || extractImpactCommodityKey([
@@ -3431,14 +3433,14 @@ function computeImpactExpansionRankingScore(marketContext, continuityRecord, spe
 }
 
 function buildImpactExpansionCandidate(stateUnit, marketContext, priorStateUnits = [],
-                                        newsInsights = null, newsDigest = null) {
+                                        newsInsights = null, newsDigest = null, preExtractedNewsItems = null) {
   if (!stateUnit || !marketContext) return null;
   const continuityRecord = buildImpactExpansionContinuityRecord(stateUnit, priorStateUnits);
   const specificity = buildImpactExpansionSpecificity(stateUnit, marketContext);
   if (!isImpactExpansionCandidateEligible(stateUnit, marketContext, continuityRecord, specificity)) return null;
   // Attach commodityKey so filterNewsHeadlinesByState can use it without re-extracting
   const stateUnitWithCommodity = { ...stateUnit, commodityKey: specificity.commodityKey };
-  const newsItems = filterNewsHeadlinesByState(stateUnitWithCommodity, newsInsights, newsDigest, 3);
+  const newsItems = filterNewsHeadlinesByState(stateUnitWithCommodity, newsInsights, newsDigest, 3, preExtractedNewsItems);
   return {
     candidateStateId: stateUnit.id,
     candidateStateLabel: stateUnit.label,
@@ -3508,6 +3510,10 @@ function selectImpactExpansionCandidates({
     stateUnits,
     marketInputCoverage,
   );
+  // Hoist news extraction outside the map — same inputs for every candidate, no need to repeat
+  const preExtractedNewsItems = (newsInsights || newsDigest)
+    ? extractNewsClusterItems(newsInsights, newsDigest)
+    : null;
   return stateUnits
     .map((stateUnit) => buildImpactExpansionCandidate(
       stateUnit,
@@ -3515,6 +3521,7 @@ function selectImpactExpansionCandidates({
       priorStateUnits,
       newsInsights,
       newsDigest,
+      preExtractedNewsItems,
     ))
     .filter(Boolean)
     .sort((left, right) => (
@@ -10283,7 +10290,7 @@ function flattenImpactExpansionHypotheses(bundle = null) {
 
 function getImpactValidationFloors(order = 'direct') {
   if (order === 'third_order') {
-    return { internal: 0.66, mapped: 0.74, multiplier: 0.72 };
+    return { internal: 0.66, mapped: 0.70, multiplier: 0.72 };
   }
   if (order === 'second_order') {
     return { internal: 0.50, mapped: 0.58, multiplier: 0.88 };
@@ -13052,13 +13059,29 @@ function sanitizeForPrompt(text) {
 }
 
 // Sanitizes LLM-returned text before writing to Redis as a prompt section.
-// Strips lines containing directive injection phrases (e.g. "ignore all previous instructions").
+// Uses a pattern-based allowlist: rejects lines containing directive-takeover patterns,
+// HTML/JS injection vectors, or cross-prompt directive keywords.
 // Calling code applies PROMPT_LEARNED_MAX_CHARS length cap after this function.
 function sanitizeProposedLlmAddition(text) {
   if (typeof text !== 'string') return '';
+  const BLOCKED = [
+    /<[a-z/]/i,
+    /https?:\/\//i,
+    /javascript:/i,
+    /\beval\s*\(/i,
+    /function\s*\(/,
+    /\b(ignore|override|disregard|forget|reset)\b.{0,40}\b(previous|above|prior|earlier|all|every)\b/i,
+    /\b(you (are|must|will|should)|new (rule|instruction|system|persona|identity))\b/i,
+    /^\s*(system|user|assistant)\s*:/im,
+    /^\s*#{1,3}\s+(system|instruction|rule|override)/im,
+  ];
   return text
     .split('\n')
-    .filter((line) => !/\b(ignore|override|disregard|you must|new rule|from now on)\b/i.test(line))
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      return !BLOCKED.some((re) => re.test(trimmed));
+    })
     .join('\n')
     .replace(/[<>{}]/g, '')
     .trim();
@@ -14259,6 +14282,15 @@ const PROMPT_LAST_ATTEMPT_KEY = 'forecast:prompt:impact-expansion:last-attempt';
 const PROMPT_MIN_REFINEMENT_INTERVAL_MS = 30 * 60 * 1000; // 30 min between attempts
 const PROMPT_LEARNED_MAX_CHARS = 1600; // cap to avoid bloating the prompt
 
+async function readImpactPromptLearnedSection(url, token) {
+  return (await redisGet(url, token, PROMPT_LEARNED_KEY).catch(() => null)) || '';
+}
+
+async function clearImpactPromptLearnedSection(url, token) {
+  await redisDel(url, token, PROMPT_LEARNED_KEY).catch(() => null);
+  await redisDel(url, token, PROMPT_LAST_ATTEMPT_KEY).catch(() => null);
+}
+
 function scoreImpactExpansionQuality(validation, candidatePackets = []) {
   const mapped = validation?.mapped || [];
   const hypotheses = validation?.hypotheses || [];
@@ -14411,6 +14443,8 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
     // Rate-limit: skip if last attempt was < 30 min ago
     const lastAttemptRaw = await redisGet(url, token, PROMPT_LAST_ATTEMPT_KEY);
     if (lastAttemptRaw && Date.now() - Number(lastAttemptRaw) < PROMPT_MIN_REFINEMENT_INTERVAL_MS) return { iterationCount: 0, committed: false, exitReason: 'rate_limited' };
+    // Claim the rate-limit slot immediately to prevent concurrent requests from slipping through (TOCTOU fix)
+    await redisSet(url, token, PROMPT_LAST_ATTEMPT_KEY, String(Date.now()), 3600);
 
     const currentScore = scoreImpactExpansionQuality(validation, candidatePackets);
     const baselineRaw = await redisGet(url, token, PROMPT_BASELINE_KEY);
@@ -14438,10 +14472,13 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
     }
 
     // Below target — attempt refinement
-    await redisSet(url, token, PROMPT_LAST_ATTEMPT_KEY, String(Date.now()), 3600);
-
     const currentLearnedSection = (await redisGet(url, token, PROMPT_LEARNED_KEY)) || '';
     const mapped = validation?.mapped || [];
+
+    if (mapped.length === 0) {
+      console.warn('  [PromptRefinement] No mapped hypotheses — skipping refinement');
+      return { iterationCount: 0, committed: false, exitReason: 'no_mapped' };
+    }
 
     console.log(`  [PromptRefinement] Quality ${currentScore.composite.toFixed(3)} below 0.80 — running critique (comDiversity=${currentScore.directCommodityDiversity.toFixed(2)})`);
     const critiqueResult = await callForecastLLM(
@@ -14483,7 +14520,7 @@ async function runImpactExpansionPromptRefinement({ candidatePackets, validation
       ? `${currentLearnedSection}\n\n${sanitizedAddition}`
       : sanitizedAddition;
     if (candidateSection.length > PROMPT_LEARNED_MAX_CHARS) {
-      candidateSection = sanitizedAddition.slice(0, PROMPT_LEARNED_MAX_CHARS);
+      candidateSection = candidateSection.slice(-PROMPT_LEARNED_MAX_CHARS);
     }
 
     // Test the new prompt on the same candidates (bypasses cache via unique learnedSection)
@@ -15005,5 +15042,10 @@ export {
   scoreImpactExpansionQuality,
   buildImpactExpansionDebugPayload,
   runImpactExpansionPromptRefinement,
+  PROMPT_LEARNED_KEY,
+  PROMPT_BASELINE_KEY,
+  PROMPT_LAST_ATTEMPT_KEY,
+  readImpactPromptLearnedSection,
+  clearImpactPromptLearnedSection,
   __setForecastLlmCallOverrideForTests,
 };

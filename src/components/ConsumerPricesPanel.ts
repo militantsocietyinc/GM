@@ -164,32 +164,37 @@ export class ConsumerPricesPanel extends Panel {
 
     const { market, basket, range } = this.settings;
 
-    if (market === 'all') {
-      const results = await fetchAllMarketsOverview();
+    try {
+      if (market === 'all') {
+        const results = await fetchAllMarketsOverview();
+        if (!this.element?.isConnected) { this.loading = false; return; }
+        this.allMarkets = results;
+        this.loading = false;
+        this.render();
+        return;
+      }
+
+      const [overview, categories, movers, spread, freshness] = await Promise.all([
+        fetchConsumerPriceOverview(market, basket),
+        fetchConsumerPriceCategories(market, basket, range),
+        fetchConsumerPriceMovers(market, range),
+        fetchRetailerPriceSpreads(market, basket),
+        fetchConsumerPriceFreshness(market),
+      ]);
+
       if (!this.element?.isConnected) { this.loading = false; return; }
-      this.allMarkets = results;
+
+      this.overview = overview;
+      this.categories = categories;
+      this.movers = movers;
+      this.spread = spread;
+      this.freshness = freshness;
       this.loading = false;
       this.render();
-      return;
+    } catch (err) {
+      this.loading = false;
+      this.showError(undefined, () => void this.fetchData());
     }
-
-    const [overview, categories, movers, spread, freshness] = await Promise.all([
-      fetchConsumerPriceOverview(market, basket),
-      fetchConsumerPriceCategories(market, basket, range),
-      fetchConsumerPriceMovers(market, range),
-      fetchRetailerPriceSpreads(market, basket),
-      fetchConsumerPriceFreshness(market),
-    ]);
-
-    if (!this.element?.isConnected) { this.loading = false; return; }
-
-    this.overview = overview;
-    this.categories = categories;
-    this.movers = movers;
-    this.spread = spread;
-    this.freshness = freshness;
-    this.loading = false;
-    this.render();
   }
 
   private render(): void {

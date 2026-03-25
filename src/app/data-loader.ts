@@ -1152,6 +1152,7 @@ export class DataLoaderManager implements AppModule {
       panel.renderAnalyses(results, nextHistory, 'live');
     } catch (error) {
       console.error('[StockAnalysis] failed:', error);
+      this.callPanel('stock-analysis', 'showError');
       const cachedHistory = await fetchStockAnalysisHistory().catch(() => ({}));
       const cachedSnapshots = getLatestStockAnalysisSnapshots(cachedHistory);
       if (cachedSnapshots.length > 0) {
@@ -1189,6 +1190,7 @@ export class DataLoaderManager implements AppModule {
       panel.renderBacktests(results);
     } catch (error) {
       console.error('[StockBacktest] failed:', error);
+      this.callPanel('stock-backtest', 'showError');
       const stored = await fetchStoredStockBacktests().catch(() => []);
       if (stored.length > 0) {
         panel.renderBacktests(stored, 'cached');
@@ -1586,6 +1588,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (error) {
       console.error('[App] Failed to load tech events:', error);
+      this.callPanel('tech-events', 'showError');
       this.ctx.map?.setTechEvents([]);
       this.ctx.map?.setLayerReady('techEvents', false);
       this.ctx.statusPanel?.updateFeed('Tech Events', { status: 'error', errorMessage: String(error) });
@@ -1600,6 +1603,7 @@ export class DataLoaderManager implements AppModule {
       this.ctx.statusPanel?.updateFeed('Weather', { status: 'ok', itemCount: alerts.length });
       dataFreshness.recordUpdate('weather', alerts.length);
     } catch (error) {
+      this.callPanel('weather', 'showError');
       this.ctx.map?.setLayerReady('weather', false);
       this.ctx.statusPanel?.updateFeed('Weather', { status: 'error' });
       dataFreshness.recordError('weather', String(error));
@@ -1808,6 +1812,7 @@ export class DataLoaderManager implements AppModule {
         if (data.countries.length > 0) dataFreshness.recordUpdate('unhcr', data.countries.length);
       } catch (error) {
         console.error('[Intelligence] UNHCR displacement fetch failed:', error);
+        this.callPanel('displacement', 'showError');
         dataFreshness.recordError('unhcr', String(error));
       }
     })());
@@ -1828,6 +1833,7 @@ export class DataLoaderManager implements AppModule {
         if (anomalies.length > 0) dataFreshness.recordUpdate('climate', anomalies.length);
       } catch (error) {
         console.error('[Intelligence] Climate anomalies fetch failed:', error);
+        this.callPanel('climate', 'showError');
         dataFreshness.recordError('climate', String(error));
       }
     })());
@@ -1862,6 +1868,7 @@ export class DataLoaderManager implements AppModule {
           startOrefPolling();
         } catch (error) {
           console.error('[Intelligence] OREF alerts fetch failed:', error);
+          this.callPanel('oref-sirens', 'showError');
         }
       })());
     }
@@ -1912,6 +1919,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (error) {
       console.error('[Intelligence] Population exposure fetch failed:', error);
+      this.callPanel('population-exposure', 'showError');
       dataFreshness.recordError('worldpop', String(error));
     }
 
@@ -1949,6 +1957,7 @@ export class DataLoaderManager implements AppModule {
         (this.ctx.panels['internet-disruptions'] as InternetDisruptionsPanel)?.setDdos(r);
       }).catch(() => {});
     } catch (error) {
+      this.callPanel('infra-outages', 'showError');
       this.ctx.map?.setLayerReady('outages', false);
       this.ctx.statusPanel?.updateFeed('NetBlocks', { status: 'error' });
       dataFreshness.recordError('outages', String(error));
@@ -1982,6 +1991,7 @@ export class DataLoaderManager implements AppModule {
       this.ctx.statusPanel?.updateApi('Cyber Threats API', { status: 'ok' });
       dataFreshness.recordUpdate('cyber_threats', threats.length);
     } catch (error) {
+      this.callPanel('cyber-threats', 'showError');
       this.ctx.map?.setLayerReady('cyberThreats', false);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'error', errorMessage: String(error) });
       this.ctx.statusPanel?.updateApi('Cyber Threats API', { status: 'error' });
@@ -2148,6 +2158,7 @@ export class DataLoaderManager implements AppModule {
       }
       this.ctx.statusPanel?.updateApi('GDELT Doc', { status: 'ok' });
     } catch (error) {
+      this.callPanel('protests', 'showError');
       this.ctx.map?.setLayerReady('protests', false);
       this.ctx.statusPanel?.updateFeed('Protests', { status: 'error', errorMessage: String(error) });
       this.ctx.statusPanel?.updateApi('ACLED', { status: 'error' });
@@ -2195,6 +2206,7 @@ export class DataLoaderManager implements AppModule {
       map.setLayerReady('webcams', allMarkers.length > 0);
     } catch (err) {
       console.warn('[data-loader] webcams failed:', err);
+      this.callPanel('webcams', 'showError');
       this.ctx.map?.setLayerReady('webcams', false);
     }
   }
@@ -2213,6 +2225,7 @@ export class DataLoaderManager implements AppModule {
       });
       this.ctx.statusPanel?.updateApi('FAA', { status: 'ok' });
     } catch (error) {
+      this.callPanel('flight-delays', 'showError');
       this.ctx.map?.setLayerReady('flights', false);
       this.ctx.statusPanel?.updateFeed('Flights', { status: 'error', errorMessage: String(error) });
       this.ctx.statusPanel?.updateApi('FAA', { status: 'error' });
@@ -2380,6 +2393,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (e) {
       console.error('[App] Oil analytics failed:', e);
+      this.callPanel('energy-complex', 'showError');
       this.ctx.statusPanel?.updateApi('EIA', { status: 'error' });
       dataFreshness.recordError('oil', String(e));
     }
@@ -2481,6 +2495,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (e) {
       console.error('[App] Trade policy failed:', e);
+      this.callPanel('trade-policy', 'showError');
       this.ctx.statusPanel?.updateApi('WTO', { status: 'error' });
       dataFreshness.recordError('wto_trade', String(e));
     }
@@ -2517,6 +2532,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (e) {
       console.error('[App] Supply chain failed:', e);
+      this.callPanel('supply-chain', 'showError');
       this.ctx.statusPanel?.updateApi('SupplyChain', { status: 'error' });
       dataFreshness.recordError('supply_chain', String(e));
     }
@@ -2602,6 +2618,7 @@ export class DataLoaderManager implements AppModule {
       this.ctx.statusPanel?.updateApi('FIRMS', { status: 'ok' });
     } catch (e) {
       console.warn('[App] FIRMS load failed:', e);
+      this.callPanel('satellite-fires', 'showError');
       (this.ctx.panels['satellite-fires'] as SatelliteFiresPanel)?.update([], 0);
       this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
       dataFreshness.recordError('firms', String(e));
@@ -2814,6 +2831,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (error) {
       console.error('[App] Security advisories fetch failed:', error);
+      this.callPanel('security-advisories', 'showError');
     }
   }
 
@@ -2831,6 +2849,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (error) {
       console.error('[App] Sanctions pressure fetch failed:', error);
+      this.callPanel('sanctions-pressure', 'showError');
       dataFreshness.recordError('sanctions_pressure', String(error));
       this.ctx.statusPanel?.updateApi('OFAC', { status: 'error' });
     }
@@ -2850,6 +2869,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (error) {
       console.error('[App] Radiation watch fetch failed:', error);
+      this.callPanel('radiation-watch', 'showError');
       this.ctx.map?.setLayerReady('radiationWatch', false);
       dataFreshness.recordError('radiation', String(error));
     }
@@ -2876,6 +2896,7 @@ export class DataLoaderManager implements AppModule {
       dataFreshness.recordUpdate('thermal-escalation' as DataSourceId, result.clusters.length);
     } catch (error) {
       console.error('[App] Thermal escalation fetch failed:', error);
+      this.callPanel('thermal-escalation', 'showError');
     }
   }
 

@@ -1,15 +1,17 @@
 import { Panel } from './Panel';
-import { t } from '@/services/i18n';
+import { getCurrentLanguage, t } from '@/services/i18n';
 import type { DailyMarketBrief } from '@/services/daily-market-brief';
 import { describeFreshness } from '@/services/persistent-cache';
+import { getCachedContentTranslation, translateContentText } from '@/services/content-translation';
 import { escapeHtml } from '@/utils/sanitize';
 import { getChangeClass } from '@/utils';
 
 type BriefSource = 'live' | 'cached';
 
-function formatGeneratedTime(isoTimestamp: string, timezone: string): string {
+function formatGeneratedTime(isoTimestamp: string, timezone: string, lang = 'en'): string {
+  const locale = lang === 'en' ? 'en-US' : lang;
   try {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(locale, {
       timeZone: timezone,
       hour: 'numeric',
       minute: '2-digit',
@@ -19,6 +21,10 @@ function formatGeneratedTime(isoTimestamp: string, timezone: string): string {
   } catch {
     return isoTimestamp;
   }
+}
+
+function getBriefCopy(text: string, lang: string): string {
+  return getCachedContentTranslation(text, lang) ?? text;
 }
 
 function stanceLabel(stance: DailyMarketBrief['items'][number]['stance']): string {
@@ -39,32 +45,38 @@ function formatChange(change: number | null): string {
 }
 
 export class DailyMarketBriefPanel extends Panel {
+  private briefCopyRequestId = 0;
+
   constructor() {
     super({ id: 'daily-market-brief', title: 'Daily Market Brief', infoTooltip: t('components.dailyMarketBrief.infoTooltip'), premium: 'locked' });
   }
 
   public renderBrief(brief: DailyMarketBrief, source: BriefSource = 'live'): void {
+    const lang = brief.lang || getCurrentLanguage();
     const freshness = describeFreshness(new Date(brief.generatedAt).getTime());
     this.setDataBadge(source, freshness);
     this.resetRetryBackoff();
+    const actionPlanLabel = getBriefCopy('Action Plan', lang);
+    const riskWatchLabel = getBriefCopy('Risk Watch', lang);
+    const linkedHeadlineLabel = getBriefCopy('Linked headline', lang);
 
     const html = `
       <div class="daily-brief-shell" style="display:grid;gap:12px">
         <div class="daily-brief-card" style="display:grid;gap:6px;padding:12px;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,0.03)">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
             <div style="font-size:13px;font-weight:600">${escapeHtml(brief.title)}</div>
-            <div style="font-size:11px;color:var(--text-dim)">${escapeHtml(formatGeneratedTime(brief.generatedAt, brief.timezone))}</div>
+            <div style="font-size:11px;color:var(--text-dim)">${escapeHtml(formatGeneratedTime(brief.generatedAt, brief.timezone, lang))}</div>
           </div>
           <div style="font-size:12px;line-height:1.5;color:var(--text)">${escapeHtml(brief.summary)}</div>
         </div>
 
         <div style="display:grid;gap:10px">
           <div style="padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,0.02)">
-            <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px">Action Plan</div>
+            <div data-brief-copy="Action Plan" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px">${escapeHtml(actionPlanLabel)}</div>
             <div style="font-size:12px;line-height:1.5">${escapeHtml(brief.actionPlan)}</div>
           </div>
           <div style="padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,0.02)">
-            <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px">Risk Watch</div>
+            <div data-brief-copy="Risk Watch" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px">${escapeHtml(riskWatchLabel)}</div>
             <div style="font-size:12px;line-height:1.5">${escapeHtml(brief.riskWatch)}</div>
           </div>
         </div>
@@ -84,7 +96,7 @@ export class DailyMarketBriefPanel extends Panel {
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
                 <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)">${escapeHtml(stanceLabel(item.stance))}</div>
-                ${item.relatedHeadline ? `<div style="font-size:11px;color:var(--text-dim);text-align:right;max-width:55%">Linked headline</div>` : ''}
+                ${item.relatedHeadline ? `<div data-brief-copy="Linked headline" style="font-size:11px;color:var(--text-dim);text-align:right;max-width:55%">${escapeHtml(linkedHeadlineLabel)}</div>` : ''}
               </div>
               <div style="font-size:12px;line-height:1.45">${escapeHtml(item.note)}</div>
             </div>
@@ -95,9 +107,51 @@ export class DailyMarketBriefPanel extends Panel {
     `;
 
     this.setContent(html);
+    this.scheduleBriefCopyTranslation(lang);
   }
 
   public showUnavailable(message = 'The daily brief needs live market data before it can be generated.'): void {
-    this.showError(message);
+    const lang = getCurrentLanguage();
+    const displayMessage = getBriefCopy(message, lang);
+    this.showError(displayMessage);
+
+    const requestId = ++this.briefCopyRequestId;
+    if (lang === 'en' || displayMessage !== message) return;
+    setTimeout(() => {
+      void this.translateUnavailableMessage(message, lang, requestId);
+    }, 0);
+  }
+
+  private scheduleBriefCopyTranslation(targetLang: string): void {
+    const requestId = ++this.briefCopyRequestId;
+    if (targetLang === 'en') return;
+    setTimeout(() => {
+      void this.translateBriefCopy(targetLang, requestId);
+    }, 0);
+  }
+
+  private async translateBriefCopy(targetLang: string, requestId: number): Promise<void> {
+    if (requestId !== this.briefCopyRequestId || !this.element.isConnected) return;
+
+    const labels = Array.from(this.content.querySelectorAll<HTMLElement>('[data-brief-copy]'));
+    for (const label of labels) {
+      if (requestId !== this.briefCopyRequestId || !label.isConnected) return;
+      const source = label.dataset.briefCopy;
+      if (!source) continue;
+
+      const translated = await translateContentText(source, targetLang, { sourceLang: 'en' });
+      if (requestId !== this.briefCopyRequestId || !label.isConnected) return;
+      if (translated && translated !== source) {
+        label.textContent = translated;
+      }
+    }
+  }
+
+  private async translateUnavailableMessage(message: string, targetLang: string, requestId: number): Promise<void> {
+    const translated = await translateContentText(message, targetLang, { sourceLang: 'en' });
+    if (requestId !== this.briefCopyRequestId || !this.element.isConnected) return;
+    if (translated && translated !== message) {
+      this.showError(translated);
+    }
   }
 }

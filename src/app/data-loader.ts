@@ -1388,9 +1388,10 @@ export class DataLoaderManager implements AppModule {
     if (this.ctx.isDestroyed || this.ctx.inFlight.has('dailyMarketBrief')) return;
 
     this.ctx.inFlight.add('dailyMarketBrief');
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const lang = getCurrentLanguage();
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-      const cached = await getCachedDailyMarketBrief(timezone);
+      const cached = await getCachedDailyMarketBrief(timezone, lang);
 
       if (cached?.available) {
         this.callPanel('daily-market-brief', 'renderBrief', cached, 'cached');
@@ -1407,6 +1408,7 @@ export class DataLoaderManager implements AppModule {
       const brief = await buildDailyMarketBrief({
         markets: this.ctx.latestMarkets,
         newsByCategory: this.ctx.newsByCategory,
+        lang,
         timezone,
       });
 
@@ -1421,8 +1423,7 @@ export class DataLoaderManager implements AppModule {
       this.callPanel('daily-market-brief', 'renderBrief', brief, 'live');
     } catch (error) {
       console.warn('[DailyBrief] Failed to build daily market brief:', error);
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-      const cached = await getCachedDailyMarketBrief(timezone).catch(() => null);
+      const cached = await getCachedDailyMarketBrief(timezone, lang).catch(() => null);
       if (cached?.available) {
         this.callPanel('daily-market-brief', 'renderBrief', cached, 'cached');
         return;

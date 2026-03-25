@@ -1,6 +1,7 @@
 import type { MarketData, NewsItem } from '@/types';
 import type { MarketWatchlistEntry } from './market-watchlist';
 import { getMarketWatchlistEntries } from './market-watchlist';
+import type { translateContentText } from './content-translation';
 import type { SummarizationResult } from './summarization';
 
 export interface DailyMarketBriefItem {
@@ -19,6 +20,7 @@ export interface DailyMarketBrief {
   title: string;
   dateKey: string;
   timezone: string;
+  lang?: string;
   summary: string;
   actionPlan: string;
   riskWatch: string;
@@ -33,6 +35,7 @@ export interface DailyMarketBrief {
 export interface BuildDailyMarketBriefOptions {
   markets: MarketData[];
   newsByCategory: Record<string, NewsItem[]>;
+  lang?: string;
   timezone?: string;
   now?: Date;
   targets?: MarketWatchlistEntry[];
@@ -42,11 +45,17 @@ export interface BuildDailyMarketBriefOptions {
     geoContext?: string,
     lang?: string,
   ) => Promise<SummarizationResult | null>;
+  translate?: typeof translateContentText;
 }
 
 async function getDefaultSummarizer(): Promise<NonNullable<BuildDailyMarketBriefOptions['summarize']>> {
   const { generateSummary } = await import('./summarization');
   return generateSummary;
+}
+
+async function getDefaultTranslator(): Promise<NonNullable<BuildDailyMarketBriefOptions['translate']>> {
+  const { translateContentText } = await import('./content-translation');
+  return translateContentText;
 }
 
 async function getPersistentCacheApi(): Promise<{
@@ -62,6 +71,10 @@ const DEFAULT_SCHEDULE_HOUR = 8;
 const DEFAULT_TARGET_COUNT = 4;
 const BRIEF_NEWS_CATEGORIES = ['markets', 'economic', 'crypto', 'finance'];
 const COMMON_NAME_TOKENS = new Set(['inc', 'corp', 'group', 'holdings', 'company', 'companies', 'class', 'common', 'plc', 'limited', 'ltd', 'adr']);
+
+function normalizeLanguage(language?: string): string {
+  return String(language || 'en').trim().toLowerCase().split('-')[0] || 'en';
+}
 
 function resolveTimeZone(timezone?: string): string {
   const candidate = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -101,8 +114,9 @@ function getLocalHour(date: Date, timezone: string): number {
   return Number.parseInt(getLocalDateParts(date, timezone).hour || '0', 10) || 0;
 }
 
-function formatTitleDate(date: Date, timezone: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+function formatTitleDate(date: Date, timezone: string, lang = 'en'): string {
+  const locale = normalizeLanguage(lang) === 'en' ? 'en-US' : normalizeLanguage(lang);
+  return new Intl.DateTimeFormat(locale, {
     timeZone: resolveTimeZone(timezone),
     month: 'short',
     day: 'numeric',
@@ -113,8 +127,20 @@ function sanitizeCacheKeyPart(value: string): string {
   return value.replace(/[^a-z0-9/_-]+/gi, '-').toLowerCase();
 }
 
-function getCacheKey(timezone: string): string {
-  return `${CACHE_PREFIX}:${sanitizeCacheKeyPart(resolveTimeZone(timezone))}`;
+function getCacheKey(timezone: string, lang = 'en'): string {
+  return `${CACHE_PREFIX}:${sanitizeCacheKeyPart(resolveTimeZone(timezone))}:${sanitizeCacheKeyPart(normalizeLanguage(lang))}`;
+}
+
+async function translateBriefCopy(
+  text: string,
+  targetLang: string,
+  translate: NonNullable<BuildDailyMarketBriefOptions['translate']>,
+): Promise<string> {
+  if (!text) return text;
+  const normalizedLang = normalizeLanguage(targetLang);
+  if (normalizedLang === 'en') return text;
+  const translated = await translate(text, normalizedLang, { sourceLang: 'en' });
+  return translated || text;
 }
 
 function isMeaningfulToken(token: string): boolean {
@@ -286,25 +312,26 @@ export function shouldRefreshDailyBrief(
   return getLocalHour(now, resolvedTimezone) >= scheduleHour;
 }
 
-export async function getCachedDailyMarketBrief(timezone?: string): Promise<DailyMarketBrief | null> {
+export async function getCachedDailyMarketBrief(timezone?: string, lang = 'en'): Promise<DailyMarketBrief | null> {
   const resolvedTimezone = resolveTimeZone(timezone);
   const { getPersistentCache } = await getPersistentCacheApi();
-  const envelope = await getPersistentCache<DailyMarketBrief>(getCacheKey(resolvedTimezone));
+  const envelope = await getPersistentCache<DailyMarketBrief>(getCacheKey(resolvedTimezone, lang));
   return envelope?.data ?? null;
 }
 
 export async function cacheDailyMarketBrief(brief: DailyMarketBrief): Promise<void> {
   const { setPersistentCache } = await getPersistentCacheApi();
-  await setPersistentCache(getCacheKey(brief.timezone), brief);
+  await setPersistentCache(getCacheKey(brief.timezone, brief.lang), brief);
 }
 
 export async function buildDailyMarketBrief(options: BuildDailyMarketBriefOptions): Promise<DailyMarketBrief> {
   const now = options.now || new Date();
   const timezone = resolveTimeZone(options.timezone);
+  const lang = normalizeLanguage(options.lang);
   const trackedMarkets = resolveTargets(options.markets, options.targets).slice(0, DEFAULT_TARGET_COUNT);
   const relevantHeadlines = collectHeadlinePool(options.newsByCategory);
 
-  const items: DailyMarketBriefItem[] = trackedMarkets.map((market) => {
+  let items: DailyMarketBriefItem[] = trackedMarkets.map((market) => {
     const relatedHeadline = relevantHeadlines.find((headline) => matchesMarketHeadline(market, headline.title))?.title;
     return {
       symbol: market.symbol,
@@ -319,12 +346,16 @@ export async function buildDailyMarketBrief(options: BuildDailyMarketBriefOption
   });
 
   if (items.length === 0) {
+    const translate = options.translate || await getDefaultTranslator();
+    const titlePrefix = await translateBriefCopy('Daily Market Brief', lang, translate);
+    const unavailableSummary = await translateBriefCopy('Market data is not available yet for the daily brief.', lang, translate);
     return {
       available: false,
-      title: `Daily Market Brief • ${formatTitleDate(now, timezone)}`,
+      title: `${titlePrefix} • ${formatTitleDate(now, timezone, lang)}`,
       dateKey: getDateKey(now, timezone),
       timezone,
-      summary: 'Market data is not available yet for the daily brief.',
+      lang,
+      summary: unavailableSummary,
       actionPlan: '',
       riskWatch: '',
       items: [],
@@ -338,6 +369,9 @@ export async function buildDailyMarketBrief(options: BuildDailyMarketBriefOption
 
   const { headlines: summaryHeadlines, marketContext } = buildSummaryInputs(items, relevantHeadlines);
   let summary = buildRuleSummary(items, relevantHeadlines.length);
+  let titlePrefix = 'Daily Market Brief';
+  let actionPlan = buildActionPlan(items, relevantHeadlines.length);
+  let riskWatch = buildRiskWatch(items, relevantHeadlines);
   let provider = 'rules';
   let model = '';
   let fallback = true;
@@ -349,7 +383,7 @@ export async function buildDailyMarketBrief(options: BuildDailyMarketBriefOption
         summaryHeadlines,
         undefined,
         `Market context: ${marketContext}`,
-        'en',
+        lang,
       );
       if (generated?.summary) {
         summary = generated.summary.trim();
@@ -362,14 +396,32 @@ export async function buildDailyMarketBrief(options: BuildDailyMarketBriefOption
     }
   }
 
+  if (lang !== 'en') {
+    const translate = options.translate || await getDefaultTranslator();
+    const [localizedTitlePrefix, localizedSummary, localizedActionPlan, localizedRiskWatch, localizedNotes] = await Promise.all([
+      translateBriefCopy(titlePrefix, lang, translate),
+      fallback ? translateBriefCopy(summary, lang, translate) : Promise.resolve(summary),
+      translateBriefCopy(actionPlan, lang, translate),
+      translateBriefCopy(riskWatch, lang, translate),
+      Promise.all(items.map((item) => translateBriefCopy(item.note, lang, translate))),
+    ]);
+
+    titlePrefix = localizedTitlePrefix;
+    summary = localizedSummary;
+    actionPlan = localizedActionPlan;
+    riskWatch = localizedRiskWatch;
+    items = items.map((item, index) => ({ ...item, note: localizedNotes[index] || item.note }));
+  }
+
   return {
     available: true,
-    title: `Daily Market Brief • ${formatTitleDate(now, timezone)}`,
+    title: `${titlePrefix} • ${formatTitleDate(now, timezone, lang)}`,
     dateKey: getDateKey(now, timezone),
     timezone,
+    lang,
     summary,
-    actionPlan: buildActionPlan(items, relevantHeadlines.length),
-    riskWatch: buildRiskWatch(items, relevantHeadlines),
+    actionPlan,
+    riskWatch,
     items,
     provider,
     model,

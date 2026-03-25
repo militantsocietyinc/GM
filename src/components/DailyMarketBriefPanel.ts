@@ -7,6 +7,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { getChangeClass } from '@/utils';
 
 type BriefSource = 'live' | 'cached';
+const BRIEF_COPY_TRANSLATION_DELAY_MS = 200;
 
 function formatGeneratedTime(isoTimestamp: string, timezone: string, lang = 'en'): string {
   const locale = lang === 'en' ? 'en-US' : lang;
@@ -27,7 +28,7 @@ function getBriefCopy(text: string, lang: string): string {
   return getCachedContentTranslation(text, lang) ?? text;
 }
 
-function stanceLabel(stance: DailyMarketBrief['items'][number]['stance']): string {
+function stanceCopySource(stance: DailyMarketBrief['items'][number]['stance']): string {
   if (stance === 'bullish') return 'Bullish';
   if (stance === 'defensive') return 'Defensive';
   return 'Neutral';
@@ -82,7 +83,10 @@ export class DailyMarketBriefPanel extends Panel {
         </div>
 
         <div style="display:grid;gap:8px">
-          ${brief.items.map((item) => `
+          ${brief.items.map((item) => {
+            const stanceSource = stanceCopySource(item.stance);
+            const stanceLabel = getBriefCopy(stanceSource, lang);
+            return `
             <div style="display:grid;gap:6px;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,0.02)">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
                 <div>
@@ -95,12 +99,13 @@ export class DailyMarketBriefPanel extends Panel {
                 </div>
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-                <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)">${escapeHtml(stanceLabel(item.stance))}</div>
+                <div data-brief-copy="${escapeHtml(stanceSource)}" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)">${escapeHtml(stanceLabel)}</div>
                 ${item.relatedHeadline ? `<div data-brief-copy="Linked headline" style="font-size:11px;color:var(--text-dim);text-align:right;max-width:55%">${escapeHtml(linkedHeadlineLabel)}</div>` : ''}
               </div>
               <div style="font-size:12px;line-height:1.45">${escapeHtml(item.note)}</div>
             </div>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
 
       </div>
@@ -119,7 +124,7 @@ export class DailyMarketBriefPanel extends Panel {
     if (lang === 'en' || displayMessage !== message) return;
     setTimeout(() => {
       void this.translateUnavailableMessage(message, lang, requestId);
-    }, 0);
+    }, BRIEF_COPY_TRANSLATION_DELAY_MS);
   }
 
   private scheduleBriefCopyTranslation(targetLang: string): void {
@@ -127,7 +132,7 @@ export class DailyMarketBriefPanel extends Panel {
     if (targetLang === 'en') return;
     setTimeout(() => {
       void this.translateBriefCopy(targetLang, requestId);
-    }, 0);
+    }, BRIEF_COPY_TRANSLATION_DELAY_MS);
   }
 
   private async translateBriefCopy(targetLang: string, requestId: number): Promise<void> {

@@ -1152,7 +1152,6 @@ export class DataLoaderManager implements AppModule {
       panel.renderAnalyses(results, nextHistory, 'live');
     } catch (error) {
       console.error('[StockAnalysis] failed:', error);
-      this.callPanel('stock-analysis', 'showError');
       const cachedHistory = await fetchStockAnalysisHistory().catch(() => ({}));
       const cachedSnapshots = getLatestStockAnalysisSnapshots(cachedHistory);
       if (cachedSnapshots.length > 0) {
@@ -1190,7 +1189,6 @@ export class DataLoaderManager implements AppModule {
       panel.renderBacktests(results);
     } catch (error) {
       console.error('[StockBacktest] failed:', error);
-      this.callPanel('stock-backtest', 'showError');
       const stored = await fetchStoredStockBacktests().catch(() => []);
       if (stored.length > 0) {
         panel.renderBacktests(stored, 'cached');
@@ -2387,7 +2385,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (e) {
       console.error('[App] Oil analytics failed:', e);
-      this.callPanel('energy-complex', 'showError');
+      this.callPanel('energy-complex', 'showError', undefined, () => void this.loadOilAnalytics());
       this.ctx.statusPanel?.updateApi('EIA', { status: 'error' });
       dataFreshness.recordError('oil', String(e));
     }
@@ -2489,7 +2487,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (e) {
       console.error('[App] Trade policy failed:', e);
-      this.callPanel('trade-policy', 'showError');
+      this.callPanel('trade-policy', 'showError', undefined, () => void this.loadTradePolicy());
       this.ctx.statusPanel?.updateApi('WTO', { status: 'error' });
       dataFreshness.recordError('wto_trade', String(e));
     }
@@ -2526,7 +2524,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (e) {
       console.error('[App] Supply chain failed:', e);
-      this.callPanel('supply-chain', 'showError');
+      this.callPanel('supply-chain', 'showError', undefined, () => void this.loadSupplyChain());
       this.ctx.statusPanel?.updateApi('SupplyChain', { status: 'error' });
       dataFreshness.recordError('supply_chain', String(e));
     }

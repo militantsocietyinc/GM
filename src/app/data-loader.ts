@@ -1441,7 +1441,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadMarketImplications(): Promise<void> {
-    if (!getSecretState('WORLDMONITOR_API_KEY').present && !isProUser()) return;
+    if (!hasPremiumAccess()) return;
     if (this.ctx.isDestroyed || this.ctx.inFlight.has('marketImplications')) return;
     this.ctx.inFlight.add('marketImplications');
     try {

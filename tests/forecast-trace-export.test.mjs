@@ -5535,6 +5535,24 @@ describe('simulation package export', () => {
     })), true);
   });
 
+  it('isMaritimeChokeEnergyCandidate accepts candidate with energy bucket on root (flat shape, no marketContext)', () => {
+    // Flat shape: topBucketId is on the candidate root, no marketContext object.
+    // This is the package JSON shape written by buildSimulationPackageFromDeepSnapshot.
+    assert.equal(isMaritimeChokeEnergyCandidate(makeCandidate({
+      marketContext: undefined,
+      topBucketId: 'energy',
+    })), true);
+  });
+
+  it('isMaritimeChokeEnergyCandidate rejects flat shape with non-energy bucket and no energy commodity', () => {
+    assert.equal(isMaritimeChokeEnergyCandidate(makeCandidate({
+      marketContext: undefined,
+      topBucketId: 'semis',
+      commodityKey: '',
+      marketBucketIds: ['semis'],
+    })), false);
+  });
+
   it('buildSimulationPackageFromDeepSnapshot returns null when no qualifying candidates', () => {
     const pkg = buildSimulationPackageFromDeepSnapshot(makeSnapshot([
       makeCandidate({ routeFacilityKey: '' }),

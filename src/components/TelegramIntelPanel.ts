@@ -145,7 +145,7 @@ export class TelegramIntelPanel extends Panel {
       this.inputEl.disabled = !this.relayEnabled;
     }
 
-    if (!this.relayEnabled) {
+    if (!this.relayEnabled || response.error) {
       this.watchlistItems = [];
       this.setCount(0);
       replaceChildren(this.content,

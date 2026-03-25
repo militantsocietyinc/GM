@@ -524,8 +524,8 @@ async function resolveTelegramChannel(username) {
         TELEGRAM_CHANNEL_TIMEOUT_MS,
         `getFullChannel(${normalized})`,
       );
-      if (!(full?.fullChat instanceof telegramState.api.ChatFull)) {
-        memberCount = full?.fullChat?.participantsCount ?? null;
+      if (full?.fullChat instanceof telegramState.api.ChannelFull) {
+        memberCount = full.fullChat.participantsCount ?? null;
       }
     } catch (error) {
       console.warn('[Relay] Telegram resolve participants count failed:', error?.message || error);

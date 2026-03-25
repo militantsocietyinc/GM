@@ -12,7 +12,7 @@ import type {
   AisDisruption,
 } from '../../../../src/generated/server/worldmonitor/maritime/v1/service_server';
 
-import { cachedFetchJson, getCachedJson, setCachedJson } from '../../../_shared/redis';
+import { cachedFetchJsonWithMeta, getCachedJson, setCachedJson } from '../../../_shared/redis';
 import { listNavigationalWarnings } from '../../maritime/v1/list-navigational-warnings';
 import { getVesselSnapshot } from '../../maritime/v1/get-vessel-snapshot';
 import type { PortWatchData } from './_portwatch-upstream';
@@ -287,8 +287,14 @@ async function fetchChokepointData(): Promise<ChokepointFetchResult> {
   let vesselFailed = false;
 
   const [navResult, vesselResult, transitSummariesData] = await Promise.all([
-    listNavigationalWarnings(ctx, { area: '', pageSize: 0, cursor: '' }).catch((): ListNavigationalWarningsResponse => { navFailed = true; return { warnings: [], pagination: undefined }; }),
-    getVesselSnapshot(ctx, { neLat: 90, neLon: 180, swLat: -90, swLon: -180 }).catch((): GetVesselSnapshotResponse => { vesselFailed = true; return { snapshot: undefined }; }),
+    listNavigationalWarnings(ctx, { area: '', pageSize: 0, cursor: '' }).catch((): ListNavigationalWarningsResponse => {
+      navFailed = true;
+      return { warnings: [], pagination: undefined, fetchedAt: '', cached: false, upstreamUnavailable: true, sourceMode: 'unavailable' };
+    }),
+    getVesselSnapshot(ctx, { neLat: 90, neLon: 180, swLat: -90, swLon: -180 }).catch((): GetVesselSnapshotResponse => {
+      vesselFailed = true;
+      return { snapshot: undefined, fetchedAt: '', cached: false, upstreamUnavailable: true, sourceMode: 'unavailable' };
+    }),
     getCachedJson(TRANSIT_SUMMARIES_KEY, true).catch(() => null) as Promise<TransitSummariesPayload | null>,
   ]);
 
@@ -381,21 +387,44 @@ export async function getChokepointStatus(
   _ctx: ServerContext,
   _req: GetChokepointStatusRequest,
 ): Promise<GetChokepointStatusResponse> {
+  const buildUnavailable = (): GetChokepointStatusResponse => ({
+    chokepoints: [],
+    fetchedAt: '',
+    upstreamUnavailable: true,
+    cached: false,
+    sourceMode: 'unavailable',
+  });
+
   try {
-    const result = await cachedFetchJson<GetChokepointStatusResponse>(
+    const { data, source } = await cachedFetchJsonWithMeta<GetChokepointStatusResponse>(
       REDIS_CACHE_KEY,
       REDIS_CACHE_TTL,
       async () => {
         const { chokepoints, upstreamUnavailable } = await fetchChokepointData();
         if (upstreamUnavailable) return null;
-        const response = { chokepoints, fetchedAt: new Date().toISOString(), upstreamUnavailable };
+        const response = {
+          chokepoints,
+          fetchedAt: new Date().toISOString(),
+          upstreamUnavailable,
+          cached: false,
+          sourceMode: 'live',
+        };
         setCachedJson('seed-meta:supply_chain:chokepoints', { fetchedAt: Date.now(), recordCount: chokepoints.length }, 604800).catch(() => {});
         return response;
       },
     );
 
-    return result ?? { chokepoints: [], fetchedAt: new Date().toISOString(), upstreamUnavailable: true };
+    if (!data) return buildUnavailable();
+
+    const hasData = data.chokepoints.length > 0;
+    return {
+      chokepoints: data.chokepoints,
+      fetchedAt: data.fetchedAt || '',
+      upstreamUnavailable: Boolean(data.upstreamUnavailable),
+      cached: source === 'cache' && hasData,
+      sourceMode: hasData ? (source === 'cache' ? 'cached' : 'live') : 'unavailable',
+    };
   } catch {
-    return { chokepoints: [], fetchedAt: new Date().toISOString(), upstreamUnavailable: true };
+    return buildUnavailable();
   }
 }

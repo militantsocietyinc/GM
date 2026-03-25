@@ -4,6 +4,7 @@ import type { TimelineEvent } from '@/components/CountryTimeline';
 import { CountryTimeline } from '@/components/CountryTimeline';
 import type {
   CountryDeepDiveEconomicIndicator,
+  CountryEconomicSnapshot,
   CountryDeepDiveMilitarySummary,
   CountryDeepDiveSignalDetails,
 } from '@/components/CountryBriefPanel';
@@ -27,7 +28,8 @@ import { collectStoryData } from '@/services/story-data';
 import { renderStoryToCanvas } from '@/services/story-renderer';
 import { openStoryModal } from '@/components/StoryModal';
 import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
-import { IntelligenceServiceClient } from '@/generated/client/worldmonitor/intelligence/v1/service_client';
+import { EconomicServiceClient, type WorldBankCountryData } from '@/generated/client/worldmonitor/economic/v1/service_client';
+import { IntelligenceServiceClient, type GetCountryIntelBriefResponse } from '@/generated/client/worldmonitor/intelligence/v1/service_client';
 import { showMapContextMenu } from '@/components/MapContextMenu';
 import { BETA_MODE } from '@/config/beta';
 import { MILITARY_BASES } from '@/config';
@@ -40,6 +42,7 @@ import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
 import type { NewsItem } from '@/types';
 import { getNearbyInfrastructure } from '@/services/related-assets';
 import { toFlagEmoji } from '@/utils/country-flag';
+import type { SourceMode } from '@/utils/data-provenance';
 
 type IntlDisplayNamesCtor = new (
   locales: string | string[],
@@ -54,7 +57,43 @@ type CountryStockSnapshot = {
   price: string;
   weekChangePercent: string;
   currency: string;
+  fetchedAt?: string;
+  cached?: boolean;
+  sourceMode?: SourceMode;
 };
+
+type WorldBankIndicatorDefinition = {
+  code: string;
+  label: string;
+  format: (value: number) => string;
+};
+
+function formatCompactCurrency(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(1)}T`;
+  if (abs >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return `$${value.toFixed(0)}`;
+}
+
+const COUNTRY_ECONOMIC_INDICATORS: WorldBankIndicatorDefinition[] = [
+  {
+    code: 'NY.GDP.MKTP.CD',
+    label: 'GDP',
+    format: (value) => formatCompactCurrency(value),
+  },
+  {
+    code: 'FP.CPI.TOTL.ZG',
+    label: 'Inflation',
+    format: (value) => `${value.toFixed(1)}%`,
+  },
+  {
+    code: 'SL.UEM.TOTL.ZS',
+    label: 'Unemployment',
+    format: (value) => `${value.toFixed(1)}%`,
+  },
+];
 
 export class CountryIntelManager implements AppModule {
   private ctx: AppContext;
@@ -190,9 +229,10 @@ export class CountryIntelManager implements AppModule {
     }
     this.ctx.countryBriefPage.updateSignalDetails?.(this.buildSignalDetails(code));
     this.ctx.countryBriefPage.updateMilitaryActivity?.(this.buildMilitarySummary(code, country));
-    this.ctx.countryBriefPage.updateEconomicIndicators?.(this.buildEconomicIndicators(code, score, null));
+    this.ctx.countryBriefPage.updateEconomicIndicators?.([]);
 
     const marketClient = new MarketServiceClient(getRpcBaseUrl(), { fetch: (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args) });
+    const economicClient = new EconomicServiceClient(getRpcBaseUrl(), { fetch: (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args) });
     const stockPromise = marketClient.getCountryStockIndex({ countryCode: code })
       .then((resp) => ({
         available: resp.available,
@@ -202,13 +242,43 @@ export class CountryIntelManager implements AppModule {
         price: String(resp.price),
         weekChangePercent: String(resp.weekChangePercent),
         currency: resp.currency,
+        fetchedAt: resp.fetchedAt,
+        cached: false,
+        sourceMode: 'live' as const,
       }))
-      .catch(() => ({ available: false as const, code: '', symbol: '', indexName: '', price: '0', weekChangePercent: '0', currency: '' }));
+      .catch(() => ({
+        available: false as const,
+        code: '',
+        symbol: '',
+        indexName: '',
+        price: '0',
+        weekChangePercent: '0',
+        currency: '',
+        fetchedAt: '',
+        cached: false,
+        sourceMode: 'unavailable' as const,
+      }));
 
-    stockPromise.then((stock) => {
+    const worldBankPromise = Promise.all(
+      COUNTRY_ECONOMIC_INDICATORS.map(async (indicator) => ({
+        definition: indicator,
+        data: (await economicClient.listWorldBankIndicators({
+          indicatorCode: indicator.code,
+          countryCode: code,
+          year: 5,
+          pageSize: 0,
+          cursor: '',
+        }).catch(() => ({ data: [] }))).data,
+      })),
+    );
+
+    Promise.all([stockPromise, worldBankPromise]).then(([stock, worldBankSeries]) => {
       if (this.ctx.countryBriefPage?.getCode() !== code) return;
-      this.ctx.countryBriefPage.updateStock(stock);
-      this.ctx.countryBriefPage.updateEconomicIndicators?.(this.buildEconomicIndicators(code, score, stock));
+      const indicators = this.buildEconomicIndicators(stock, worldBankSeries);
+      this.ctx.countryBriefPage.updateEconomicIndicators?.(indicators);
+    }).catch(() => {
+      if (this.ctx.countryBriefPage?.getCode() !== code) return;
+      this.ctx.countryBriefPage.updateEconomicIndicators?.([]);
     });
 
     fetchCountryMarkets(country)
@@ -309,7 +379,7 @@ export class CountryIntelManager implements AppModule {
         context.stockIndex = `${stockData.indexName}: ${stockData.price} (${pct >= 0 ? '+' : ''}${stockData.weekChangePercent}% week)`;
       }
 
-      let briefText = '';
+      let briefResponse: GetCountryIntelBriefResponse | null = null;
       try {
         let contextSnapshot = this.buildBriefContextSnapshot(country, code, score, signals, context);
 
@@ -326,11 +396,21 @@ export class CountryIntelManager implements AppModule {
           } catch { /* RAG unavailable */ }
         }
 
-        briefText = await this.fetchCountryIntelBrief(code, contextSnapshot);
+        briefResponse = await this.fetchCountryIntelBrief(code, contextSnapshot);
       } catch { /* server unreachable */ }
 
-      if (briefText) {
-        this.ctx.countryBriefPage?.updateBrief({ brief: briefText, country, code });
+      if (briefResponse?.brief) {
+        this.ctx.countryBriefPage?.updateBrief({
+          brief: briefResponse.brief,
+          country,
+          code,
+          model: briefResponse.model,
+          cached: briefResponse.cached,
+          generatedAt: briefResponse.generatedAt ? new Date(briefResponse.generatedAt).toISOString() : undefined,
+          fetchedAt: briefResponse.fetchedAt,
+          upstreamUnavailable: briefResponse.upstreamUnavailable,
+          sourceMode: (briefResponse.sourceMode || 'live') as SourceMode,
+        });
       } else {
         let fallbackBrief = '';
         const sumModelId = BETA_MODE ? 'summarization-beta' : 'summarization';
@@ -347,7 +427,16 @@ export class CountryIntelManager implements AppModule {
         }
 
         if (fallbackBrief) {
-          this.ctx.countryBriefPage?.updateBrief({ brief: fallbackBrief, country, code, fallback: true });
+          const fallbackTs = new Date().toISOString();
+          this.ctx.countryBriefPage?.updateBrief({
+            brief: fallbackBrief,
+            country,
+            code,
+            fallback: true,
+            fetchedAt: fallbackTs,
+            generatedAt: fallbackTs,
+            sourceMode: 'fallback',
+          });
         } else {
           const lines: string[] = [];
           if (score) lines.push(t('countryBrief.fallback.instabilityIndex', { score: String(score.score), level: t(`countryBrief.levels.${score.level}`), trend: t(`countryBrief.trends.${score.trend}`) }));
@@ -369,9 +458,25 @@ export class CountryIntelManager implements AppModule {
           if (signals.orefHistory24h > 0) lines.push(`🚨 Sirens in past 24h: ${signals.orefHistory24h}`);
           if (context.stockIndex) lines.push(t('countryBrief.fallback.stockIndex', { value: context.stockIndex }));
           if (lines.length > 0) {
-            this.ctx.countryBriefPage?.updateBrief({ brief: lines.join('\n'), country, code, fallback: true });
+            const fallbackTs = new Date().toISOString();
+            this.ctx.countryBriefPage?.updateBrief({
+              brief: lines.join('\n'),
+              country,
+              code,
+              fallback: true,
+              fetchedAt: fallbackTs,
+              generatedAt: fallbackTs,
+              sourceMode: 'fallback',
+            });
           } else {
-            this.ctx.countryBriefPage?.updateBrief({ brief: '', country, code, error: 'No AI service available. Configure GROQ_API_KEY in Settings for full briefs.' });
+            this.ctx.countryBriefPage?.updateBrief({
+              brief: '',
+              country,
+              code,
+              sourceMode: 'unavailable',
+              upstreamUnavailable: true,
+              error: 'No AI service available. Configure GROQ_API_KEY in Settings for full briefs.',
+            });
           }
         }
       }
@@ -397,23 +502,25 @@ export class CountryIntelManager implements AppModule {
     page.updateScore?.(score, signals);
   }
 
-  private async fetchCountryIntelBrief(code: string, contextSnapshot: string): Promise<string> {
+  private async fetchCountryIntelBrief(code: string, contextSnapshot: string): Promise<GetCountryIntelBriefResponse | null> {
     const lang = getCurrentLanguage();
     const params = new URLSearchParams({ country_code: code, lang });
     const trimmed = contextSnapshot.trim();
     if (trimmed.length > 0) {
       params.set('context', trimmed.slice(0, 2200));
     }
+    params.set('refresh', '1');
 
     const resp = await fetch(toApiUrl(`/api/intelligence/v1/get-country-intel-brief?${params.toString()}`), {
       method: 'GET',
       headers: { Accept: 'application/json' },
       signal: this.ctx.countryBriefPage?.signal,
     });
-    if (!resp.ok) return '';
+    if (!resp.ok) return null;
 
-    const body = (await resp.json()) as { brief?: string };
-    return typeof body.brief === 'string' ? body.brief.trim() : '';
+    const body = (await resp.json()) as GetCountryIntelBriefResponse;
+    if (typeof body.brief === 'string') body.brief = body.brief.trim();
+    return body;
   }
 
   private buildBriefContextSnapshot(
@@ -776,11 +883,10 @@ export class CountryIntelManager implements AppModule {
   }
 
   private buildEconomicIndicators(
-    code: string,
-    score: CountryScore | null,
     stock: CountryStockSnapshot | null,
+    worldBankSeries: Array<{ definition: WorldBankIndicatorDefinition; data: WorldBankCountryData[] }>,
   ): CountryDeepDiveEconomicIndicator[] {
-    const indicators: CountryDeepDiveEconomicIndicator[] = [];
+    const indicators: CountryEconomicSnapshot[] = [];
 
     if (stock?.available) {
       const weekly = Number.parseFloat(stock.weekChangePercent);
@@ -792,42 +898,43 @@ export class CountryIntelManager implements AppModule {
         value: `${stock.indexName}: ${stock.price} ${stock.currency}`,
         trend: weeklyTrend,
         source: 'Market Service',
-      });
-      indicators.push({
-        label: 'Weekly Momentum',
-        value: `${weekly >= 0 ? '+' : ''}${stock.weekChangePercent}%`,
-        trend: weeklyTrend,
+        year: stock.fetchedAt ? new Date(stock.fetchedAt).getFullYear() : undefined,
       });
     }
 
-    if (score) {
-      const trend = score.trend === 'rising'
+    for (const series of worldBankSeries) {
+      const indicator = this.toWorldBankEconomicIndicator(series.definition, series.data);
+      if (indicator) indicators.push(indicator);
+    }
+
+    return indicators.slice(0, 4);
+  }
+
+  private toWorldBankEconomicIndicator(
+    definition: WorldBankIndicatorDefinition,
+    data: WorldBankCountryData[],
+  ): CountryEconomicSnapshot | null {
+    const sorted = [...data]
+      .filter((entry) => Number.isFinite(entry.value) && entry.year > 0)
+      .sort((a, b) => b.year - a.year);
+    const latest = sorted[0];
+    if (!latest) return null;
+    const previous = sorted.find((entry) => entry.year < latest.year);
+    const trend = previous
+      ? latest.value > previous.value
         ? 'up'
-        : score.trend === 'falling'
+        : latest.value < previous.value
           ? 'down'
-          : 'flat';
-      indicators.push({
-        label: 'Instability Regime',
-        value: `${score.score}/100 (${score.level})`,
-        trend,
-        source: 'CII',
-      });
-    }
+          : 'flat'
+      : 'flat';
 
-    const countryData = getCountryData(code);
-    if (countryData?.displacementOutflow && countryData.displacementOutflow > 0) {
-      const displaced = countryData.displacementOutflow >= 1_000_000
-        ? `${(countryData.displacementOutflow / 1_000_000).toFixed(1)}M`
-        : `${Math.round(countryData.displacementOutflow / 1000)}K`;
-      indicators.push({
-        label: 'Displacement Outflow',
-        value: displaced,
-        trend: 'up',
-        source: 'UN-style displacement feed',
-      });
-    }
-
-    return indicators.slice(0, 3);
+    return {
+      label: definition.label,
+      value: definition.format(latest.value),
+      trend,
+      source: 'World Bank',
+      year: latest.year,
+    };
   }
 
   private sameCountry(code: string, country: string, raw: string | undefined): boolean {

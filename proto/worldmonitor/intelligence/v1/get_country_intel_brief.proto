@@ -28,4 +28,12 @@ message GetCountryIntelBriefResponse {
   string model = 4;
   // Brief generation time, as Unix epoch milliseconds.
   int64 generated_at = 5 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  // Response freshness timestamp.
+  string fetched_at = 6;
+  // Whether the brief was served from cache.
+  bool cached = 7;
+  // Whether the upstream generator was unavailable for this response.
+  bool upstream_unavailable = 8;
+  // Normalized source mode: live, cached, fallback, unavailable.
+  string source_mode = 9;
 }

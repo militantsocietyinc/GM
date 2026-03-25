@@ -2514,11 +2514,14 @@ export class DataLoaderManager implements AppModule {
 
       const totalItems = (shippingData?.indices.length || 0) + (chokepointData?.chokepoints.length || 0) + (mineralsData?.minerals.length || 0);
       const anyUnavailable = shippingData?.upstreamUnavailable || chokepointData?.upstreamUnavailable || mineralsData?.upstreamUnavailable;
+      const freshestFetchedAt = [shippingData?.fetchedAt, chokepointData?.fetchedAt, mineralsData?.fetchedAt]
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
 
       this.ctx.statusPanel?.updateApi('SupplyChain', { status: anyUnavailable ? 'warning' : totalItems > 0 ? 'ok' : 'error' });
 
       if (totalItems > 0) {
-        dataFreshness.recordUpdate('supply_chain', totalItems);
+        dataFreshness.recordUpdate('supply_chain', totalItems, freshestFetchedAt);
       } else if (anyUnavailable) {
         dataFreshness.recordError('supply_chain', 'Supply chain upstream temporarily unavailable');
       }

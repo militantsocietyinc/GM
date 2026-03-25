@@ -504,6 +504,17 @@
   font-size: 10px;
 }
 
+.cdp-assessment-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cdp-assessment-model {
+  color: var(--text-faint);
+}
+
 .cdp-signal-desc,
 .cdp-market-prob,
 .cdp-economic-value,

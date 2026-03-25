@@ -9214,6 +9214,65 @@ a.prediction-link:hover {
   border-bottom: 1px solid rgba(255, 170, 50, 0.15);
 }
 
+.data-provenance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 8px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.data-provenance-compact {
+  margin-top: 2px;
+}
+
+.data-provenance-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.data-provenance-live {
+  color: var(--green);
+  background: rgba(68, 255, 136, 0.08);
+  border-color: rgba(68, 255, 136, 0.18);
+}
+
+.data-provenance-cached {
+  color: var(--accent-primary, #4fc3f7);
+  background: rgba(79, 195, 247, 0.08);
+  border-color: rgba(79, 195, 247, 0.18);
+}
+
+.data-provenance-fallback {
+  color: var(--semantic-elevated);
+  background: rgba(255, 170, 50, 0.08);
+  border-color: rgba(255, 170, 50, 0.18);
+}
+
+.data-provenance-unavailable {
+  color: var(--red);
+  background: rgba(255, 80, 80, 0.08);
+  border-color: rgba(255, 80, 80, 0.18);
+}
+
+.supply-chain-section {
+  margin-bottom: 10px;
+}
+
+.supply-chain-section-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
 .trade-restrictions-list,
 .trade-barriers-list {
   display: flex;

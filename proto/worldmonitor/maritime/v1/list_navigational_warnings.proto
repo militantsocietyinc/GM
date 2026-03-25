@@ -22,4 +22,12 @@ message ListNavigationalWarningsResponse {
   repeated NavigationalWarning warnings = 1;
   // Pagination metadata.
   worldmonitor.core.v1.PaginationResponse pagination = 2;
+  // Response freshness timestamp.
+  string fetched_at = 3;
+  // Whether the warnings were served from cache.
+  bool cached = 4;
+  // Whether the upstream source was unavailable for this response.
+  bool upstream_unavailable = 5;
+  // Normalized source mode: live, cached, fallback, unavailable.
+  string source_mode = 6;
 }

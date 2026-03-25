@@ -9,6 +9,7 @@ import type { AssetType, NewsItem, RelatedAsset } from '@/types';
 import { sanitizeUrl, escapeHtml } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
 import { toFlagEmoji } from '@/utils/country-flag';
+import { renderDataProvenanceHtml } from '@/utils/data-provenance';
 import { PORTS } from '@/config/ports';
 import { haversineDistanceKm } from '@/services/related-assets';
 import type {
@@ -526,7 +527,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       trend,
       source: 'Market Service',
     });
-    this.economicIndicators = base.slice(0, 3);
+    this.economicIndicators = base.slice(0, 4);
     this.renderEconomicIndicators();
   }
 
@@ -590,11 +591,17 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     const text = this.el('div', 'cdp-assessment-text cdp-summary-only');
     text.innerHTML = summaryHtml;
 
-    const metaTokens: string[] = [];
-    if (data.cached) metaTokens.push('Cached');
-    if (data.fallback) metaTokens.push('Fallback');
-    if (data.generatedAt) metaTokens.push(`Updated ${new Date(data.generatedAt).toLocaleTimeString()}`);
-    const meta = this.el('div', 'cdp-assessment-meta', metaTokens.join(' • '));
+    const meta = this.el('div', 'cdp-assessment-meta');
+    meta.innerHTML = renderDataProvenanceHtml({
+      cached: data.cached,
+      fallback: data.fallback,
+      fetchedAt: data.fetchedAt || (data.generatedAt ? new Date(data.generatedAt).toISOString() : ''),
+      sourceMode: data.sourceMode,
+      upstreamUnavailable: data.upstreamUnavailable,
+    }, { hasData: true });
+    if (data.model) {
+      meta.append(this.el('span', 'cdp-assessment-model', `Model ${data.model}`));
+    }
     this.briefBody.append(text, meta);
 
     const expandedBrief = this.el('div', 'cdp-expanded-only');
@@ -861,11 +868,11 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.economicBody.replaceChildren();
 
     if (this.economicIndicators.length === 0) {
-      this.economicBody.append(this.makeEmpty(t('countryBrief.noIndicators')));
+      this.economicBody.append(this.makeEmpty('Verified macro data unavailable'));
       return;
     }
 
-    for (const indicator of this.economicIndicators.slice(0, 3)) {
+    for (const indicator of this.economicIndicators.slice(0, 4)) {
       const row = this.el('div', 'cdp-economic-item');
       const top = this.el('div', 'cdp-economic-top');
       const isMarketRow = indicator.label === 'Stock Index' || indicator.label === 'Weekly Momentum';
@@ -876,9 +883,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       );
       const value = this.el('div', 'cdp-economic-value', indicator.value);
       row.append(top, value);
-      if (indicator.source) {
-        row.append(this.el('div', 'cdp-economic-source', indicator.source));
-      }
+      row.append(this.el('div', 'cdp-economic-source', indicator.year ? `${indicator.source} • ${indicator.year}` : indicator.source));
       this.economicBody.append(row);
     }
   }

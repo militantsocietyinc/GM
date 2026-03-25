@@ -6,7 +6,7 @@ import type {
   MineralProducer,
 } from '../../../../src/generated/server/worldmonitor/supply_chain/v1/service_server';
 
-import { cachedFetchJson } from '../../../_shared/redis';
+import { cachedFetchJsonWithMeta } from '../../../_shared/redis';
 import { MINERAL_PRODUCTION_2024 } from './_minerals-data';
 // @ts-expect-error — .mjs module, no declaration file
 import { computeHHI, riskRating } from './_scoring.mjs';
@@ -58,18 +58,39 @@ export async function getCriticalMinerals(
   _ctx: ServerContext,
   _req: GetCriticalMineralsRequest,
 ): Promise<GetCriticalMineralsResponse> {
+  const buildUnavailable = (): GetCriticalMineralsResponse => ({
+    minerals: [],
+    fetchedAt: '',
+    upstreamUnavailable: true,
+    cached: false,
+    sourceMode: 'unavailable',
+  });
+
   try {
-    const result = await cachedFetchJson<GetCriticalMineralsResponse>(
+    const { data, source } = await cachedFetchJsonWithMeta<GetCriticalMineralsResponse>(
       REDIS_CACHE_KEY,
       REDIS_CACHE_TTL,
       async () => {
         const minerals = buildMineralsData();
-        return { minerals, fetchedAt: new Date().toISOString(), upstreamUnavailable: false };
+        return {
+          minerals,
+          fetchedAt: new Date().toISOString(),
+          upstreamUnavailable: false,
+          cached: false,
+          sourceMode: 'live',
+        };
       },
     );
 
-    return result ?? { minerals: [], fetchedAt: new Date().toISOString(), upstreamUnavailable: true };
+    if (!data) return buildUnavailable();
+    return {
+      minerals: data.minerals,
+      fetchedAt: data.fetchedAt || '',
+      upstreamUnavailable: Boolean(data.upstreamUnavailable),
+      cached: source === 'cache',
+      sourceMode: source === 'cache' ? 'cached' : 'live',
+    };
   } catch {
-    return { minerals: [], fetchedAt: new Date().toISOString(), upstreamUnavailable: true };
+    return buildUnavailable();
   }
 }

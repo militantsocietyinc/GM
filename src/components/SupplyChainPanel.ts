@@ -9,6 +9,7 @@ import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 import { isFeatureAvailable } from '@/services/runtime-config';
 import { isDesktopRuntime } from '@/services/runtime';
+import { renderDataProvenanceHtml } from '@/utils/data-provenance';
 
 type TabId = 'chokepoints' | 'shipping' | 'indicators' | 'minerals';
 
@@ -86,17 +87,23 @@ export class SupplyChainPanel extends Panel {
       </div>
     `;
 
+    const shippingRateCount = this.getShippingRateIndices().length;
+    const economicIndicatorCount = this.getEconomicIndices().length;
     const activeHasData = this.activeTab === 'chokepoints'
       ? (this.chokepointData?.chokepoints?.length ?? 0) > 0
       : this.activeTab === 'shipping'
-        ? (this.shippingData?.indices?.length ?? 0) > 0 || this.chokepointData !== null
+        ? shippingRateCount > 0 || (this.chokepointData?.chokepoints?.length ?? 0) > 0
         : this.activeTab === 'indicators'
-          ? (this.shippingData?.indices?.length ?? 0) > 0
+          ? economicIndicatorCount > 0
           : (this.mineralsData?.minerals?.length ?? 0) > 0;
-    const activeData = this.activeTab === 'chokepoints' ? this.chokepointData
-      : (this.activeTab === 'shipping' || this.activeTab === 'indicators') ? this.shippingData
-      : this.mineralsData;
-    const unavailableBanner = !activeHasData && activeData?.upstreamUnavailable
+    const activeUpstreamUnavailable = this.activeTab === 'chokepoints'
+      ? Boolean(this.chokepointData?.upstreamUnavailable)
+      : this.activeTab === 'shipping'
+        ? Boolean(this.shippingData?.upstreamUnavailable && this.chokepointData?.upstreamUnavailable)
+        : this.activeTab === 'indicators'
+          ? Boolean(this.shippingData?.upstreamUnavailable)
+          : Boolean(this.mineralsData?.upstreamUnavailable);
+    const unavailableBanner = !activeHasData && activeUpstreamUnavailable
       ? `<div class="economic-warning">${t('components.supplyChain.upstreamUnavailable')}</div>`
       : '';
 
@@ -142,12 +149,49 @@ export class SupplyChainPanel extends Panel {
     }
   }
 
+  private getShippingRateIndices(): NonNullable<GetShippingRatesResponse['indices']> {
+    const container = new Set(['SCFI', 'CCFI']);
+    const bulk = new Set(['BDI', 'BCI', 'BPI', 'BSI', 'BHSI']);
+    return this.shippingData?.indices?.filter((index) => container.has(index.indexId) || bulk.has(index.indexId)) ?? [];
+  }
+
+  private getEconomicIndices(): NonNullable<GetShippingRatesResponse['indices']> {
+    const container = new Set(['SCFI', 'CCFI']);
+    const bulk = new Set(['BDI', 'BCI', 'BPI', 'BSI', 'BHSI']);
+    return this.shippingData?.indices?.filter((index) => !container.has(index.indexId) && !bulk.has(index.indexId)) ?? [];
+  }
+
+  private renderSection(
+    title: string,
+    contentHtml: string,
+    provenance: { fetchedAt?: string; cached?: boolean; upstreamUnavailable?: boolean; sourceMode?: string } | null,
+    hasData: boolean,
+    emptyHtml: string,
+  ): string {
+    const provenanceHtml = provenance
+      ? renderDataProvenanceHtml(provenance, { hasData, compact: true })
+      : '';
+    return `<section class="supply-chain-section">
+      <div class="trade-sector supply-chain-section-title">${escapeHtml(title)}</div>
+      ${provenanceHtml}
+      ${hasData ? contentHtml : emptyHtml}
+    </section>`;
+  }
+
   private renderChokepoints(): string {
     if (!this.chokepointData || !this.chokepointData.chokepoints?.length) {
-      return `<div class="economic-empty">${t('components.supplyChain.noChokepoints')}</div>`;
+      return this.renderSection(
+        t('components.supplyChain.chokepoints'),
+        '',
+        this.chokepointData,
+        false,
+        `<div class="economic-empty">${t('components.supplyChain.noChokepoints')}</div>`,
+      );
     }
 
-    return `<div class="trade-restrictions-list">
+    return this.renderSection(
+      t('components.supplyChain.chokepoints'),
+      `<div class="trade-restrictions-list">
       ${[...this.chokepointData.chokepoints].sort((a, b) => b.disruptionScore - a.disruptionScore).map(cp => {
         const statusClass = cp.status === 'red' ? 'status-active' : cp.status === 'yellow' ? 'status-notified' : 'status-terminated';
         const statusDot = cp.status === 'red' ? 'sc-dot-red' : cp.status === 'yellow' ? 'sc-dot-yellow' : 'sc-dot-green';
@@ -197,28 +241,39 @@ export class SupplyChainPanel extends Panel {
           </div>
         </div>`;
       }).join('')}
-    </div>`;
+    </div>`,
+      this.chokepointData,
+      true,
+      '',
+    );
   }
 
   private renderShipping(): string {
-    const hasFred = this.shippingData?.indices?.length;
-    const disruptionHtml = this.renderDisruptionSnapshot();
-
-    if (!hasFred && !disruptionHtml) {
-      return `<div class="economic-empty">${t('components.supplyChain.noShipping')}</div>`;
-    }
+    const hasShippingRates = this.getShippingRateIndices().length > 0;
+    const hasDisruptionData = (this.chokepointData?.chokepoints?.length ?? 0) > 0;
 
     return `<div class="trade-restrictions-list">
-      ${disruptionHtml}
-      ${hasFred ? this.renderFredIndices() : ''}
+      ${this.renderSection(
+        t('components.supplyChain.corridorDisruption'),
+        this.renderDisruptionSnapshot(),
+        this.chokepointData,
+        hasDisruptionData,
+        this.chokepointData === null
+          ? `<div class="trade-sector" style="padding:8px;opacity:0.6">${t('components.supplyChain.loadingCorridors')}</div>`
+          : `<div class="economic-empty">${t('components.supplyChain.noChokepoints')}</div>`,
+      )}
+      ${this.renderSection(
+        t('components.supplyChain.shipping'),
+        this.renderFredIndices(),
+        this.shippingData,
+        hasShippingRates,
+        `<div class="economic-empty">${t('components.supplyChain.noShipping')}</div>`,
+      )}
     </div>`;
   }
 
   private renderDisruptionSnapshot(): string {
-    if (this.chokepointData === null) {
-      return `<div class="trade-sector" style="padding:8px;opacity:0.6">${t('components.supplyChain.loadingCorridors')}</div>`;
-    }
-    const cps = this.chokepointData.chokepoints;
+    const cps = this.chokepointData?.chokepoints;
     if (!cps?.length) return '';
 
     const sorted = [...cps].sort((a, b) => b.disruptionScore - a.disruptionScore);
@@ -247,7 +302,6 @@ export class SupplyChainPanel extends Panel {
     }).join('');
 
     return `<div style="margin-bottom:8px">
-      <div class="trade-sector" style="font-weight:600;margin-bottom:4px">${t('components.supplyChain.corridorDisruption')}</div>
       <table class="sc-disruption-table">
         <thead><tr>
           <th>${t('components.supplyChain.corridor')}</th>
@@ -302,14 +356,15 @@ export class SupplyChainPanel extends Panel {
 
   private renderIndicators(): string {
     if (isDesktopRuntime() && !isFeatureAvailable('supplyChain')) return '';
-    if (!this.shippingData?.indices?.length) {
-      return `<div class="economic-empty">${t('components.supplyChain.noShipping')}</div>`;
-    }
-    const container = new Set(['SCFI', 'CCFI']);
-    const bulk = new Set(['BDI', 'BCI', 'BPI', 'BSI', 'BHSI']);
-    const econIndices = this.shippingData.indices.filter(i => !container.has(i.indexId) && !bulk.has(i.indexId));
+    const econIndices = this.getEconomicIndices();
     if (!econIndices.length) {
-      return `<div class="economic-empty">${t('components.supplyChain.noShipping')}</div>`;
+      return this.renderSection(
+        t('components.supplyChain.economicIndicators'),
+        '',
+        this.shippingData,
+        false,
+        `<div class="economic-empty">${t('components.supplyChain.noShipping')}</div>`,
+      );
     }
     const cards = econIndices.map(idx => {
       const changeClass = idx.changePct >= 0 ? 'change-positive' : 'change-negative';
@@ -330,7 +385,13 @@ export class SupplyChainPanel extends Panel {
           </div>
         </div>`;
     }).join('');
-    return `<div class="trade-restrictions-list">${cards}</div>`;
+    return this.renderSection(
+      t('components.supplyChain.economicIndicators'),
+      `<div class="trade-restrictions-list">${cards}</div>`,
+      this.shippingData,
+      true,
+      '',
+    );
   }
 
   private renderSparkline(values: number[], dates?: string[]): string {
@@ -360,7 +421,13 @@ export class SupplyChainPanel extends Panel {
 
   private renderMinerals(): string {
     if (!this.mineralsData || !this.mineralsData.minerals?.length) {
-      return `<div class="economic-empty">${t('components.supplyChain.noMinerals')}</div>`;
+      return this.renderSection(
+        t('components.supplyChain.minerals'),
+        '',
+        this.mineralsData,
+        false,
+        `<div class="economic-empty">${t('components.supplyChain.noMinerals')}</div>`,
+      );
     }
 
     const rows = this.mineralsData.minerals.map(m => {
@@ -379,7 +446,9 @@ export class SupplyChainPanel extends Panel {
       </tr>`;
     }).join('');
 
-    return `<div class="trade-tariffs-table">
+    return this.renderSection(
+      t('components.supplyChain.minerals'),
+      `<div class="trade-tariffs-table">
       <table>
         <thead>
           <tr>
@@ -391,6 +460,10 @@ export class SupplyChainPanel extends Panel {
         </thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>`;
+    </div>`,
+      this.mineralsData,
+      true,
+      '',
+    );
   }
 }

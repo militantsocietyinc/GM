@@ -113,6 +113,10 @@ export interface GetCountryIntelBriefResponse {
   brief: string;
   model: string;
   generatedAt: number;
+  fetchedAt: string;
+  cached: boolean;
+  upstreamUnavailable: boolean;
+  sourceMode: string;
 }
 
 export interface SearchGdeltDocumentsRequest {
@@ -944,4 +948,3 @@ export class IntelligenceServiceClient {
     throw new ApiError(resp.status, `Request failed with status ${resp.status}`, body);
   }
 }
-

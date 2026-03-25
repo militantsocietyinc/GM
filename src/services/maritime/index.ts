@@ -15,7 +15,13 @@ import { startSmartPollLoop, toApiUrl, type SmartPollLoopHandle } from '../runti
 
 const client = new MaritimeServiceClient(getRpcBaseUrl(), { fetch: (...args) => globalThis.fetch(...args) });
 const snapshotBreaker = createCircuitBreaker<GetVesselSnapshotResponse>({ name: 'Maritime Snapshot', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
-const emptySnapshotFallback: GetVesselSnapshotResponse = { snapshot: undefined };
+const emptySnapshotFallback: GetVesselSnapshotResponse = {
+  snapshot: undefined,
+  fetchedAt: '',
+  cached: false,
+  upstreamUnavailable: true,
+  sourceMode: 'unavailable',
+};
 
 const DISRUPTION_TYPE_REVERSE: Record<string, AisDisruptionType> = {
   AIS_DISRUPTION_TYPE_GAP_SPIKE: 'gap_spike',
@@ -152,6 +158,7 @@ function shouldIncludeCandidates(): boolean {
 
 function parseSnapshot(data: unknown): {
   sequence: number;
+  timestamp: string;
   status: SnapshotStatus;
   disruptions: AisDisruptionEvent[];
   density: AisDensityZone[];
@@ -165,6 +172,7 @@ function parseSnapshot(data: unknown): {
   const status = raw.status || {};
   return {
     sequence: Number.isFinite(raw.sequence as number) ? Number(raw.sequence) : 0,
+    timestamp: typeof raw.timestamp === 'string' ? raw.timestamp : '',
     status: {
       connected: Boolean(status.connected),
       vessels: Number.isFinite(status.vessels as number) ? Number(status.vessels) : 0,
@@ -220,6 +228,7 @@ async function fetchSnapshotPayload(includeCandidates: boolean, signal?: AbortSi
     if (response.snapshot) {
       return {
         sequence: 0, // Proto payload does not include relay sequence.
+        timestamp: response.fetchedAt || '',
         status: { connected: true, vessels: 0, messages: 0 },
         disruptions: response.snapshot.disruptions.map(toDisruptionEvent),
         density: response.snapshot.densityZones.map(toDensityZone),
@@ -327,7 +336,7 @@ async function pollSnapshot(force = false, signal?: AbortSignal): Promise<void> 
 
     const itemCount = latestDisruptions.length + latestDensity.length;
     if (itemCount > 0 || latestStatus.vessels > 0) {
-      dataFreshness.recordUpdate('ais', itemCount > 0 ? itemCount : latestStatus.vessels);
+      dataFreshness.recordUpdate('ais', itemCount > 0 ? itemCount : latestStatus.vessels, snapshot.timestamp || undefined);
     }
   } catch {
     latestStatus.connected = false;

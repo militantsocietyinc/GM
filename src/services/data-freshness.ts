@@ -104,10 +104,19 @@ class DataFreshnessTracker {
   /**
    * Record that a data source received new data
    */
-  recordUpdate(sourceId: DataSourceId, itemCount: number = 1): void {
+  recordUpdate(
+    sourceId: DataSourceId,
+    itemCount: number = 1,
+    sourceTimestamp?: string | number | Date | null,
+  ): void {
     const source = this.sources.get(sourceId);
     if (source) {
-      source.lastUpdate = new Date();
+      const parsed = sourceTimestamp instanceof Date
+        ? sourceTimestamp
+        : sourceTimestamp != null
+          ? new Date(sourceTimestamp)
+          : null;
+      source.lastUpdate = parsed && !Number.isNaN(parsed.getTime()) ? parsed : new Date();
       source.itemCount += itemCount;
       source.lastError = null;
       source.status = this.calculateStatus(source);

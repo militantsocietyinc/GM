@@ -2,13 +2,18 @@ import type { CountryBriefSignals } from '@/types';
 import type { CountryScore } from '@/services/country-instability';
 import type { PredictionMarket } from '@/services/prediction';
 import type { NewsItem } from '@/types';
+import type { SourceMode } from '@/utils/data-provenance';
 
 export interface CountryIntelData {
   brief: string;
   country: string;
   code: string;
+  model?: string;
   cached?: boolean;
-  generatedAt?: string;
+  generatedAt?: string | number;
+  fetchedAt?: string;
+  upstreamUnavailable?: boolean;
+  sourceMode?: SourceMode;
   error?: string;
   skipped?: boolean;
   reason?: string;
@@ -23,7 +28,9 @@ export interface StockIndexData {
   price: string;
   weekChangePercent: string;
   currency: string;
+  fetchedAt?: string;
   cached?: boolean;
+  sourceMode?: SourceMode;
 }
 
 type ThreatLevel = 'critical' | 'high' | 'medium' | 'low' | 'info';
@@ -59,12 +66,15 @@ export interface CountryDeepDiveMilitarySummary {
   foreignPresence: boolean;
 }
 
-export interface CountryDeepDiveEconomicIndicator {
+export interface CountryEconomicSnapshot {
   label: string;
   value: string;
   trend: TrendDirection;
-  source?: string;
+  source: string;
+  year?: number;
 }
+
+export interface CountryDeepDiveEconomicIndicator extends CountryEconomicSnapshot {}
 
 export interface CountryFactsData {
   headOfState: string;

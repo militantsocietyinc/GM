@@ -21,4 +21,12 @@ message GetVesselSnapshotRequest {
 message GetVesselSnapshotResponse {
   // The vessel traffic snapshot.
   VesselSnapshot snapshot = 1;
+  // Response freshness timestamp.
+  string fetched_at = 2;
+  // Whether the snapshot was served from cache.
+  bool cached = 3;
+  // Whether the upstream relay was unavailable for this response.
+  bool upstream_unavailable = 4;
+  // Normalized source mode: live, cached, fallback, unavailable.
+  string source_mode = 5;
 }

@@ -11,6 +11,10 @@ export interface GetVesselSnapshotRequest {
 
 export interface GetVesselSnapshotResponse {
   snapshot?: VesselSnapshot;
+  fetchedAt: string;
+  cached: boolean;
+  upstreamUnavailable: boolean;
+  sourceMode: string;
 }
 
 export interface VesselSnapshot {
@@ -57,6 +61,10 @@ export interface ListNavigationalWarningsRequest {
 export interface ListNavigationalWarningsResponse {
   warnings: NavigationalWarning[];
   pagination?: PaginationResponse;
+  fetchedAt: string;
+  cached: boolean;
+  upstreamUnavailable: boolean;
+  sourceMode: string;
 }
 
 export interface NavigationalWarning {
@@ -234,4 +242,3 @@ export function createMaritimeServiceRoutes(
     },
   ];
 }
-

@@ -9,6 +9,8 @@ export interface GetShippingRatesResponse {
   indices: ShippingIndex[];
   fetchedAt: string;
   upstreamUnavailable: boolean;
+  cached: boolean;
+  sourceMode: string;
 }
 
 export interface ShippingIndex {
@@ -34,6 +36,8 @@ export interface GetChokepointStatusResponse {
   chokepoints: ChokepointInfo[];
   fetchedAt: string;
   upstreamUnavailable: boolean;
+  cached: boolean;
+  sourceMode: string;
 }
 
 export interface ChokepointInfo {
@@ -88,6 +92,8 @@ export interface GetCriticalMineralsResponse {
   minerals: CriticalMineral[];
   fetchedAt: string;
   upstreamUnavailable: boolean;
+  cached: boolean;
+  sourceMode: string;
 }
 
 export interface CriticalMineral {
@@ -238,4 +244,3 @@ export class SupplyChainServiceClient {
     throw new ApiError(resp.status, `Request failed with status ${resp.status}`, body);
   }
 }
-

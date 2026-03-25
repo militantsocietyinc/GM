@@ -29,29 +29,87 @@ const SEVERITY_MAP: Record<string, AisDisruptionSeverity> = {
 // In-memory cache (matches old /api/ais-snapshot behavior)
 const SNAPSHOT_CACHE_TTL_MS = 300_000; // 5 min -- matches client poll interval
 let cachedSnapshot: VesselSnapshot | undefined;
+let cachedFetchedAt = '';
 let cacheTimestamp = 0;
-let inFlightRequest: Promise<VesselSnapshot | undefined> | null = null;
+let inFlightRequest: Promise<{ snapshot?: VesselSnapshot; fetchedAt: string } | null> | null = null;
 
-async function fetchVesselSnapshot(): Promise<VesselSnapshot | undefined> {
-  // Return cached if fresh
+function buildUnavailableResponse(): GetVesselSnapshotResponse {
+  return {
+    snapshot: undefined,
+    fetchedAt: '',
+    cached: false,
+    upstreamUnavailable: true,
+    sourceMode: 'unavailable',
+  };
+}
+
+async function fetchVesselSnapshot(preferLive = false): Promise<GetVesselSnapshotResponse> {
   const now = Date.now();
-  if (cachedSnapshot && (now - cacheTimestamp) < SNAPSHOT_CACHE_TTL_MS) {
-    return cachedSnapshot;
+  if (!preferLive && cachedSnapshot && (now - cacheTimestamp) < SNAPSHOT_CACHE_TTL_MS) {
+    return {
+      snapshot: cachedSnapshot,
+      fetchedAt: cachedFetchedAt,
+      cached: true,
+      upstreamUnavailable: false,
+      sourceMode: 'cached',
+    };
   }
 
-  // In-flight dedup: if a request is already running, await it
   if (inFlightRequest) {
-    return inFlightRequest;
+    const shared = await inFlightRequest;
+    if (shared?.snapshot) {
+      return {
+        snapshot: shared.snapshot,
+        fetchedAt: shared.fetchedAt,
+        cached: false,
+        upstreamUnavailable: false,
+        sourceMode: 'live',
+      };
+    }
+    if (cachedSnapshot) {
+      return {
+        snapshot: cachedSnapshot,
+        fetchedAt: cachedFetchedAt,
+        cached: true,
+        upstreamUnavailable: true,
+        sourceMode: 'cached',
+      };
+    }
+    return buildUnavailableResponse();
   }
 
-  inFlightRequest = fetchVesselSnapshotFromRelay();
+  inFlightRequest = fetchVesselSnapshotFromRelay().then((snapshot) => {
+    if (!snapshot) return null;
+    return {
+      snapshot,
+      fetchedAt: new Date().toISOString(),
+    };
+  });
+
   try {
     const result = await inFlightRequest;
-    if (result) {
-      cachedSnapshot = result;
+    if (result?.snapshot) {
+      cachedSnapshot = result.snapshot;
+      cachedFetchedAt = result.fetchedAt;
       cacheTimestamp = Date.now();
+      return {
+        snapshot: result.snapshot,
+        fetchedAt: result.fetchedAt,
+        cached: false,
+        upstreamUnavailable: false,
+        sourceMode: 'live',
+      };
     }
-    return result ?? cachedSnapshot; // serve stale on relay failure
+    if (cachedSnapshot) {
+      return {
+        snapshot: cachedSnapshot,
+        fetchedAt: cachedFetchedAt,
+        cached: true,
+        upstreamUnavailable: true,
+        sourceMode: 'cached',
+      };
+    }
+    return buildUnavailableResponse();
   } finally {
     inFlightRequest = null;
   }
@@ -122,13 +180,19 @@ async function fetchVesselSnapshotFromRelay(): Promise<VesselSnapshot | undefine
 // ========================================================================
 
 export async function getVesselSnapshot(
-  _ctx: ServerContext,
+  ctx: ServerContext,
   _req: GetVesselSnapshotRequest,
 ): Promise<GetVesselSnapshotResponse> {
   try {
-    const snapshot = await fetchVesselSnapshot();
-    return { snapshot };
+    let refresh = false;
+    try {
+      const url = new URL(ctx.request.url);
+      refresh = url.searchParams.get('refresh') === '1' || url.searchParams.get('prefer_live') === '1';
+    } catch {
+      refresh = false;
+    }
+    return await fetchVesselSnapshot(refresh);
   } catch {
-    return { snapshot: undefined };
+    return buildUnavailableResponse();
   }
 }

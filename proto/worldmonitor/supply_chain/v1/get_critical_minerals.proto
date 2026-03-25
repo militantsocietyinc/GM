@@ -10,4 +10,6 @@ message GetCriticalMineralsResponse {
   repeated CriticalMineral minerals = 1;
   string fetched_at = 2;
   bool upstream_unavailable = 3;
+  bool cached = 4;
+  string source_mode = 5;
 }

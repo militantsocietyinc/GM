@@ -12,6 +12,7 @@ import {
 } from '@/generated/client/worldmonitor/supply_chain/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { getHydratedData } from '@/services/bootstrap';
+import { normalizeSourceMode } from '@/utils/data-provenance';
 
 export type {
   GetShippingRatesResponse,
@@ -30,18 +31,54 @@ const shippingBreaker = createCircuitBreaker<GetShippingRatesResponse>({ name: '
 const chokepointBreaker = createCircuitBreaker<GetChokepointStatusResponse>({ name: 'Chokepoint Status', cacheTtlMs: 5 * 60 * 1000, persistCache: true });
 const mineralsBreaker = createCircuitBreaker<GetCriticalMineralsResponse>({ name: 'Critical Minerals', cacheTtlMs: 24 * 60 * 60 * 1000, persistCache: true });
 
-const emptyShipping: GetShippingRatesResponse = { indices: [], fetchedAt: '', upstreamUnavailable: false };
-const emptyChokepoints: GetChokepointStatusResponse = { chokepoints: [], fetchedAt: '', upstreamUnavailable: false };
-const emptyMinerals: GetCriticalMineralsResponse = { minerals: [], fetchedAt: '', upstreamUnavailable: false };
+const emptyShipping: GetShippingRatesResponse = { indices: [], fetchedAt: '', upstreamUnavailable: true, cached: false, sourceMode: 'unavailable' };
+const emptyChokepoints: GetChokepointStatusResponse = { chokepoints: [], fetchedAt: '', upstreamUnavailable: true, cached: false, sourceMode: 'unavailable' };
+const emptyMinerals: GetCriticalMineralsResponse = { minerals: [], fetchedAt: '', upstreamUnavailable: true, cached: false, sourceMode: 'unavailable' };
+
+function normalizeShippingResponse(data: GetShippingRatesResponse): GetShippingRatesResponse {
+  const hasData = Array.isArray(data.indices) && data.indices.length > 0;
+  return {
+    ...data,
+    fetchedAt: data.fetchedAt || '',
+    upstreamUnavailable: Boolean(data.upstreamUnavailable),
+    cached: data.cached ?? (hasData && !!data.fetchedAt),
+    sourceMode: normalizeSourceMode(data, hasData),
+  };
+}
+
+function normalizeChokepointResponse(data: GetChokepointStatusResponse): GetChokepointStatusResponse {
+  const hasData = Array.isArray(data.chokepoints) && data.chokepoints.length > 0;
+  return {
+    ...data,
+    fetchedAt: data.fetchedAt || '',
+    upstreamUnavailable: Boolean(data.upstreamUnavailable),
+    cached: data.cached ?? (hasData && !!data.fetchedAt),
+    sourceMode: normalizeSourceMode(data, hasData),
+  };
+}
+
+function normalizeMineralsResponse(data: GetCriticalMineralsResponse): GetCriticalMineralsResponse {
+  const hasData = Array.isArray(data.minerals) && data.minerals.length > 0;
+  return {
+    ...data,
+    fetchedAt: data.fetchedAt || '',
+    upstreamUnavailable: Boolean(data.upstreamUnavailable),
+    cached: data.cached ?? (hasData && !!data.fetchedAt),
+    sourceMode: normalizeSourceMode(data, hasData),
+  };
+}
 
 export async function fetchShippingRates(): Promise<GetShippingRatesResponse> {
   const hydrated = getHydratedData('shippingRates') as GetShippingRatesResponse | undefined;
-  if (hydrated?.indices?.length) return hydrated;
+  if (hydrated && ((hydrated.indices?.length ?? 0) > 0 || hydrated.upstreamUnavailable)) {
+    return normalizeShippingResponse(hydrated);
+  }
 
   try {
-    return await shippingBreaker.execute(async () => {
+    const response = await shippingBreaker.execute(async () => {
       return client.getShippingRates({});
     }, emptyShipping);
+    return normalizeShippingResponse(response);
   } catch {
     return emptyShipping;
   }
@@ -51,12 +88,15 @@ export async function fetchChokepointStatus(): Promise<GetChokepointStatusRespon
   const hydrated = getHydratedData('chokepoints') as GetChokepointStatusResponse | undefined;
   // Transit summaries are already folded into the chokepoint payload server-side.
   getHydratedData('chokepointTransits');
-  if (hydrated?.chokepoints?.length) return hydrated;
+  if (hydrated && ((hydrated.chokepoints?.length ?? 0) > 0 || hydrated.upstreamUnavailable)) {
+    return normalizeChokepointResponse(hydrated);
+  }
 
   try {
-    return await chokepointBreaker.execute(async () => {
+    const response = await chokepointBreaker.execute(async () => {
       return client.getChokepointStatus({});
     }, emptyChokepoints);
+    return normalizeChokepointResponse(response);
   } catch {
     return emptyChokepoints;
   }
@@ -64,12 +104,15 @@ export async function fetchChokepointStatus(): Promise<GetChokepointStatusRespon
 
 export async function fetchCriticalMinerals(): Promise<GetCriticalMineralsResponse> {
   const hydrated = getHydratedData('minerals') as GetCriticalMineralsResponse | undefined;
-  if (hydrated?.minerals?.length) return hydrated;
+  if (hydrated && ((hydrated.minerals?.length ?? 0) > 0 || hydrated.upstreamUnavailable)) {
+    return normalizeMineralsResponse(hydrated);
+  }
 
   try {
-    return await mineralsBreaker.execute(async () => {
+    const response = await mineralsBreaker.execute(async () => {
       return client.getCriticalMinerals({});
     }, emptyMinerals);
+    return normalizeMineralsResponse(response);
   } catch {
     return emptyMinerals;
   }

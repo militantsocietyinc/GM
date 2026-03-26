@@ -330,7 +330,16 @@ export class CircuitBreaker<T> {
       await this.hydratePersistentCache(cacheKey);
     }
 
-    const cachedEntry = this.getCacheEntry(cacheKey);
+    let cachedEntry = this.getCacheEntry(cacheKey);
+
+    // If a shouldCache predicate is provided and the cached data fails it
+    // (e.g. empty array from a prior failed fetch), evict it so we fetch fresh
+    // rather than serving known-invalid data for the full TTL.
+    if (cachedEntry !== null && options.shouldCache && !options.shouldCache(cachedEntry.data as R)) {
+      this.evictCacheKey(cacheKey);
+      if (this.persistEnabled) this.deletePersistentCache(cacheKey);
+      cachedEntry = null;
+    }
 
     if (this.isStateOnCooldown()) {
       console.log(`[${this.name}] Currently unavailable, ${this.getCooldownRemaining()}s remaining`);

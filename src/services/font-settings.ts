@@ -32,6 +32,8 @@ export function setFontFamily(font: FontFamily): void {
 export function applyFont(font?: FontFamily): void {
   const resolved = font ?? getFontFamily();
   if (resolved === 'system') {
+    // Keep the effective font variable in CSS so RTL/CJK stacks can compose on top
+    // of the user preference instead of being overridden by an inline --font-body value.
     document.documentElement.style.setProperty('--font-body-base', SYSTEM_FONT_STACK);
   } else {
     document.documentElement.style.removeProperty('--font-body-base');

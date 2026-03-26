@@ -27,7 +27,7 @@ interface EarningsEntry {
 
 function fmtEps(v: number | null): string {
   if (v == null) return '';
-  const sign = v >= 0 ? '' : '';
+  const sign = v >= 0 ? '+' : '';
   return `${sign}${v.toFixed(2)}`;
 }
 
@@ -55,7 +55,7 @@ function dateLabel(dateStr: string): string {
   const formatted = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   if (days === 0) return `TODAY · ${formatted}`;
   if (days === 1) return `TOMORROW · ${formatted}`;
-  return formatted.toUpperCase();
+  return formatted.toUpperCase().replace(',', ' ·');
 }
 
 function renderEntry(e: EarningsEntry): string {

@@ -26,6 +26,7 @@ import {
   type BisCreditToGdp,
   type GetNationalDebtResponse,
   type NationalDebtEntry,
+  type GetBlsSeriesResponse,
 } from '@/generated/client/worldmonitor/economic/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { getCSSColor } from '@/utils';
@@ -59,6 +60,9 @@ const capacityBreaker = createCircuitBreaker<GetEnergyCapacityResponse>({ name: 
 const bisPolicyBreaker = createCircuitBreaker<GetBisPolicyRatesResponse>({ name: 'BIS Policy', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
 const bisEerBreaker = createCircuitBreaker<GetBisExchangeRatesResponse>({ name: 'BIS EER', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
 const bisCreditBreaker = createCircuitBreaker<GetBisCreditResponse>({ name: 'BIS Credit', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
+
+const emptyBlsFallback: GetBlsSeriesResponse = { series: undefined };
+const blsBreaker = createCircuitBreaker<FredSeries[]>({ name: 'BLS Batch', cacheTtlMs: 15 * 60 * 1000, persistCache: true });
 
 const emptyFredBatchFallback: GetFredSeriesBatchResponse = { results: {}, fetched: 0, requested: 0 };
 const fredBatchBreaker = createCircuitBreaker<GetFredSeriesBatchResponse>({ name: 'FRED Batch', cacheTtlMs: 15 * 60 * 1000, persistCache: true });
@@ -101,7 +105,6 @@ const FRED_SERIES: FredConfig[] = [
   { id: 'FEDFUNDS', name: 'Fed Funds Rate', unit: '%', precision: 2 },
   { id: 'T10Y2Y', name: '10Y-2Y Spread', unit: '%', precision: 2 },
   { id: 'M2SL', name: 'M2 Supply', unit: '$T', precision: 1, scaleDivisor: 1000 },
-  { id: 'GSCPI', name: 'GSCPI', unit: '', precision: 2 },
   { id: 'UNRATE', name: 'Unemployment', unit: '%', precision: 1 },
   { id: 'CPIAUCSL', name: 'CPI Index', unit: '', precision: 1 },
   { id: 'DGS10', name: '10Y Treasury', unit: '%', precision: 2 },
@@ -185,6 +188,72 @@ export async function fetchFredData(): Promise<FredSeries[]> {
 
 export function getFredStatus(): string {
   return fredBatchBreaker.getStatus();
+}
+
+// ========================================================================
+// BLS -- direct series not available on FRED (metro unemployment, ECI)
+// ========================================================================
+
+interface BlsConfig {
+  id: string;
+  name: string;
+  unit: string;
+  precision: number;
+}
+
+const BLS_SERIES: BlsConfig[] = [
+  { id: 'USPRIV',    name: 'Private Payrolls', unit: 'K', precision: 0 },
+  { id: 'ECIALLCIV', name: 'Employment Cost Index', unit: '', precision: 1 },
+];
+
+export const BLS_METRO_IDS = new Set<string>(); // metro-area LAUMT* series dropped — no FRED equivalent
+
+export async function fetchBlsData(): Promise<FredSeries[]> {
+  return blsBreaker.execute(async () => {
+    const results = await Promise.allSettled(
+      BLS_SERIES.map(cfg =>
+        client.getBlsSeries({ seriesId: cfg.id, limit: 60 }, { signal: AbortSignal.timeout(15_000) })
+          .catch(() => emptyBlsFallback),
+      ),
+    );
+
+    const out: FredSeries[] = [];
+    for (let i = 0; i < BLS_SERIES.length; i++) {
+      const cfg = BLS_SERIES[i]!;
+      const result = results[i];
+      if (result?.status !== 'fulfilled') continue;
+      const series = result.value.series;
+      if (!series || series.observations.length === 0) continue;
+
+      const obs = series.observations;
+      const observations = obs.map(o => ({
+        date: `${o.year}-${o.period}`,
+        value: parseFloat(o.value),
+      })).filter(o => Number.isFinite(o.value));
+
+      if (observations.length === 0) continue;
+
+      const latest = observations[observations.length - 1]!;
+      const previous = observations.length >= 2 ? observations[observations.length - 2] : null;
+      const change = previous ? Number((latest.value - previous.value).toFixed(cfg.precision)) : null;
+      const changePercent = previous && previous.value !== 0
+        ? Number(((latest.value - previous.value) / previous.value * 100).toFixed(2))
+        : null;
+
+      const lastObs = obs[obs.length - 1]!;
+      const displayDate = lastObs.periodName ? `${lastObs.periodName} ${lastObs.year}` : latest.date;
+
+      out.push({
+        id: cfg.id, name: cfg.name,
+        value: Number(latest.value.toFixed(cfg.precision)),
+        previousValue: previous ? Number(previous.value.toFixed(cfg.precision)) : null,
+        change, changePercent,
+        date: displayDate, unit: cfg.unit,
+        observations: observations.slice(-30),
+      });
+    }
+    return out;
+  }, [] as FredSeries[], { shouldCache: (r) => r.length > 0 });
 }
 
 export function getChangeClass(change: number | null): string {
@@ -643,9 +712,9 @@ export async function fetchBisData(): Promise<BisData> {
 
   try {
     const [policy, eer, credit] = await Promise.all([
-      hPolicy?.rates?.length ? Promise.resolve(hPolicy) : bisPolicyBreaker.execute(() => client.getBisPolicyRates({}, { signal: AbortSignal.timeout(20_000) }), emptyBisPolicyFallback),
-      hEer?.rates?.length ? Promise.resolve(hEer) : bisEerBreaker.execute(() => client.getBisExchangeRates({}, { signal: AbortSignal.timeout(20_000) }), emptyBisEerFallback),
-      hCredit?.entries?.length ? Promise.resolve(hCredit) : bisCreditBreaker.execute(() => client.getBisCredit({}, { signal: AbortSignal.timeout(20_000) }), emptyBisCreditFallback),
+      hPolicy?.rates?.length ? Promise.resolve(hPolicy) : bisPolicyBreaker.execute(() => client.getBisPolicyRates({}, { signal: AbortSignal.timeout(20_000) }), emptyBisPolicyFallback, { shouldCache: (r) => (r.rates?.length ?? 0) > 0 }),
+      hEer?.rates?.length ? Promise.resolve(hEer) : bisEerBreaker.execute(() => client.getBisExchangeRates({}, { signal: AbortSignal.timeout(20_000) }), emptyBisEerFallback, { shouldCache: (r) => (r.rates?.length ?? 0) > 0 }),
+      hCredit?.entries?.length ? Promise.resolve(hCredit) : bisCreditBreaker.execute(() => client.getBisCredit({}, { signal: AbortSignal.timeout(20_000) }), emptyBisCreditFallback, { shouldCache: (r) => (r.entries?.length ?? 0) > 0 }),
     ]);
     return {
       policyRates: policy.rates ?? [],

@@ -26,6 +26,7 @@ export type DataSourceId =
   | 'worldpop'
   | 'giving'
   | 'bis'
+  | 'bls'
   | 'wto_trade'
   | 'supply_chain'
   | 'security_advisories'
@@ -1476,4 +1477,6 @@ export interface CountryBriefSignals {
   gpsJammingHexes: number;
   isTier1: boolean;
   thermalEscalations: number;
+  sanctionsDesignations: number;
+  sanctionsNewDesignations: number;
 }

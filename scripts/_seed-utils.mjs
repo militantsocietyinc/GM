@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024; // 5MB per key
 
 const __seed_dirname = dirname(fileURLToPath(import.meta.url));
@@ -582,7 +582,10 @@ export async function runSeed(domain, resource, canonicalKey, fetchFn, opts = {}
       const keys = [canonicalKey, `seed-meta:${domain}:${resource}`];
       if (extraKeys) keys.push(...extraKeys.map(ek => ek.key));
       await extendExistingTtl(keys, ttlSeconds || 600);
-      console.log(`  SKIPPED: validation failed (empty data) — extended existing cache TTL`);
+      // Always write seed-meta even when data is empty so health checks can
+      // distinguish "seeder ran but nothing to publish" from "seeder stopped".
+      await writeFreshnessMetadata(domain, resource, 0, opts.sourceVersion);
+      console.log(`  SKIPPED: validation failed (empty data) — seed-meta refreshed, existing cache TTL extended`);
       console.log(`\n=== Done (${Math.round(durationMs)}ms, no write) ===`);
       await releaseLock(`${domain}:${resource}`, runId);
       process.exit(0);

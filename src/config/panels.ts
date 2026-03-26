@@ -43,6 +43,9 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   commodities: { name: 'Metals & Materials', enabled: true, priority: 1 },
   'energy-complex': { name: 'Energy Complex', enabled: true, priority: 1 },
   markets: { name: 'Markets', enabled: true, priority: 1 },
+  'stock-analysis': { name: 'Stock Analysis', enabled: true, priority: 1, premium: 'locked' as const },
+  'stock-backtest': { name: 'Backtesting', enabled: true, priority: 1, premium: 'locked' as const },
+  'daily-market-brief': { name: 'Daily Market Brief', enabled: true, priority: 1, premium: 'locked' as const },
   economic: { name: 'Macro Stress', enabled: true, priority: 1 },
   'trade-policy': { name: 'Trade Policy', enabled: true, priority: 1 },
   'supply-chain': { name: 'Supply Chain', enabled: true, priority: 1, ...(_desktop && { premium: 'enhanced' as const }) },
@@ -55,10 +58,19 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   monitors: { name: 'My Monitors', enabled: true, priority: 2 },
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
   'macro-signals': { name: 'Market Regime', enabled: true, priority: 2 },
+  'fear-greed': { name: 'Fear & Greed', enabled: true, priority: 2 },
+  'macro-tiles': { name: 'Macro Indicators', enabled: false, priority: 2 },
+  'fsi': { name: 'Financial Stress', enabled: false, priority: 2 },
+  'yield-curve': { name: 'Yield Curve', enabled: false, priority: 2 },
+  'earnings-calendar': { name: 'Earnings Calendar', enabled: false, priority: 2 },
+  'economic-calendar': { name: 'Economic Calendar', enabled: false, priority: 2 },
+  'cot-positioning': { name: 'COT Positioning', enabled: false, priority: 2 },
+  'hormuz-tracker': { name: 'Hormuz Trade Tracker', enabled: true, priority: 2 },
   'gulf-economies': { name: 'Gulf Economies', enabled: false, priority: 2 },
   'consumer-prices': { name: 'Consumer Prices', enabled: false, priority: 2 },
   'grocery-basket': { name: 'Grocery Index', enabled: false, priority: 2 },
   'bigmac': { name: 'Big Mac Index', enabled: false, priority: 2 },
+  'fuel-prices': { name: 'Fuel Prices', enabled: false, priority: 2 },
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
   stablecoins: { name: 'Stablecoins', enabled: true, priority: 2 },
   'ucdp-events': { name: 'UCDP Conflict Events', enabled: true, priority: 2 },
@@ -77,6 +89,8 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'tech-readiness': { name: 'Tech Readiness Index', enabled: true, priority: 2 },
   'world-clock': { name: 'World Clock', enabled: true, priority: 2 },
   'national-debt': { name: 'Global Debt Clock', enabled: true, priority: 2 },
+  'cross-source-signals': { name: 'Cross-Source Signals', enabled: true, priority: 2 },
+  'market-implications': { name: 'AI Market Implications', enabled: true, priority: 1, premium: 'locked' as const },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -403,6 +417,13 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   ipo: { name: 'IPOs, Earnings & M&A', enabled: true, priority: 1 },
   heatmap: { name: 'Sector Heatmap', enabled: true, priority: 1 },
   'macro-signals': { name: 'Market Regime', enabled: true, priority: 1 },
+  'macro-tiles': { name: 'Macro Indicators', enabled: true, priority: 1 },
+  'fear-greed': { name: 'Fear & Greed', enabled: true, priority: 1 },
+  'fsi': { name: 'Financial Stress', enabled: true, priority: 1 },
+  'yield-curve': { name: 'Yield Curve', enabled: true, priority: 1 },
+  'earnings-calendar': { name: 'Earnings Calendar', enabled: true, priority: 1 },
+  'economic-calendar': { name: 'Economic Calendar', enabled: true, priority: 1 },
+  'cot-positioning': { name: 'COT Positioning', enabled: true, priority: 2 },
   derivatives: { name: 'Derivatives & Options', enabled: true, priority: 2 },
   fintech: { name: 'Fintech & Trading Tech', enabled: true, priority: 2 },
   regulation: { name: 'Financial Regulation', enabled: true, priority: 2 },
@@ -893,15 +914,18 @@ export function getEffectivePanelConfig(key: string, variant: string): PanelConf
   return { ...base, ...override };
 }
 
+export const FREE_MAX_PANELS = 40;
+export const FREE_MAX_SOURCES = 80;
+
 /**
  * Returns true if the current user is entitled to enable/view this panel.
  * Mirrors the entitlement checks in panel-layout.ts (single source of truth).
  */
-export function isPanelEntitled(key: string, config: PanelConfig): boolean {
+export function isPanelEntitled(key: string, config: PanelConfig, isPro = false): boolean {
   if (!config.premium) return true;
-  const apiKeyPanels = ['stock-analysis', 'stock-backtest', 'daily-market-brief'];
+  const apiKeyPanels = ['stock-analysis', 'stock-backtest', 'daily-market-brief', 'market-implications'];
   if (apiKeyPanels.includes(key)) {
-    return getSecretState('WORLDMONITOR_API_KEY').present;
+    return getSecretState('WORLDMONITOR_API_KEY').present || isPro;
   }
   if (config.premium === 'locked') {
     return isDesktopRuntime();

@@ -65,6 +65,7 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
   '/api/market/v1/list-commodity-quotes': 'medium',
   '/api/market/v1/list-stablecoin-markets': 'medium',
   '/api/market/v1/get-sector-summary': 'medium',
+  '/api/market/v1/get-fear-greed-index': 'slow',
   '/api/market/v1/list-gulf-quotes': 'medium',
   '/api/market/v1/analyze-stock': 'slow',
   '/api/market/v1/get-stock-analysis-history': 'medium',
@@ -96,13 +97,17 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
   '/api/maritime/v1/list-navigational-warnings': 'static',
   '/api/supply-chain/v1/get-shipping-rates': 'static',
   '/api/economic/v1/get-fred-series': 'static',
+  '/api/economic/v1/get-bls-series': 'daily',
   '/api/economic/v1/get-energy-prices': 'static',
   '/api/research/v1/list-arxiv-papers': 'static',
   '/api/research/v1/list-trending-repos': 'static',
   '/api/giving/v1/get-giving-summary': 'static',
   '/api/intelligence/v1/get-country-intel-brief': 'static',
+  '/api/intelligence/v1/get-gdelt-topic-timeline': 'medium',
+  '/api/intelligence/v1/list-market-implications': 'static',
   '/api/climate/v1/list-climate-anomalies': 'static',
   '/api/sanctions/v1/list-sanctions-pressure': 'static',
+  '/api/sanctions/v1/lookup-sanction-entity': 'no-store',
   '/api/radiation/v1/list-radiation-observations': 'slow',
   '/api/thermal/v1/list-thermal-escalations': 'slow',
   '/api/research/v1/list-tech-events': 'static',
@@ -121,10 +126,12 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
   '/api/trade/v1/get-trade-barriers': 'static',
   '/api/trade/v1/get-trade-restrictions': 'static',
   '/api/trade/v1/get-customs-revenue': 'static',
+  '/api/trade/v1/list-comtrade-flows': 'static',
   '/api/economic/v1/list-world-bank-indicators': 'static',
   '/api/economic/v1/get-energy-capacity': 'static',
   '/api/economic/v1/list-grocery-basket-prices': 'static',
   '/api/economic/v1/list-bigmac-prices': 'static',
+  '/api/economic/v1/list-fuel-prices': 'static',
   '/api/supply-chain/v1/get-critical-minerals': 'daily',
   '/api/military/v1/get-aircraft-details': 'static',
   '/api/military/v1/get-wingbits-status': 'static',
@@ -145,12 +152,15 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
   '/api/economic/v1/get-national-debt': 'daily',
   '/api/prediction/v1/list-prediction-markets': 'medium',
   '/api/forecast/v1/get-forecasts': 'medium',
+  '/api/forecast/v1/get-simulation-package': 'slow',
+  '/api/forecast/v1/get-simulation-outcome': 'slow',
   '/api/supply-chain/v1/get-chokepoint-status': 'medium',
   '/api/news/v1/list-feed-digest': 'slow',
   '/api/intelligence/v1/get-country-facts': 'daily',
   '/api/intelligence/v1/list-security-advisories': 'slow',
   '/api/intelligence/v1/list-satellites': 'slow',
   '/api/intelligence/v1/list-gps-interference': 'slow',
+  '/api/intelligence/v1/list-cross-source-signals': 'medium',
   '/api/intelligence/v1/list-oref-alerts': 'fast',
   '/api/intelligence/v1/list-telegram-feed': 'fast',
   '/api/intelligence/v1/get-company-enrichment': 'slow',
@@ -174,14 +184,13 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
   '/api/consumer-prices/v1/get-consumer-price-freshness': 'slow',
 
   '/api/aviation/v1/get-youtube-live-stream-info': 'fast',
+
+  '/api/market/v1/list-earnings-calendar': 'slow',
+  '/api/market/v1/get-cot-positioning': 'slow',
+  '/api/economic/v1/get-economic-calendar': 'slow',
 };
 
-const PREMIUM_RPC_PATHS = new Set([
-  '/api/market/v1/analyze-stock',
-  '/api/market/v1/get-stock-analysis-history',
-  '/api/market/v1/backtest-stock',
-  '/api/market/v1/list-stored-stock-backtests',
-]);
+import { PREMIUM_RPC_PATHS } from '../src/shared/premium-paths';
 
 /**
  * Creates a Vercel Edge handler for a single domain's routes.
@@ -219,15 +228,41 @@ export function createDomainGateway(
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // API key validation (origin-aware)
+    // API key validation
     const keyCheck = validateApiKey(request, {
       forceKey: PREMIUM_RPC_PATHS.has(pathname),
     });
     if (keyCheck.required && !keyCheck.valid) {
-      return new Response(JSON.stringify({ error: keyCheck.error }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+      if (PREMIUM_RPC_PATHS.has(pathname)) {
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader?.startsWith('Bearer ')) {
+          const { validateBearerToken } = await import('./auth-session');
+          const session = await validateBearerToken(authHeader.slice(7));
+          if (!session.valid) {
+            return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+              status: 401,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+          }
+          if (session.role !== 'pro') {
+            return new Response(JSON.stringify({ error: 'Pro subscription required' }), {
+              status: 403,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+          }
+          // Valid pro session — fall through to route handling
+        } else {
+          return new Response(JSON.stringify({ error: keyCheck.error }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+      } else {
+        return new Response(JSON.stringify({ error: keyCheck.error }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
     }
 
     // IP-based rate limiting — two-phase: endpoint-specific first, then global fallback

@@ -21,6 +21,7 @@ FSIPanel skips this optimization entirely. On sessions with a bootstrap payload,
 ## Proposed Solutions
 
 ### Option A: Mirror _collectRegimeContext pattern
+
 Check `getHydratedData('fearGreedIndex')` at the top of `fetchData()`. Extract FSI fields from `hdr.fsi`. Fall back to RPC only if hydrated data is absent or `unavailable`.
 
 ```typescript

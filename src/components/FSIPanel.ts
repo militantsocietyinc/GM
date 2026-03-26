@@ -80,7 +80,7 @@ export class FSIPanel extends Panel {
   private render(resp: { fsiValue: number; fsiLabel: string; hygPrice: number; tltPrice: number; vix: number; hySpread: number }): void {
     const { fsiValue, fsiLabel, hygPrice, tltPrice, vix, hySpread } = resp;
     const labelColor = fsiLabelColor(fsiLabel);
-    const fillPct = Math.min(Math.max((fsiValue - 0.01) / (0.15 - 0.01) * 100, 0), 100);
+    const fillPct = Math.min(Math.max((fsiValue / 2.5) * 100, 0), 100);
     const interpretation = fsiInterpretation(fsiLabel);
 
     const html = `<div style="padding:12px 14px">

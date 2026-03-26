@@ -140,9 +140,9 @@ async function fetchCotData() {
 }
 
 if (process.argv[1] && process.argv[1].endsWith('seed-cot.mjs')) {
-  await runSeed('market', 'cot', COT_KEY, fetchCotData, {
+  runSeed('market', 'cot', COT_KEY, fetchCotData, {
     ttlSeconds: COT_TTL,
     validateFn: data => Array.isArray(data?.instruments) && data.instruments.length > 0,
     recordCount: data => data?.instruments?.length ?? 0,
-  });
+  }).catch(err => { console.error('FATAL:', err.message || err); process.exit(1); });
 }

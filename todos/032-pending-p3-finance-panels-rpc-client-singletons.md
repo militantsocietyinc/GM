@@ -26,6 +26,7 @@ While Vite caches module resolution, a new client object is constructed each cal
 ## Proposed Solutions
 
 ### Option A: Module-level lazy singleton per panel
+
 ```typescript
 let _client: EconomicServiceClient | null = null;
 function getClient(): EconomicServiceClient {
@@ -36,11 +37,14 @@ function getClient(): EconomicServiceClient {
   return _client;
 }
 ```
+
 - **Effort**: Small per panel
 - **Risk**: Low — clients are stateless
 
 ### Option B: Shared RPC client factory in a separate module
+
 A `getRpcClients()` helper that lazily initializes and caches both service clients.
+
 - **Effort**: Medium
 - **Risk**: Low
 

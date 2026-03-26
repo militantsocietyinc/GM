@@ -22,12 +22,14 @@ dependencies: []
 ## Proposed Solutions
 
 ### Option A: Add to ALLOWED_SERIES
+
 ```typescript
 'BAMLC0A0CM', // IG OAS spread
 'SOFR',       // Secured Overnight Financing Rate
 ```
 
 One-line fix. No other changes needed.
+
 - **Effort**: Minimal
 - **Risk**: None — just allowlisting existing seeded data
 

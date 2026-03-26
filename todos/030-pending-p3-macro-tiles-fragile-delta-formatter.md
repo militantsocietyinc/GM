@@ -28,12 +28,16 @@ const deltaStr = delta !== null
 ## Proposed Solutions
 
 ### Option A: Add deltaFormat field to MacroTile interface
+
 Add `deltaFormat?: (v: number) => string` to `MacroTile`, define it per-tile in the tiles array. Clean, self-contained, extensible.
+
 - **Effort**: Small
 - **Risk**: Low
 
 ### Option B: Keep as-is with a comment
+
 Add an explanatory comment documenting the intent. Low effort but keeps fragility.
+
 - **Effort**: Minimal
 - **Risk**: Low
 

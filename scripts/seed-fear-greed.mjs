@@ -458,9 +458,9 @@ async function fetchAll() {
   let fsiLabel = 'Unknown';
   if (hygPrice != null && tltPrice != null && tltPrice > 0 && vixLive != null && vixLive > 0 && hySpreadVal != null && hySpreadVal > 0) {
     fsiValue = Math.round(((hygPrice / tltPrice) / (vixLive * hySpreadVal / 100)) * 10000) / 10000;
-    if (fsiValue >= 0.08) fsiLabel = 'Low Stress';
-    else if (fsiValue >= 0.05) fsiLabel = 'Moderate Stress';
-    else if (fsiValue >= 0.03) fsiLabel = 'Elevated Stress';
+    if (fsiValue >= 1.5) fsiLabel = 'Low Stress';
+    else if (fsiValue >= 0.8) fsiLabel = 'Moderate Stress';
+    else if (fsiValue >= 0.3) fsiLabel = 'Elevated Stress';
     else fsiLabel = 'High Stress';
   }
 

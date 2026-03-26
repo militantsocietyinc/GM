@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { loadEnvFile, runSeed } from './_seed-utils.mjs';
+import { loadEnvFile, CHROME_UA, runSeed } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
@@ -50,7 +50,10 @@ async function fetchFredReleaseDates(releaseId, apiKey, today, toDate) {
     `&api_key=${apiKey}` +
     `&file_type=json`;
 
-  const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+  const resp = await fetch(url, {
+    headers: { 'User-Agent': CHROME_UA },
+    signal: AbortSignal.timeout(15_000),
+  });
   if (!resp.ok) throw new Error(`FRED release/dates HTTP ${resp.status} (release_id=${releaseId})`);
 
   const data = await resp.json();
@@ -65,6 +68,10 @@ async function fetchEconomicCalendar() {
   const toDate = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
 
   const fomcEvents = buildFomcEvents(today);
+
+  if (fomcEvents.length === 0) {
+    console.warn('  WARNING: no upcoming FOMC dates — FOMC_DATES_2026 needs updating for the new year');
+  }
 
   if (!apiKey) {
     console.warn('  FRED_API_KEY missing — returning FOMC dates only');

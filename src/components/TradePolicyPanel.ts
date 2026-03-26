@@ -459,7 +459,8 @@ export class TradePolicyPanel extends Panel {
     // Prefer world-total rows: UN Comtrade API returns partnerCode as integer 0 for world aggregates,
     // stored as string "0"; "000" is the seed fallback default. If no world-total rows exist
     // (bilateral-only preview data), fall back to all flows so the table is never empty.
-    // Two-step dedup: (1) within same (reporter, cmd, year) keep max tradeValueUsd (exports vs imports);
+    // Two-step dedup: (1) within same (reporter, cmd, year) keep max tradeValueUsd
+    //   — world-total path: disambiguates exports vs imports; fallback path: keeps highest-value bilateral entry;
     // (2) then keep latest year per (reporter, cmd).
     const worldTotals = flows.filter(f => f.partnerCode === '0' || f.partnerCode === '000');
     const toDedup = worldTotals.length > 0 ? worldTotals : flows;

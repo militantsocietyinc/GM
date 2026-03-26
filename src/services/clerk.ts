@@ -110,6 +110,8 @@ export function openSignIn(): void {
 
 /** Sign out the current user. */
 export async function signOut(): Promise<void> {
+  _cachedToken = null;
+  _cachedTokenAt = 0;
   await clerkInstance?.signOut();
 }
 

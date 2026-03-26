@@ -81,6 +81,11 @@ async function fetchEconomicCalendar() {
   });
 
   if (!resp.ok) {
+    if (resp.status === 403) {
+      console.warn('  Finnhub HTTP 403 (premium endpoint) — falling back to hardcoded FOMC dates');
+      const events = buildFallbackEvents();
+      return { events, fromDate: from, toDate: to, total: events.length };
+    }
     throw new Error(`Finnhub HTTP ${resp.status}`);
   }
 

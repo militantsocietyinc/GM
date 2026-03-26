@@ -16,6 +16,8 @@ import { validateApiKey } from '../api/_api-key.js';
 import { mapErrorToResponse } from './error-mapper';
 import { checkRateLimit, checkEndpointRateLimit, hasEndpointRatePolicy } from './_shared/rate-limit';
 import { drainResponseHeaders } from './_shared/response-headers';
+import { checkEntitlement, getRequiredTier } from './_shared/entitlement-check';
+import { resolveSessionUserId } from './_shared/auth-session';
 import type { ServerOptions } from '../src/generated/server/worldmonitor/seismology/v1/service_server';
 
 export const serverOptions: ServerOptions = { onError: mapErrorToResponse };
@@ -192,6 +194,7 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
 
 import { PREMIUM_RPC_PATHS } from '../src/shared/premium-paths';
 
+
 /**
  * Creates a Vercel Edge handler for a single domain's routes.
  *
@@ -228,9 +231,26 @@ export function createDomainGateway(
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // API key validation
+    // Session resolution — extract userId from bearer token (Clerk JWT) if present.
+    // Sets x-user-id header so downstream entitlement check can use it.
+    const sessionUserId = await resolveSessionUserId(request);
+    if (sessionUserId) {
+      request = new Request(request.url, {
+        method: request.method,
+        headers: (() => {
+          const h = new Headers(request.headers);
+          h.set('x-user-id', sessionUserId);
+          return h;
+        })(),
+        body: request.body,
+      });
+    }
+
+    // API key validation — tier-gated endpoints require EITHER an API key OR a valid bearer token.
+    // Authenticated users (sessionUserId present) bypass the API key requirement.
+    const isTierGated = getRequiredTier(pathname) !== null;
     const keyCheck = validateApiKey(request, {
-      forceKey: PREMIUM_RPC_PATHS.has(pathname),
+      forceKey: isTierGated && !sessionUserId,
     });
     if (keyCheck.required && !keyCheck.valid) {
       if (PREMIUM_RPC_PATHS.has(pathname)) {
@@ -264,6 +284,28 @@ export function createDomainGateway(
         });
       }
     }
+
+    // Bearer role check — authenticated users who bypassed the API key gate still
+    // need a pro role for PREMIUM_RPC_PATHS (entitlement check below handles tier-gated).
+    // Note: keyCheck.valid is true for trusted browser origins even without an API key,
+    // so we check for an actual X-WorldMonitor-Key header instead.
+    if (sessionUserId && !request.headers.get('X-WorldMonitor-Key') && PREMIUM_RPC_PATHS.has(pathname)) {
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        const { validateBearerToken } = await import('./auth-session');
+        const session = await validateBearerToken(authHeader.slice(7));
+        if (!session.valid || session.role !== 'pro') {
+          return new Response(JSON.stringify({ error: 'Pro subscription required' }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+      }
+    }
+
+    // Entitlement check — blocks tier-gated endpoints for users below required tier
+    const entitlementResponse = await checkEntitlement(request, pathname, corsHeaders);
+    if (entitlementResponse) return entitlementResponse;
 
     // IP-based rate limiting — two-phase: endpoint-specific first, then global fallback
     const endpointRlResponse = await checkEndpointRateLimit(request, pathname, corsHeaders);

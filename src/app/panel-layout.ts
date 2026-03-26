@@ -84,6 +84,12 @@ import { CustomWidgetPanel } from '@/components/CustomWidgetPanel';
 import { openWidgetChatModal } from '@/components/WidgetChatModal';
 import { loadWidgets, saveWidget } from '@/services/widget-store';
 import type { CustomWidgetSpec } from '@/services/widget-store';
+import { initEntitlementSubscription, isEntitled, onEntitlementChange } from '@/services/entitlements';
+import { initSubscriptionWatch, destroySubscriptionWatch } from '@/services/billing';
+import { getUserId } from '@/services/user-identity';
+import { initPaymentFailureBanner } from '@/components/payment-failure-banner';
+import { handleCheckoutReturn } from '@/services/checkout-return';
+import { initCheckoutOverlay, showCheckoutSuccess } from '@/services/checkout';
 import { McpDataPanel } from '@/components/McpDataPanel';
 import { openMcpConnectModal } from '@/components/McpConnectModal';
 import { loadMcpPanels, saveMcpPanel } from '@/services/mcp-store';
@@ -127,6 +133,37 @@ export class PanelLayoutManager implements AppModule {
     this.applyTimeRangeFilterDebounced = debounce(() => {
       this.applyTimeRangeFilterToNewsPanels();
     }, 120);
+
+    // Detect post-checkout redirect params and show success banner
+    if (handleCheckoutReturn()) {
+      showCheckoutSuccess();
+    }
+
+    // Boot entitlement + billing subscriptions if we have a user identifier.
+    const userId = getUserId();
+    if (userId) {
+      initEntitlementSubscription(userId).catch(() => {});
+      initSubscriptionWatch(userId).catch(() => {});
+      initPaymentFailureBanner();
+    }
+
+    // Initialize checkout overlay so payment success triggers the success banner
+    initCheckoutOverlay(() => showCheckoutSuccess());
+
+    // Listen for entitlement changes — reload panels to pick up new gating state.
+    // Skip the initial snapshot to avoid a reload loop for users who already have
+    // premium via legacy signals (API key / wm-pro-key).
+    let skipInitialSnapshot = true;
+    onEntitlementChange(() => {
+      if (skipInitialSnapshot) {
+        skipInitialSnapshot = false;
+        return;
+      }
+      if (isEntitled()) {
+        console.log('[entitlements] Subscription activated — reloading to unlock panels');
+        window.location.reload();
+      }
+    });
   }
 
   init(): void {
@@ -167,6 +204,9 @@ export class PanelLayoutManager implements AppModule {
     this.aviationCommandBar?.destroy();
     this.aviationCommandBar = null;
     this.ctx.panels['airline-intel']?.destroy();
+
+    // Clean up billing subscription watch
+    destroySubscriptionWatch();
 
     window.removeEventListener('resize', this.ensureCorrectZones);
   }
@@ -632,8 +672,8 @@ export class PanelLayoutManager implements AppModule {
     this.createPanel('markets', () => new MarketPanel());
     this.createPanel('stock-analysis', () => new StockAnalysisPanel());
     this.createPanel('stock-backtest', () => new StockBacktestPanel());
-    // Web premium gating for stock-analysis and stock-backtest is handled
-    // reactively by updatePanelGating() via auth state subscription.
+    // Premium gating for stock-analysis and stock-backtest is handled
+    // reactively by updatePanelGating() via auth/entitlement state subscription.
 
     const monitorPanel = this.createPanel('monitors', () => new MonitorPanel(this.ctx.monitors));
     monitorPanel?.onChanged((monitors) => {
@@ -1021,7 +1061,7 @@ export class PanelLayoutManager implements AppModule {
       );
     }
 
-    // Always load custom widgets — Pro gating is handled reactively by auth state.
+    // Always load custom widgets — Pro gating is handled reactively by auth/entitlement state.
     for (const spec of loadWidgets()) {
       const panel = new CustomWidgetPanel(spec);
       this.ctx.panels[spec.id] = panel;
@@ -1136,7 +1176,7 @@ export class PanelLayoutManager implements AppModule {
     });
     panelsGrid.appendChild(addPanelBlock);
 
-    // Always create Pro and MCP add-panel blocks — show/hide reactively via auth state.
+    // Always create Pro and MCP add-panel blocks — show/hide reactively via auth/entitlement state.
     const proBlock = document.createElement('button');
     proBlock.className = 'add-panel-block ai-widget-block ai-widget-block-pro';
     proBlock.setAttribute('aria-label', t('widgets.createInteractive'));

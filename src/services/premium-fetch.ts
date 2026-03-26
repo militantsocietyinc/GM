@@ -36,6 +36,16 @@ export async function premiumFetch(
     }
   } catch { /* not signed in — fall through */ }
 
-  // 3. No auth — let the request through (gateway will return 401).
+  // 3. Tester / widget key from localStorage (wm-pro-key or wm-widget-key).
+  try {
+    const { getProWidgetKey, getWidgetAgentKey } = await import('@/services/widget-store');
+    const testerKey = getProWidgetKey() || getWidgetAgentKey();
+    if (testerKey) {
+      existing.set('X-WorldMonitor-Key', testerKey);
+      return globalThis.fetch(input, { ...init, headers: existing });
+    }
+  } catch { /* not available — fall through */ }
+
+  // 4. No auth — let the request through (gateway will return 401).
   return globalThis.fetch(input, init);
 }

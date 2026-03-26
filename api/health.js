@@ -331,11 +331,31 @@ export default async function handler(req) {
 
     let status;
     if (!parsed || raw === NEG_SENTINEL) {
-      status = 'EMPTY';
-      critCount++;
+      if (EMPTY_DATA_OK_KEYS.has(name)) {
+        if (seedStale === true) {
+          status = 'STALE_SEED';
+          warnCount++;
+        } else {
+          status = 'OK';
+          okCount++;
+        }
+      } else {
+        status = 'EMPTY';
+        critCount++;
+      }
     } else if (size === 0) {
-      status = 'EMPTY_DATA';
-      critCount++;
+      if (EMPTY_DATA_OK_KEYS.has(name)) {
+        if (seedStale === true) {
+          status = 'STALE_SEED';
+          warnCount++;
+        } else {
+          status = 'OK';
+          okCount++;
+        }
+      } else {
+        status = 'EMPTY_DATA';
+        critCount++;
+      }
     } else if (seedStale === true) {
       status = 'STALE_SEED';
       warnCount++;

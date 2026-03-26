@@ -36,7 +36,7 @@ function parseDate(raw) {
     const year = parseInt(yy, 10) >= 50 ? `19${yy}` : `20${yy}`;
     return `${year}-${mm}-${dd}`;
   }
-  return s;
+  return s.slice(0, 10);
 }
 
 async function fetchSocrata(datasetId, extraParams = '') {

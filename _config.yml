@@ -1,0 +1,3 @@
+# _config.yml
+baseurl: ""                  # leave empty for root or subdomain
+url: "https://monitor.society.com"  # your custom subdomain

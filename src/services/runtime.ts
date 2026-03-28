@@ -226,21 +226,37 @@ function extractHostnames(...urls: (string | undefined)[]): string[] {
   return hosts;
 }
 
+const EXTRA_WEB_HOSTS: string[] = (ENV.VITE_EXTRA_WEB_HOSTS || '')
+  .split(',')
+  .map((h: string) => h.trim().toLowerCase())
+  .filter(Boolean);
+
+const EXTRA_WEB_HOST_SUFFIXES: string[] = (ENV.VITE_EXTRA_WEB_HOST_SUFFIXES || '')
+  .split(',')
+  .map((s: string) => s.trim().toLowerCase())
+  .filter(Boolean);
+
 const APP_HOSTS = new Set([
   'worldmonitor.app',
   'www.worldmonitor.app',
   'tech.worldmonitor.app',
+  'finance.worldmonitor.app',
+  'commodity.worldmonitor.app',
+  'happy.worldmonitor.app',
   'api.worldmonitor.app',
   'localhost',
   '127.0.0.1',
   ...extractHostnames(WS_API_URL, ENV.VITE_WS_RELAY_URL),
+  ...EXTRA_WEB_HOSTS,
 ]);
 
 function isAppOriginUrl(urlStr: string): boolean {
   try {
     const u = new URL(urlStr);
-    const host = u.hostname;
-    return APP_HOSTS.has(host) || host.endsWith('.worldmonitor.app');
+    const host = u.hostname.toLowerCase();
+    return APP_HOSTS.has(host)
+      || host.endsWith('.worldmonitor.app')
+      || EXTRA_WEB_HOST_SUFFIXES.some((suffix) => suffix && host.endsWith(suffix));
   } catch {
     return false;
   }

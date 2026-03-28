@@ -121,9 +121,26 @@ export function getApiBaseUrl(): string {
 }
 
 function isWorldMonitorWebHost(hostname: string): boolean {
-  return hostname === 'worldmonitor.app'
-    || hostname === 'www.worldmonitor.app'
-    || hostname.endsWith('.worldmonitor.app');
+  const normalizedHostname = hostname.toLowerCase();
+
+  const baseValid = normalizedHostname === 'worldmonitor.app'
+    || normalizedHostname === 'www.worldmonitor.app'
+    || normalizedHostname.endsWith('.worldmonitor.app');
+  if (baseValid) return true;
+
+  const extraHosts = (ENV.VITE_EXTRA_WEB_HOSTS || '').split(',')
+    .map((host: string) => host.trim().toLowerCase())
+    .filter(Boolean);
+  if (extraHosts.includes(normalizedHostname)) return true;
+
+  const extraHostSuffixes = (ENV.VITE_EXTRA_WEB_HOST_SUFFIXES || '').split(',')
+    .map((suffix: string) => suffix.trim().toLowerCase())
+    .filter(Boolean);
+  for (const suffix of extraHostSuffixes) {
+    if (suffix && normalizedHostname.endsWith(suffix)) return true;
+  }
+
+  return false;
 }
 
 export function getConfiguredWebApiBaseUrl(): string {

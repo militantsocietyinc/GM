@@ -1,3 +1,21 @@
+const additionalCorsOrigins = (process.env.VITE_EXTRA_CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const additionalCorsOriginPatterns = additionalCorsOrigins.map((origin) => {
+  // Accept explicit string or wildcard suffix like .example.com
+  if (origin.startsWith('http://') || origin.startsWith('https://')) {
+    return new RegExp(`^${origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  }
+
+  if (origin.startsWith('.')) {
+    return new RegExp(`^https:\/\/([a-z0-9-]+\.)*${origin.slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  }
+
+  return new RegExp(`^https:\/\/${origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+});
+
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/(.*\.)?worldmonitor\.app$/,
   /^https:\/\/worldmonitor-[a-z0-9-]+-elie-[a-z0-9]+\.vercel\.app$/,
@@ -10,6 +28,7 @@ const ALLOWED_ORIGIN_PATTERNS = [
     /^https?:\/\/localhost(:\d+)?$/,
     /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
   ]),
+  ...additionalCorsOriginPatterns,
 ];
 
 function isAllowedOrigin(origin) {

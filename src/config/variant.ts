@@ -17,6 +17,7 @@ export const SITE_VARIANT: string = (() => {
   }
 
   const h = location.hostname;
+  if (h === 'monitor.militantsociety.com') return 'full';
   if (h.startsWith('tech.')) return 'tech';
   if (h.startsWith('finance.')) return 'finance';
   if (h.startsWith('happy.')) return 'happy';
